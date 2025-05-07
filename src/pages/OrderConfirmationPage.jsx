@@ -32,11 +32,12 @@ import { useToast } from '../components/ToastManager';
 import OrderDetailsModal from '../components/OrderDetailsModal';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useOrderStore } from '../store/orderStore';
 
 const OrderConfirmationPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useAuth(); // Add useAuth hook to get the current authenticated user
   const [orderDetails, setOrderDetails] = useState(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
@@ -49,6 +50,7 @@ const OrderConfirmationPage = () => {
   const hasInitializedRef = useRef(false); // Track whether we've already initialized
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const orderStore = useOrderStore();
   
   // API URL - Fixed for Vite
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
@@ -131,6 +133,15 @@ const OrderConfirmationPage = () => {
     try {
       setIsSavingOrder(true);
       
+      // Get authentication information
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+      
+      console.log('Order Creation - Authentication Debug:');
+      console.log('- Token exists:', !!token);
+      console.log('- User from context:', user ? `ID: ${user.id || user._id}, Email: ${user.email}` : 'No user in context');
+      console.log('- User from localStorage:', storedUser ? `ID: ${storedUser.id || storedUser._id}, Email: ${storedUser.email}` : 'No user in localStorage');
+      
       // Generate an order number if not provided
       const orderNumber = orderData.orderNumber || orderData.id || `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
       
@@ -154,9 +165,6 @@ const OrderConfirmationPage = () => {
         zip: shippingAddress.zip,
         country: shippingAddress.country
       };
-      
-      // Get user ID from auth context first, then from order data, with proper fallback
-      const userId = user?.id || orderData.userId || null;
       
       // Format data for the API
       const apiOrderData = {
@@ -184,28 +192,57 @@ const OrderConfirmationPage = () => {
         shipping: parseFloat(orderData.shipping) || 0,
         discount: parseFloat(orderData.discount) || 0,
         totalAmount: parseFloat(orderData.totalAmount || orderData.amount) || 0,
-        customerEmail: orderData.customer?.email || user?.email || 'guest@example.com',
-        customerName: orderData.customer?.name || `${user?.firstName || ''} ${user?.lastName || ''}` || shippingAddress.name,
+        customerEmail: orderData.customer?.email || 'guest@example.com',
+        customerName: orderData.customer?.name || shippingAddress.name,
         shippingMethod: orderData.shippingMethod || 'Standard Shipping',
-        // Explicitly set the user ID - this is critical for linking orders to users
-        user: userId
       };
+      
+      // SIMPLIFIED USER ID HANDLING - Match the backend createOrder function
+      // Use the same approach as the test orders to ensure consistency
+      if (user) {
+        // Do NOT send user ID from frontend at all - let the backend extract it from the token
+        // This ensures the proper MongoDB ObjectId is used
+        console.log(`Authenticated user detected: ${user.id || user._id}`);
+        console.log('Using server-side authentication for order association');
+      } else if (storedUser) {
+        // Do NOT send user ID from frontend at all - let the backend extract it from the token
+        console.log(`User found in localStorage: ${storedUser.id || storedUser._id}`);
+        console.log('Using server-side authentication for order association');
+      } else {
+        // No user ID available - this will be a guest order
+        console.log('No user ID available - creating guest order');
+      }
       
       console.log('Sending order data to API:', apiOrderData);
       
-      // Make sure to include the authorization header
-      const headers = {};
-      const token = localStorage.getItem('token');
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
+      // Set authorization header if we have a token - CRITICAL FIX
+      // Must match EXACTLY how test orders send the auth header
+      const config = token ? {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      } : {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+      
+      // Log auth header details for debugging
+      console.log('Order API request auth details:', {
+        hasToken: !!token,
+        authHeader: token ? 'Bearer [token]' : 'none',
+        contentType: config.headers['Content-Type']
+      });
       
       // Send to API
-      const response = await axios.post(`${API_URL}/orders`, apiOrderData, { headers });
+      const response = await axios.post(`${API_URL}/orders`, apiOrderData, config);
       
       // Update order details with API response
       if (response.data && response.data.success) {
         const savedOrder = response.data.data;
+        console.log('Order saved to database successfully:', savedOrder);
+        
         // Keep our UI data but add any server-generated fields
         setOrderDetails(prev => ({
           ...prev,
@@ -216,7 +253,36 @@ const OrderConfirmationPage = () => {
           serverData: savedOrder
         }));
         
-        console.log('Order saved to database successfully');
+        // Save to orderStore to display in Profile page
+        const storeOrder = {
+          _id: savedOrder._id || apiOrderData._id || `order-${Date.now()}`,
+          orderNumber: savedOrder.orderNumber || apiOrderData.orderNumber,
+          user: user?._id || storedUser?._id,
+          items: apiOrderData.items,
+          shippingAddress: apiOrderData.shippingAddress,
+          billingAddress: apiOrderData.billingAddress,
+          paymentMethod: apiOrderData.paymentMethod,
+          paymentDetails: apiOrderData.paymentDetails,
+          subtotal: apiOrderData.subtotal,
+          tax: apiOrderData.tax,
+          shipping: apiOrderData.shipping,
+          discount: apiOrderData.discount,
+          totalAmount: apiOrderData.totalAmount,
+          status: savedOrder.status || 'Processing',
+          trackingNumber: savedOrder.trackingNumber || apiOrderData.trackingNumber || orderData.trackingNumber,
+          shippingMethod: apiOrderData.shippingMethod,
+          estimatedDelivery: savedOrder.estimatedDelivery || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          receiptId: savedOrder.receiptId || apiOrderData.receiptId || orderData.receiptId,
+          customerEmail: apiOrderData.customerEmail,
+          customerName: apiOrderData.customerName,
+          createdAt: savedOrder.createdAt || new Date().toISOString(),
+          updatedAt: savedOrder.updatedAt || new Date().toISOString()
+        };
+        
+        // Add the completed order to the store for Profile display
+        orderStore.addOrder(storeOrder);
+        console.log('Order saved to orderStore for Profile display:', storeOrder);
+        
         setApiError(null);
       }
     } catch (err) {
@@ -225,6 +291,31 @@ const OrderConfirmationPage = () => {
         console.error('Server error details:', err.response.data);
       }
       setApiError('Unable to save order details to our system. Your order is still valid.');
+      
+      // Even if API fails, still save to orderStore with local data
+      try {
+        // Create minimal order data from local information
+        const localOrder = {
+          _id: `local-${Date.now()}`,
+          orderNumber: orderData.orderNumber || `ORD-${Date.now()}`,
+          items: orderData.items || [],
+          shippingAddress: orderData.shippingAddress,
+          totalAmount: parseFloat(orderData.totalAmount || orderData.amount) || 0,
+          status: 'Processing',
+          trackingNumber: orderData.trackingNumber,
+          shippingMethod: orderData.shippingMethod || 'Standard Shipping',
+          createdAt: new Date().toISOString(),
+          customerEmail: orderData.customer?.email || 'guest@example.com',
+          customerName: orderData.customer?.name || 'Customer'
+        };
+        
+        // Still add to orderStore even if backend fails
+        orderStore.addOrder(localOrder);
+        console.log('Order saved to orderStore even though backend failed:', localOrder);
+      } catch (storeErr) {
+        console.error('Failed to save order to local store:', storeErr);
+      }
+      
       // Continue with local order data
     } finally {
       setIsSavingOrder(false);
@@ -236,8 +327,8 @@ const OrderConfirmationPage = () => {
     if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
     
-    // Get order details from location state
-    const details = location.state?.orderDetails;
+    // Get order details from location state or Zustand store
+    const details = location.state?.orderDetails || orderStore.orderInfo;
     
     if (details) {
       const orderDate = new Date(details.date || new Date());
@@ -324,6 +415,11 @@ const OrderConfirmationPage = () => {
       
       // Clear the cart when order confirmation page loads
       clearCart();
+      
+      // Clear orderStore since we've successfully completed the order
+      orderStore.clearOrderInfo();
+      orderStore.clearPaymentStatus();
+      
       success('Your order has been placed successfully!');
     } else {
       // For demo purposes, create dummy order details with complete information
@@ -411,7 +507,7 @@ const OrderConfirmationPage = () => {
         items: mockItems
       });
     }
-  }, [location.state, clearCart]);
+  }, [location.state, clearCart, orderStore]);
   
   const handleContinueShopping = () => {
     navigate('/');
@@ -598,7 +694,7 @@ const OrderConfirmationPage = () => {
                 <div className="py-3 flex justify-between">
                   <dt className="text-sm font-medium text-gray-500">Total amount</dt>
                   <dd className="text-sm font-medium text-gray-900">
-                    ${orderDetails.total?.toFixed(2)}
+                  ₵{orderDetails.total?.toFixed(2)}
                   </dd>
                 </div>
                 
@@ -624,7 +720,38 @@ const OrderConfirmationPage = () => {
             
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               <button
-                onClick={() => navigate(`/track-order/${orderDetails.orderNumber}`)}
+                onClick={() => {
+                  // Navigate to track order with proper details in state
+                  navigate(`/track-order/${orderDetails.orderNumber || orderDetails.id}`, {
+                    state: {
+                      orderInfo: {
+                        id: orderDetails.id || orderDetails.orderNumber,
+                        orderNumber: orderDetails.orderNumber || orderDetails.id,
+                        trackingNumber: orderDetails.trackingNumber,
+                        date: orderDetails.date,
+                        orderDate: orderDetails.orderDate || formatDate(new Date(orderDetails.date)),
+                        formattedOrderDate: orderDetails.formattedOrderDate || formatDate(new Date(orderDetails.date)),
+                        status: orderDetails.status || 'processing',
+                        shippingMethod: orderDetails.shippingMethod || 'Standard Shipping',
+                        estimatedDelivery: orderDetails.estimatedDelivery || calculateEstimatedDelivery(),
+                        items: orderDetails.items || [],
+                        // Format shipping address to match expected structure in TrackOrderPage
+                        shippingAddress: {
+                          name: orderDetails.shippingAddress 
+                            ? `${orderDetails.shippingAddress.firstName || ''} ${orderDetails.shippingAddress.lastName || ''}`.trim() || orderDetails.shippingAddress.name || 'Customer'
+                            : 'Customer',
+                          street: orderDetails.shippingAddress?.address1 || orderDetails.shippingAddress?.street || '',
+                          addressLine2: orderDetails.shippingAddress?.address2 || '',
+                          city: orderDetails.shippingAddress?.city || '',
+                          state: orderDetails.shippingAddress?.state || '',
+                          zip: orderDetails.shippingAddress?.zip || orderDetails.shippingAddress?.zipCode || '',
+                          country: orderDetails.shippingAddress?.country || '',
+                          phone: orderDetails.shippingAddress?.phone || orderDetails.contactInfo?.phone || ''
+                        }
+                      }
+                    }
+                  });
+                }}
                 className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <Truck className="w-5 h-5 mr-2" />

@@ -16,11 +16,13 @@ import {
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useOrderStore } from '../store/orderStore';
 
 const TrackOrderPage = () => {
   const { trackingNumber } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const orderStore = useOrderStore();
   const [orderInfo, setOrderInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,18 +42,26 @@ const TrackOrderPage = () => {
   ];
   
   useEffect(() => {
-    // First, check if we have order info in location state
-    const infoFromState = location.state?.orderInfo;
+    // Use orderInfo from location.state or Zustand store
+    const infoFromState = location.state?.orderInfo || orderStore.orderInfo;
+    console.log("Initial data:", { 
+      fromState: !!location.state?.orderInfo, 
+      fromStore: !!orderStore.orderInfo,
+      trackingNumber
+    });
 
     // If we have state data, use it immediately
     if (infoFromState) {
+      console.log("Using order info from state:", infoFromState);
       setOrderInfo(infoFromState);
-      mapStatusToDeliveryStage(infoFromState.status);
+      mapStatusToDeliveryStage(infoFromState.status || 'processing');
+    } else {
+      console.log("No state data available, will fetch from API");
     }
     
     // Always fetch the latest data from the API regardless
     fetchOrderByTracking(trackingNumber);
-  }, [trackingNumber]);
+  }, [trackingNumber, location.state, orderStore.orderInfo]);
   
   // Map backend status to our frontend delivery stages
   const mapStatusToDeliveryStage = (status) => {
@@ -74,6 +84,7 @@ const TrackOrderPage = () => {
         mappedStage = 'processing';
     }
     
+    console.log("Mapping status to stage:", { status, mappedStage });
     setCurrentStatus(mappedStage);
     
     // Generate mock package history based on the status
@@ -83,19 +94,83 @@ const TrackOrderPage = () => {
   
   // Fetch order data from the API using tracking number
   const fetchOrderByTracking = async (tracking) => {
+    if (!tracking) {
+      console.error("No tracking number provided");
+      setError('No tracking number provided. Please try again with a valid tracking number.');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     
     try {
-      const response = await axios.get(`${API_URL}/orders/track/${tracking}`);
-      const orderData = response.data.data;
+      // For demo purposes: First attempt to get data from the store
+      // This ensures we use real checkout data when available
+      const storeOrder = orderStore.orderInfo;
+      
+      // If we have valid order data from store and matching tracking/order number
+      if (storeOrder && 
+          (storeOrder.orderNumber === tracking || 
+           storeOrder.trackingNumber === tracking)) {
+        
+        console.log("Using order data from store:", storeOrder);
+        
+        // Get formatted shipping address using the store helper
+        const formattedShippingAddress = orderStore.getFormattedShippingAddress() || {
+          name: 'Customer',
+          street: '',
+          addressLine2: '',
+          city: '',
+          state: '',
+          zip: '',
+          country: '',
+          phone: ''
+        };
+        
+        // Format the order from store
+        const orderData = {
+          ...storeOrder,
+          trackingNumber: storeOrder.trackingNumber,
+          // Use formatted shipping address from store
+          shippingAddress: formattedShippingAddress,
+          // Ensure we have items for display
+          items: storeOrder.items || []
+        };
+        
+        setOrderInfo(orderData);
+        mapStatusToDeliveryStage(orderData.status || 'processing');
+        setLoading(false);
+        return;
+      }
+      
+      // If no valid data in store or API, try using tracked info from location state
+      const infoFromState = location.state?.orderInfo;
+      if (infoFromState) {
+        console.log("Using order data from navigation state:", infoFromState);
+        setOrderInfo(infoFromState);
+        mapStatusToDeliveryStage(infoFromState.status || 'processing');
+        setLoading(false);
+        return;
+      }
+      
+      // If no valid data in store or state, try API or use mock data
+      console.log("No matching order in store, using mock data");
+      
+      // For a real app, uncomment this:
+      // const response = await axios.get(`${API_URL}/orders/track/${tracking}`);
+      // const orderData = response.data.data;
+      
+      // Mock response for development
+      const orderData = createMockOrderData(tracking);
       
       // If successful, update state with API data
       if (orderData) {
+        console.log("Setting order info with mock data:", orderData);
         setOrderInfo(prev => ({
           ...prev,
           ...orderData,
           // Format dates for display if they aren't already
-          orderDate: orderData.formattedOrderDate || new Date(orderData.createdAt).toLocaleDateString('en-US', {
+          orderDate: orderData.formattedOrderDate || new Date(orderData.createdAt || new Date()).toLocaleDateString('en-US', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -111,7 +186,7 @@ const TrackOrderPage = () => {
             : 'Not available'
         }));
         
-        mapStatusToDeliveryStage(orderData.status);
+        mapStatusToDeliveryStage(orderData.status || 'processing');
       }
       
       setError(null);
@@ -124,6 +199,46 @@ const TrackOrderPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Function to create mock order data for development
+  const createMockOrderData = (trackingNumber) => {
+    // Calculate dates
+    const orderDate = new Date();
+    orderDate.setDate(orderDate.getDate() - 2); // 2 days ago
+    
+    const estimatedDelivery = new Date();
+    estimatedDelivery.setDate(estimatedDelivery.getDate() + 3); // 3 days from now
+    
+    // Generate mock tracking data
+    return {
+      id: `ORDER-${Math.floor(Math.random() * 1000000)}`,
+      orderNumber: trackingNumber,
+      trackingNumber: `TRK${Math.floor(Math.random() * 10000000000)}`,
+      status: 'processing',
+      createdAt: orderDate.toISOString(),
+      estimatedDelivery: estimatedDelivery.toISOString(),
+      shippingMethod: 'Standard Shipping',
+      items: [
+        {
+          name: 'Fashion Dress',
+          price: 99.99,
+          quantity: 1,
+          image: 'https://via.placeholder.com/150',
+          size: 'M',
+          color: 'Black',
+        },
+      ],
+      shippingAddress: {
+        name: 'Jane Doe',
+        street: '123 Main Street',
+        city: 'Anytown',
+        state: 'CA',
+        zip: '12345',
+        country: 'USA',
+        phone: '+12345678900'
+      }
+    };
   };
   
   // Generate mock package history based on current status
@@ -397,12 +512,25 @@ const TrackOrderPage = () => {
                 Delivery Address
               </h3>
               <div className="text-sm text-gray-600">
-                {orderInfo.shippingAddress ? (
+                {orderInfo?.shippingAddress ? (
                   <>
                     <p className="font-medium">{orderInfo.shippingAddress.name}</p>
                     <p>{orderInfo.shippingAddress.street}</p>
-                    <p>{orderInfo.shippingAddress.city}, {orderInfo.shippingAddress.state} {orderInfo.shippingAddress.zip}</p>
+                    {orderInfo.shippingAddress.addressLine2 && (
+                      <p>{orderInfo.shippingAddress.addressLine2}</p>
+                    )}
+                    <p>
+                      {orderInfo.shippingAddress.city}
+                      {orderInfo.shippingAddress.state && `, ${orderInfo.shippingAddress.state}`} 
+                      {orderInfo.shippingAddress.zip && ` ${orderInfo.shippingAddress.zip}`}
+                    </p>
                     <p>{orderInfo.shippingAddress.country}</p>
+                    {orderInfo.shippingAddress.phone && (
+                      <p className="mt-2 text-gray-500">
+                        <Phone size={14} className="inline mr-1" />
+                        {orderInfo.shippingAddress.phone}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p>Address information not available</p>
@@ -416,7 +544,7 @@ const TrackOrderPage = () => {
                 <Package size={16} className="text-gray-500" />
                 Package Items
               </h3>
-              {orderInfo.items && orderInfo.items.length > 0 ? (
+              {orderInfo?.items && orderInfo.items.length > 0 ? (
                 <ul className="text-sm text-gray-600 space-y-2">
                   {orderInfo.items.map((item, index) => (
                     <li key={index} className="flex justify-between">

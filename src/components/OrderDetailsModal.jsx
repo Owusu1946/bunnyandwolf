@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   ArrowRight,
 } from 'lucide-react';
+import { useOrderStore } from '../store/orderStore';
 
 /**
  * A reusable modal component for displaying detailed order information
@@ -30,6 +31,8 @@ const OrderDetailsModal = ({
 }) => {
   const [activeTab, setActiveTab] = useState('items');
   const navigate = useNavigate();
+  const orderStore = useOrderStore();
+  const orderInfo = orderDetails || orderStore.orderInfo;
   
   if (!isOpen) return null;
   
@@ -60,17 +63,20 @@ const OrderDetailsModal = ({
     onClose();
     
     // Navigate to track order page with tracking info
-    navigate(`/track-order/${orderDetails.trackingNumber}`, {
+    navigate(`/track-order/${orderInfo.trackingNumber || orderInfo.orderNumber}`, {
       state: {
         orderInfo: {
-          id: orderDetails.id || orderDetails.receiptId,
-          trackingNumber: orderDetails.trackingNumber,
-          orderDate: orderDetails.formattedOrderDate || orderDetails.orderDate,
-          estimatedDelivery: orderDetails.estimatedDelivery,
-          status: orderDetails.status || 'Processing',
-          shippingMethod: orderDetails.shippingMethod || 'Standard Shipping',
-          items: orderDetails.items || [],
-          shippingAddress: orderDetails.shippingAddress || {},
+          id: orderInfo.id || orderInfo.receiptId || orderInfo.orderNumber,
+          orderNumber: orderInfo.orderNumber || orderInfo.id,
+          trackingNumber: orderInfo.trackingNumber,
+          date: orderInfo.date || new Date().toISOString(),
+          orderDate: orderInfo.formattedOrderDate || orderInfo.orderDate || new Date().toLocaleDateString(),
+          formattedOrderDate: orderInfo.formattedOrderDate || orderInfo.orderDate,
+          status: orderInfo.status || 'processing',
+          shippingMethod: orderInfo.shippingMethod || 'Standard Shipping',
+          estimatedDelivery: orderInfo.estimatedDelivery || 'Not available',
+          items: orderInfo.items || [],
+          shippingAddress: orderInfo.shippingAddress || {}
         }
       }
     });
@@ -84,7 +90,7 @@ const OrderDetailsModal = ({
       >
         {/* Modal Header - Simplified */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h2 className="text-lg font-medium text-gray-900">Order #{orderDetails.id || orderDetails.receiptId}</h2>
+          <h2 className="text-lg font-medium text-gray-900">Order #{orderInfo.id || orderInfo.receiptId}</h2>
           <button 
             onClick={onClose}
             className="p-1 rounded-full hover:bg-gray-100 transition-colors"
@@ -98,21 +104,21 @@ const OrderDetailsModal = ({
         <div className="px-4 py-3 bg-gray-50 text-sm grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <p className="text-gray-500">Date</p>
-            <p className="font-medium">{orderDetails.formattedOrderDate || orderDetails.orderDate}</p>
+            <p className="font-medium">{orderInfo.formattedOrderDate || orderInfo.orderDate}</p>
           </div>
           <div>
             <p className="text-gray-500">Status</p>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              {orderDetails.status || 'Processing'}
+              {orderInfo.status || 'Processing'}
             </span>
           </div>
           <div>
             <p className="text-gray-500">Tracking</p>
-            <p className="font-medium truncate">{orderDetails.trackingNumber || 'N/A'}</p>
+            <p className="font-medium truncate">{orderInfo.trackingNumber || 'N/A'}</p>
           </div>
           <div>
             <p className="text-gray-500">Delivery</p>
-            <p className="font-medium">{orderDetails.estimatedDelivery || 'N/A'}</p>
+            <p className="font-medium">{orderInfo.estimatedDelivery || 'N/A'}</p>
           </div>
         </div>
         
@@ -166,8 +172,8 @@ const OrderDetailsModal = ({
             <div className="p-4">
               {/* Order Items */}
               <div className="space-y-4">
-                {orderDetails.items && orderDetails.items.length > 0 ? (
-                  orderDetails.items.map((item, index) => {
+                {orderInfo.items && orderInfo.items.length > 0 ? (
+                  orderInfo.items.map((item, index) => {
                     // Safely extract price and quantity with fallbacks
                     const price = item.price !== undefined ? item.price : 0;
                     const quantity = item.quantity !== undefined ? item.quantity : 1;
@@ -213,31 +219,31 @@ const OrderDetailsModal = ({
               <div className="mt-6 space-y-1.5 pt-3 border-t text-sm">
                 <div className="flex justify-between">
                   <p className="text-gray-500">Subtotal</p>
-                  <p>{formatCurrency(orderDetails.subtotal || parseFloat(orderDetails.amount) || 0)}</p>
+                  <p>{formatCurrency(orderInfo.subtotal || parseFloat(orderInfo.amount) || 0)}</p>
                 </div>
                 <div className="flex justify-between">
                   <p className="text-gray-500">Shipping</p>
-                  <p>{orderDetails.shipping === 0 ? 'Free' : formatCurrency(orderDetails.shipping || 0)}</p>
+                  <p>{orderInfo.shipping === 0 ? 'Free' : formatCurrency(orderInfo.shipping || 0)}</p>
                 </div>
-                {(orderDetails.tax !== undefined && orderDetails.tax !== null) && (
+                {(orderInfo.tax !== undefined && orderInfo.tax !== null) && (
                   <div className="flex justify-between">
                     <p className="text-gray-500">Tax</p>
-                    <p>{formatCurrency(orderDetails.tax || 0)}</p>
+                    <p>{formatCurrency(orderInfo.tax || 0)}</p>
                   </div>
                 )}
-                {(orderDetails.discount !== undefined && orderDetails.discount > 0) && (
+                {(orderInfo.discount !== undefined && orderInfo.discount > 0) && (
                   <div className="flex justify-between text-green-600">
                     <p>Discount</p>
-                    <p>-{formatCurrency(orderDetails.discount)}</p>
+                    <p>-{formatCurrency(orderInfo.discount)}</p>
                   </div>
                 )}
                 <div className="flex justify-between font-medium pt-1.5 mt-1.5 border-t">
                   <p>Total</p>
                   <p>{formatCurrency(
-                    (orderDetails.subtotal || parseFloat(orderDetails.amount) || 0) + 
-                    (orderDetails.shipping || 0) + 
-                    (orderDetails.tax || 0) - 
-                    (orderDetails.discount || 0)
+                    (orderInfo.subtotal || parseFloat(orderInfo.amount) || 0) + 
+                    (orderInfo.shipping || 0) + 
+                    (orderInfo.tax || 0) - 
+                    (orderInfo.discount || 0)
                   )}</p>
                 </div>
               </div>
@@ -254,27 +260,27 @@ const OrderDetailsModal = ({
                   Shipping Method
                 </h4>
                 <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm">
-                  <p>{orderDetails.shippingMethod || 'Standard Shipping'}</p>
+                  <p>{orderInfo.shippingMethod || 'Standard Shipping'}</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Estimated delivery: {orderDetails.estimatedDelivery || 'Not available'}
+                    Estimated delivery: {orderInfo.estimatedDelivery || 'Not available'}
                   </p>
                 </div>
               </div>
               
               {/* Shipping Address - Cleaner */}
-              {orderDetails.shippingAddress && (
+              {orderInfo.shippingAddress && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-2">Shipping Address</h4>
                   <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm">
                     <address className="not-italic">
-                      <p>{orderDetails.shippingAddress.name || 'Not provided'}</p>
-                      <p>{orderDetails.shippingAddress.street || 'Address not provided'}</p>
+                      <p>{orderInfo.shippingAddress.name || 'Not provided'}</p>
+                      <p>{orderInfo.shippingAddress.street || 'Address not provided'}</p>
                       <p>
-                        {orderDetails.shippingAddress.city || 'City'}, {orderDetails.shippingAddress.state || 'State'} {orderDetails.shippingAddress.zip || 'Zip'}
+                        {orderInfo.shippingAddress.city || 'City'}, {orderInfo.shippingAddress.state || 'State'} {orderInfo.shippingAddress.zip || 'Zip'}
                       </p>
-                      <p>{orderDetails.shippingAddress.country || 'Country'}</p>
-                      {orderDetails.shippingAddress.phone && (
-                        <p className="mt-1 text-xs text-gray-600">{orderDetails.shippingAddress.phone}</p>
+                      <p>{orderInfo.shippingAddress.country || 'Country'}</p>
+                      {orderInfo.shippingAddress.phone && (
+                        <p className="mt-1 text-xs text-gray-600">{orderInfo.shippingAddress.phone}</p>
                       )}
                     </address>
                   </div>
@@ -285,8 +291,8 @@ const OrderDetailsModal = ({
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Tracking Information</h4>
                 <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm">
-                  <p>Tracking Number: {orderDetails.trackingNumber || 'Not available yet'}</p>
-                  {orderDetails.trackingNumber && (
+                  <p>Tracking Number: {orderInfo.trackingNumber || 'Not available yet'}</p>
+                  {orderInfo.trackingNumber && (
                     <button 
                       className="mt-2 text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1 transition-colors"
                       onClick={handleTrackOrder}
@@ -309,32 +315,32 @@ const OrderDetailsModal = ({
                   Payment Method
                 </h4>
                 <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm">
-                  <p>{orderDetails.paymentMethod || 'Credit Card'}</p>
-                  {orderDetails.cardDetails && (
+                  <p>{orderInfo.paymentMethod || 'Credit Card'}</p>
+                  {orderInfo.cardDetails && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {orderDetails.cardDetails.brand || 'Card'} ending in {orderDetails.cardDetails.last4 || '****'}
+                      {orderInfo.cardDetails.brand || 'Card'} ending in {orderInfo.cardDetails.last4 || '****'}
                     </p>
                   )}
-                  {orderDetails.transactionId && (
+                  {orderInfo.transactionId && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Transaction ID: {orderDetails.transactionId}
+                      Transaction ID: {orderInfo.transactionId}
                     </p>
                   )}
                 </div>
               </div>
               
               {/* Billing Address - Cleaner */}
-              {orderDetails.billingAddress && (
+              {orderInfo.billingAddress && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-2">Billing Address</h4>
                   <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm">
                     <address className="not-italic">
-                      <p>{orderDetails.billingAddress.name || 'Not provided'}</p>
-                      <p>{orderDetails.billingAddress.street || 'Address not provided'}</p>
+                      <p>{orderInfo.billingAddress.name || 'Not provided'}</p>
+                      <p>{orderInfo.billingAddress.street || 'Address not provided'}</p>
                       <p>
-                        {orderDetails.billingAddress.city || 'City'}, {orderDetails.billingAddress.state || 'State'} {orderDetails.billingAddress.zip || 'Zip'}
+                        {orderInfo.billingAddress.city || 'City'}, {orderInfo.billingAddress.state || 'State'} {orderInfo.billingAddress.zip || 'Zip'}
                       </p>
-                      <p>{orderDetails.billingAddress.country || 'Country'}</p>
+                      <p>{orderInfo.billingAddress.country || 'Country'}</p>
                     </address>
                   </div>
                 </div>
@@ -344,7 +350,7 @@ const OrderDetailsModal = ({
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Receipt</h4>
                 <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm">
-                  <p>Receipt ID: {orderDetails.receiptId || orderDetails.id}</p>
+                  <p>Receipt ID: {orderInfo.receiptId || orderInfo.id}</p>
                   <button 
                     onClick={onViewReceipt}
                     className="mt-2 text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1 transition-colors"

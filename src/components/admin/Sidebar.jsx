@@ -35,9 +35,11 @@ const Sidebar = () => {
   const menuItems = [
     { path: '/admin/dashboard', icon: FaHome, label: 'Dashboard' },
     { path: '/admin/orders', icon: FaShoppingCart, label: 'Orders' },
+    { path: '/admin/all-orders', icon: FaShoppingCart, label: 'All Orders' },
     { path: '/admin/products', icon: FaBoxes, label: 'Products' },
     { path: '/admin/customers', icon: FaUsers, label: 'Customers' },
-    { path: '/admin/chats', icon: FaComments, label: 'Chats' }
+    { path: '/admin/chats', icon: FaComments, label: 'Chats' },
+    { path: '/admin/campaigns', icon: FaBoxes, label: 'Campaigns' }
   ];
 
   const bottomMenuItems = [

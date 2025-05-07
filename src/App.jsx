@@ -21,6 +21,7 @@ import OrderConfirmationPage from './pages/OrderConfirmationPage'
 import ProductDetailsPage from './pages/ProductDetailsPage'
 import TrackOrderPage from './pages/TrackOrderPage'
 import OrdersPage from './pages/admin/OrdersPage'
+import AdminOrders from './pages/admin/AdminOrders'
 import ProductsPage from './pages/admin/ProductsPage'
 import CustomersPage from './pages/admin/CustomersPage'
 import ChatsPage from './pages/admin/ChatsPage'
@@ -66,6 +67,11 @@ function App() {
                 <Route path="/admin/orders" element={
                   <AdminRoute>
                     <OrdersPage />
+                  </AdminRoute>
+                } />
+                <Route path="/admin/all-orders" element={
+                  <AdminRoute>
+                    <AdminOrders />
                   </AdminRoute>
                 } />
                 <Route path="/admin/products" element={

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaGoogle, FaFacebook, FaGithub, FaTwitter, FaApple, FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { motion } from 'framer-motion';
-import {  FiShoppingCart, FiDollarSign } from 'react-icons/fi';
-import {  GiCardboardBox } from 'react-icons/gi';
+import { FiShoppingCart, FiDollarSign } from 'react-icons/fi';
+import { GiCardboardBox } from 'react-icons/gi';
 import { login, socialAuth } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 
@@ -133,13 +133,12 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left Panel - White Branding Side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-white to-gray-50 p-12 relative overflow-hidden">
+      {/* Left Panel - Branding Side */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-50 to-gray-100 p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5"></div>
         
-        {/* 3D Floating Elements - Similar to Login but with different positions */}
+        {/* 3D Floating Elements */}
         <div className="absolute inset-0 overflow-hidden">
-          
           <motion.div
             initial={{ y: 100, opacity: 0 }}
             animate={{ 
@@ -153,8 +152,8 @@ const Login = () => {
             }}
             className="absolute top-20 right-20"
           >
-            <div className="w-32 h-32 bg-white/80 backdrop-blur-sm rounded-2xl transform rotate-12 border border-gray-100 shadow-2xl">
-              <FiShoppingCart className="w-12 h-12 text-cyan-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            <div className="w-32 h-32 bg-white backdrop-blur-sm rounded-2xl transform rotate-12 border border-gray-200 shadow-xl">
+              <FiShoppingCart className="w-12 h-12 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
           </motion.div>
 
@@ -173,8 +172,8 @@ const Login = () => {
             }}
             className="absolute top-1/2 right-40"
           >
-            <div className="w-24 h-24 bg-white/80 backdrop-blur-sm rounded-2xl transform rotate-45 border border-gray-100 shadow-2xl">
-              <FiDollarSign className="w-10 h-10 text-green-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            <div className="w-24 h-24 bg-gradient-to-br from-white to-gray-50 backdrop-blur-sm rounded-2xl transform rotate-45 border border-slate-100 shadow-xl">
+              <FiDollarSign className="w-10 h-10 text-emerald-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
           </motion.div>
 
@@ -193,8 +192,8 @@ const Login = () => {
             }}
             className="absolute top-32 left-40"
           >
-            <div className="w-28 h-28 bg-white/80 backdrop-blur-sm rounded-2xl transform -rotate-6 border border-gray-100 shadow-2xl">
-              <GiCardboardBox className="w-11 h-11 text-orange-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            <div className="w-28 h-28 bg-gradient-to-br from-white to-gray-50 backdrop-blur-sm rounded-2xl transform -rotate-6 border border-slate-100 shadow-xl">
+              <GiCardboardBox className="w-11 h-11 text-amber-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
           </motion.div>
         </div>
@@ -208,9 +207,9 @@ const Login = () => {
               transition={{ duration: 0.8, ease: "easeOut" }}
             >
               <h1 className="text-5xl font-bold text-gray-900">
-                Sino<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-500">sply</span>
+                Sino<span className="text-black">sply</span>
               </h1>
-              <p className="text-gray-600 mt-4 text-lg">Join our global sourcing network</p>
+              <p className="text-gray-600 mt-4 text-lg">Your global sourcing solution</p>
             </motion.div>
           </div>
 
@@ -220,20 +219,20 @@ const Login = () => {
             transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
             className="space-y-6"
           >
-            <div className="bg-white shadow-2xl p-8 rounded-2xl border border-gray-100">
+            <div className="bg-white shadow-xl p-8 rounded-xl border border-slate-100">
               <div className="flex items-center space-x-4 mb-6">
                 <div className="flex -space-x-2">
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="w-8 h-8 rounded-full ring-2 ring-white bg-gradient-to-r from-cyan-500 to-blue-500" />
+                    <div key={i} className="w-8 h-8 rounded-full ring-2 ring-white bg-gradient-to-r from-cyan-600 to-blue-600" />
                   ))}
                 </div>
                 <div className="text-sm text-gray-600">Join 10,000+ businesses worldwide</div>
               </div>
               <p className="text-gray-700 italic text-lg leading-relaxed">
-                Connecting with verified suppliers through Bunny & Wolf transformed our sourcing process. The platforms efficiency and reliability are unmatched.
+                "Connecting with verified suppliers through Sinosply transformed our sourcing process. The platform's efficiency and reliability are unmatched."
               </p>
               <div className="mt-6 flex items-center">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full bg-black flex items-center justify-center">
                   <span className="text-white font-bold">JM</span>
                 </div>
                 <div className="ml-3">
@@ -247,38 +246,43 @@ const Login = () => {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="w-full lg:w-1/2 bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8 bg-gray-800 p-8 rounded-xl shadow-lg">
+      <div className="w-full lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8 bg-slate-800/50 backdrop-blur-lg p-10 rounded-xl shadow-2xl border border-slate-700">
           <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-              Welcome back
+            <h2 className="mt-2 text-center text-3xl font-extrabold text-white">
+              Welcome Back
             </h2>
             <p className="mt-2 text-center text-sm text-gray-400">
               Or{' '}
-              <Link to="/signup" className="font-medium text-cyan-500 hover:text-cyan-400">
+              <Link to="/signup" className="font-medium text-cyan-500 hover:text-cyan-400 transition-colors">
                 create a new account
               </Link>
             </p>
           </div>
 
           {error && (
-            <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-4 py-3 rounded relative" role="alert">
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-400/10 border border-red-400 text-red-400 px-4 py-3 rounded-lg relative" 
+              role="alert"
+            >
               <span className="block sm:inline">{error}</span>
-            </div>
+            </motion.div>
           )}
 
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaEnvelope className="h-5 w-5 text-gray-500 group-hover:text-cyan-400 transition-colors" />
+                  <FaEnvelope className="h-5 w-5 text-gray-500 group-focus-within:text-cyan-400 transition-colors" />
                 </div>
                 <input
                   id="email"
                   name="email"
                   type="email"
                   required
-                  className="block w-full pl-10 pr-3 py-3 border-b-2 border-gray-600 bg-transparent text-white placeholder-gray-400 focus:border-cyan-400 focus:ring-0 transition-all duration-200"
+                  className="block w-full pl-10 pr-3 py-3 border-b-2 border-gray-600 bg-black/30 rounded-t-lg text-white placeholder-gray-400 focus:border-white focus:outline-none focus:ring-0 transition-all duration-200"
                   placeholder="Business Email"
                   value={formData.email}
                   onChange={handleChange}
@@ -287,14 +291,14 @@ const Login = () => {
 
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaLock className="h-5 w-5 text-gray-500 group-hover:text-cyan-400 transition-colors" />
+                  <FaLock className="h-5 w-5 text-gray-500 group-focus-within:text-cyan-400 transition-colors" />
                 </div>
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
-                  className="block w-full pl-10 pr-10 py-3 border-b-2 border-gray-600 bg-transparent text-white placeholder-gray-400 focus:border-cyan-400 focus:ring-0 transition-all duration-200"
+                  className="block w-full pl-10 pr-10 py-3 border-b-2 border-gray-600 bg-black/30 rounded-t-lg text-white placeholder-gray-400 focus:border-white focus:outline-none focus:ring-0 transition-all duration-200"
                   placeholder="Password"
                   value={formData.password}
                   onChange={handleChange}
@@ -319,7 +323,7 @@ const Login = () => {
                   id="remember-me"
                   name="rememberMe"
                   type="checkbox"
-                  className="h-4 w-4 text-cyan-500 focus:ring-cyan-400 border-gray-600 rounded bg-gray-700"
+                  className="h-4 w-4 text-cyan-500 focus:ring-cyan-400 border-slate-600 rounded bg-slate-700/30"
                   checked={rememberMe}
                   onChange={handleChange}
                 />
@@ -329,49 +333,53 @@ const Login = () => {
               </div>
 
               <div className="text-sm">
-                <Link to="/forgot-password" className="font-medium text-cyan-500 hover:text-cyan-400">
-                  Forgot your password?
+                <Link to="/forgot-password" className="font-medium text-cyan-500 hover:text-cyan-400 transition-colors">
+                  Forgot password?
                 </Link>
               </div>
             </div>
 
             <div>
-              <button
+              <motion.button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="group relative w-full flex justify-center py-3 px-4 border border-white text-sm font-medium rounded-lg text-black bg-white hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 {loading ? 'Signing in...' : 'Sign in'}
-              </button>
+              </motion.button>
             </div>
 
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-600"></div>
+                  <div className="w-full border-t border-slate-600"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-gray-800 text-gray-400">Or continue with</span>
+                  <span className="px-2 bg-slate-800 text-gray-400">Or continue with</span>
                 </div>
               </div>
 
               <div className="mt-6 grid grid-cols-5 gap-3">
                 {[
-                  { icon: FaGoogle, color: 'text-red-500', provider: 'google' },
-                  { icon: FaFacebook, color: 'text-blue-500', provider: 'facebook' },
-                  { icon: FaGithub, color: 'text-gray-400', provider: 'github' },
-                  { icon: FaTwitter, color: 'text-blue-400', provider: 'twitter' },
-                  { icon: FaApple, color: 'text-gray-300', provider: 'apple' }
+                  { icon: FaGoogle, color: 'text-white', provider: 'google' },
+                  { icon: FaFacebook, color: 'text-white', provider: 'facebook' },
+                  { icon: FaGithub, color: 'text-white', provider: 'github' },
+                  { icon: FaTwitter, color: 'text-white', provider: 'twitter' },
+                  { icon: FaApple, color: 'text-white', provider: 'apple' }
                 ].map((provider, index) => (
-                  <button
+                  <motion.button
                     key={index}
                     type="button"
                     onClick={() => handleSocialLogin(provider.provider)}
                     disabled={loading}
-                    className="inline-flex justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm bg-gray-700 hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex justify-center py-2 px-4 border border-slate-600 rounded-lg shadow-md bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <provider.icon className={`h-5 w-5 ${provider.color}`} />
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaGoogle, FaFacebook, FaGithub, FaTwitter, FaApple, FaEnvelope, FaLock, FaPhone, FaEye, FaEyeSlash } from 'react-icons/fa';
-import {  FiShoppingCart, FiDollarSign } from 'react-icons/fi';
-import {  GiCardboardBox } from 'react-icons/gi';
-import { motion } from 'framer-motion';
+import { FiShoppingCart, FiDollarSign } from 'react-icons/fi';
+import { GiCardboardBox } from 'react-icons/gi';
+import { motion, AnimatePresence } from 'framer-motion';
 import { register, socialAuth } from '../services/auth';
 
 
@@ -94,10 +94,11 @@ const SignUp = () => {
       case 1:
         return (
           <motion.div
-            initial={{ x: -20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 20, opacity: 0 }}
-            className="space-y-4"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-5"
           >
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -109,7 +110,7 @@ const SignUp = () => {
                   name="firstName"
                   type="text"
                   required
-                  className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white placeholder-gray-400"
+                  className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
                   placeholder="John"
                   value={formData.firstName}
                   onChange={handleChange}
@@ -124,7 +125,7 @@ const SignUp = () => {
                   name="lastName"
                   type="text"
                   required
-                  className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white placeholder-gray-400"
+                  className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
                   placeholder="Doe"
                   value={formData.lastName}
                   onChange={handleChange}
@@ -133,7 +134,7 @@ const SignUp = () => {
             </div>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
-                Email
+                Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -144,7 +145,7 @@ const SignUp = () => {
                   name="email"
                   type="email"
                   required
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white placeholder-gray-400"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={handleChange}
@@ -156,10 +157,11 @@ const SignUp = () => {
       case 2:
         return (
           <motion.div
-            initial={{ x: -20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 20, opacity: 0 }}
-            className="space-y-4"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-5"
           >
             <div>
               <label htmlFor="gender" className="block text-sm font-medium text-gray-300 mb-1">
@@ -169,7 +171,7 @@ const SignUp = () => {
                 id="gender"
                 name="gender"
                 required
-                className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white"
+                className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white"
                 value={formData.gender}
                 onChange={handleChange}
               >
@@ -177,6 +179,7 @@ const SignUp = () => {
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="other">Other</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
               </select>
             </div>
             <div>
@@ -192,7 +195,7 @@ const SignUp = () => {
                   name="phoneNumber"
                   type="tel"
                   required
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white placeholder-gray-400"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
                   placeholder="(+233) 000-000-000"
                   value={formData.phoneNumber}
                   onChange={handleChange}
@@ -204,10 +207,11 @@ const SignUp = () => {
       case 3:
         return (
           <motion.div
-            initial={{ x: -20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 20, opacity: 0 }}
-            className="space-y-4"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-5"
           >
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
@@ -222,7 +226,7 @@ const SignUp = () => {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
-                  className="block w-full pl-10 pr-12 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white placeholder-gray-400"
+                  className="block w-full pl-10 pr-12 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleChange}
@@ -234,12 +238,15 @@ const SignUp = () => {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-cyan-400 transition-colors" />
+                    <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-gray-300 transition-colors" />
                   ) : (
-                    <FaEye className="h-5 w-5 text-gray-500 hover:text-cyan-400 transition-colors" />
+                    <FaEye className="h-5 w-5 text-gray-500 hover:text-gray-300 transition-colors" />
                   )}
                 </button>
               </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Must be at least 8 characters long with letters and numbers
+              </p>
             </div>
 
             <div>
@@ -255,7 +262,7 @@ const SignUp = () => {
                   name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   required
-                  className="block w-full pl-10 pr-12 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white placeholder-gray-400"
+                  className="block w-full pl-10 pr-12 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={handleChange}
@@ -267,9 +274,9 @@ const SignUp = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-cyan-400 transition-colors" />
+                    <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-gray-300 transition-colors" />
                   ) : (
-                    <FaEye className="h-5 w-5 text-gray-500 hover:text-cyan-400 transition-colors" />
+                    <FaEye className="h-5 w-5 text-gray-500 hover:text-gray-300 transition-colors" />
                   )}
                 </button>
               </div>
@@ -281,11 +288,11 @@ const SignUp = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Panel - White Branding Side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-white to-gray-50 p-12 relative overflow-hidden">
+      {/* Left Panel - Branding Side */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-50 to-gray-100 p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5"></div>
         
-        {/* 3D Floating Elements - Similar to Login but with different positions */}
+        {/* 3D Floating Elements */}
         <div className="absolute inset-0 overflow-hidden">
           
           <motion.div
@@ -301,51 +308,51 @@ const SignUp = () => {
             }}
             className="absolute top-20 right-20"
           >
-            <div className="w-32 h-32 bg-white/80 backdrop-blur-sm rounded-2xl transform rotate-12 border border-gray-100 shadow-2xl">
-              <FiShoppingCart className="w-12 h-12 text-cyan-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            <div className="w-32 h-32 bg-white backdrop-blur-sm rounded-2xl transform rotate-12 border border-gray-200 shadow-xl">
+              <FiShoppingCart className="w-12 h-12 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
           </motion.div>
 
-  {/* Dollar Sign - Middle Right */}
-  <motion.div
-    initial={{ x: -100, opacity: 0 }}
-    animate={{ 
-      x: [0, 20, 0],
-      opacity: 1,
-    }}
-    transition={{
-      duration: 5,
-      repeat: Infinity,
-      ease: "easeInOut",
-      delay: 1
-    }}
-    className="absolute top-1/2 right-40"
-  >
-    <div className="w-24 h-24 bg-white/80 backdrop-blur-sm rounded-2xl transform rotate-45 border border-gray-100 shadow-2xl">
-      <FiDollarSign className="w-10 h-10 text-green-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-    </div>
-  </motion.div>
+          {/* Dollar Sign - Middle Right */}
+          <motion.div
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ 
+              x: [0, 20, 0],
+              opacity: 1,
+            }}
+            transition={{
+              duration: 5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1
+            }}
+            className="absolute top-1/2 right-40"
+          >
+            <div className="w-24 h-24 bg-white backdrop-blur-sm rounded-2xl transform rotate-45 border border-gray-200 shadow-xl">
+              <FiDollarSign className="w-10 h-10 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            </div>
+          </motion.div>
 
-  {/* Box - Top Left */}
-  <motion.div
-    initial={{ x: 100, opacity: 0 }}
-    animate={{ 
-      x: [0, -20, 0],
-      opacity: 1,
-    }}
-    transition={{
-      duration: 4.5,
-      repeat: Infinity,
-      ease: "easeInOut",
-      delay: 1.5
-    }}
-    className="absolute top-32 left-40"
-  >
-    <div className="w-28 h-28 bg-white/80 backdrop-blur-sm rounded-2xl transform -rotate-6 border border-gray-100 shadow-2xl">
-      <GiCardboardBox className="w-11 h-11 text-orange-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-    </div>
-  </motion.div>
-</div>
+          {/* Box - Top Left */}
+          <motion.div
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ 
+              x: [0, -20, 0],
+              opacity: 1,
+            }}
+            transition={{
+              duration: 4.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1.5
+            }}
+            className="absolute top-32 left-40"
+          >
+            <div className="w-28 h-28 bg-white backdrop-blur-sm rounded-2xl transform -rotate-6 border border-gray-200 shadow-xl">
+              <GiCardboardBox className="w-11 h-11 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            </div>
+          </motion.div>
+        </div>
 
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-between h-full">
@@ -356,9 +363,9 @@ const SignUp = () => {
               transition={{ duration: 0.8, ease: "easeOut" }}
             >
               <h1 className="text-5xl font-bold text-gray-900">
-                Sino<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-500">sply</span>
+                Sino<span className="text-black">sply</span>
               </h1>
-              <p className="text-gray-600 mt-4 text-lg">Join our global sourcing network</p>
+              <p className="text-gray-600 mt-4 text-lg">Your global sourcing solution</p>
             </motion.div>
           </div>
 
@@ -368,20 +375,20 @@ const SignUp = () => {
             transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
             className="space-y-6"
           >
-            <div className="bg-white shadow-2xl p-8 rounded-2xl border border-gray-100">
+            <div className="bg-white shadow-xl p-8 rounded-xl border border-gray-200">
               <div className="flex items-center space-x-4 mb-6">
                 <div className="flex -space-x-2">
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="w-8 h-8 rounded-full ring-2 ring-white bg-gradient-to-r from-cyan-500 to-blue-500" />
+                    <div key={i} className="w-8 h-8 rounded-full ring-2 ring-white bg-gradient-to-r from-cyan-600 to-blue-600" />
                   ))}
                 </div>
                 <div className="text-sm text-gray-600">Join 10,000+ businesses worldwide</div>
               </div>
               <p className="text-gray-700 italic text-lg leading-relaxed">
-                Connecting with verified suppliers through Sinosply transformed our sourcing process. The platforms efficiency and reliability are unmatched.
+                "Connecting with verified suppliers through Sinosply transformed our sourcing process. The platform's efficiency and reliability are unmatched."
               </p>
               <div className="mt-6 flex items-center">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full bg-black flex items-center justify-center">
                   <span className="text-white font-bold">JM</span>
                 </div>
                 <div className="ml-3">
@@ -394,11 +401,11 @@ const SignUp = () => {
         </div>
       </div>
 
-      {/* Right Panel - Dark Sign Up Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-        <div className="max-w-md w-full space-y-8 bg-gray-800 bg-opacity-50 backdrop-blur-lg p-10 rounded-2xl shadow-2xl border border-gray-700">
+      {/* Right Panel - Sign Up Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900">
+        <div className="max-w-md w-full space-y-8 bg-slate-800/50 backdrop-blur-lg p-10 rounded-xl shadow-2xl border border-slate-700">
           <div>
-            <h1 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-300 to-blue-400 mb-2">
+            <h1 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-cyan-300 to-blue-500 mb-2">
               Create Account
             </h1>
             <p className="text-center text-gray-400 text-sm">
@@ -408,65 +415,80 @@ const SignUp = () => {
 
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-                {error}
-              </div>
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-red-400/10 border border-red-400 text-red-400 px-4 py-3 rounded-lg relative"
+                role="alert"
+              >
+                <span className="block sm:inline">{error}</span>
+              </motion.div>
             )}
 
             <div className="flex items-center justify-between mb-8 relative">
               {[1, 2, 3].map((num) => (
                 <div key={num} className="flex items-center flex-1">
-                  <div 
+                  <motion.div 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     className={`w-10 h-10 rounded-full flex items-center justify-center relative z-10 
                       ${step >= num 
-                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white' 
+                        ? 'bg-black text-white shadow-lg' 
                         : 'bg-gray-700 text-gray-400'}`}
                   >
                     {num}
-                  </div>
+                  </motion.div>
                   {num < 3 && (
                     <div className="flex-1 mx-4">
                       <div className={`h-1 transition-all duration-300 ${
                         step > num 
-                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500' 
+                          ? 'bg-white' 
                           : 'bg-gray-700'
                       }`} />
                     </div>
-                  )})
+                  )}
                 </div>
               ))}
             </div>
 
-            {renderStep()}
+            <AnimatePresence mode="wait">
+              {renderStep()}
+            </AnimatePresence>
 
             <div className="flex justify-between mt-8">
               {step > 1 && (
-                <button
+                <motion.button
                   type="button"
                   onClick={prevStep}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-cyan-400 transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
                 >
                   Back
-                </button>
+                </motion.button>
               )}
               {step < 3 ? (
-                <button
+                <motion.button
                   type="button"
                   onClick={nextStep}
-                  className="ml-auto px-6 py-2 text-sm text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all duration-200"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="ml-auto px-6 py-2 text-sm text-black bg-white rounded-lg hover:bg-gray-200 transition-all duration-200 shadow-lg"
                 >
                   Next
-                </button>
+                </motion.button>
               ) : (
-                <button
+                <motion.button
                   type="submit"
                   disabled={loading}
-                  className={`w-full px-6 py-2 text-sm text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg 
-                    ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:from-cyan-600 hover:to-blue-600'} 
-                    transition-all duration-200`}
+                  whileHover={!loading ? { scale: 1.02 } : {}}
+                  whileTap={!loading ? { scale: 0.98 } : {}}
+                  className={`w-full px-6 py-2 text-sm text-black bg-white rounded-lg 
+                    ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'} 
+                    transition-all duration-200 shadow-lg`}
                 >
                   {loading ? 'Creating Account...' : 'Create Account'}
-                </button>
+                </motion.button>
               )}
             </div>
 
@@ -476,7 +498,7 @@ const SignUp = () => {
                   <div className="w-full border-t border-gray-600"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-gray-800 text-gray-400">Or continue with</span>
+                  <span className="px-2 bg-slate-800 text-gray-400">Or continue with</span>
                 </div>
               </div>
 
@@ -488,15 +510,17 @@ const SignUp = () => {
                   { icon: FaTwitter, provider: 'twitter' },
                   { icon: FaApple, provider: 'apple' }
                 ].map((provider, index) => (
-                  <button
+                  <motion.button
                     key={index}
                     type="button"
                     onClick={() => handleSocialSignup(provider.provider)}
                     disabled={loading}
-                    className="flex items-center justify-center p-2 border border-gray-600 rounded-lg shadow-sm text-gray-300 bg-gray-700 bg-opacity-50 hover:bg-opacity-70 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center justify-center p-2 border border-gray-600 rounded-lg shadow-sm text-gray-300 bg-black/50 hover:bg-gray-800/50 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <provider.icon className="h-5 w-5 text-gray-300 group-hover:text-cyan-400" />
-                  </button>
+                    <provider.icon className="h-5 w-5 text-white group-hover:text-gray-100" />
+                  </motion.button>
                 ))}
               </div>
             </div>

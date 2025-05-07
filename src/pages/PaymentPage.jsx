@@ -3,6 +3,7 @@ import { Camera, CreditCard, Wallet, ShoppingBag, ArrowLeft, ChevronsUpDown, Che
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useOrderStore } from '../store/orderStore';
 
 const PaymentPage = () => {
   const location = useLocation();
@@ -32,22 +33,47 @@ const PaymentPage = () => {
   const [showCardForm, setShowCardForm] = useState(false);
   const [showMobileMoneyForm, setShowMobileMoneyForm] = useState(false);
   
-  const productInfo = location.state?.productInfo || {
-    name: 'Your Order',
-    price: '€0.00',
-    image: 'https://via.placeholder.com/400x500',
-    selectedColor: '#000000',
-    allVariants: [{
-      color: '#000000',
-      colorName: 'Default',
-      image: 'https://via.placeholder.com/400x500',
-      price: '€0.00'
-    }],
-    currentVariantIndex: 0
-  };
+  const orderStore = useOrderStore();
+  // Extract orderInfo from Zustand store instead of location.state
+  const orderInfo = orderStore.orderInfo || {};
 
-  // Extract orderInfo from location state for later use
-  const orderInfo = location.state?.orderInfo || {};
+  // Extract product info from orderInfo instead of location state
+  const productInfo = location.state?.productInfo || (() => {
+    // If we have orderInfo with products, use the first product as the display product
+    if (orderInfo && orderInfo.products && orderInfo.products.length > 0) {
+      const firstProduct = orderInfo.products[0];
+      return {
+        name: firstProduct.name || 'Your Order',
+        price: typeof firstProduct.price === 'number' ? `€${firstProduct.price.toFixed(2)}` : firstProduct.price || '€0.00',
+        image: firstProduct.image || 'https://via.placeholder.com/400x500',
+        selectedColor: firstProduct.colorName ? '#000000' : '#000000',
+        colorName: firstProduct.colorName || 'Default',
+        size: firstProduct.size || '',
+        quantity: firstProduct.quantity || 1,
+        allVariants: [{
+          color: '#000000',
+          colorName: firstProduct.colorName || 'Default',
+          image: firstProduct.image || 'https://via.placeholder.com/400x500',
+          price: typeof firstProduct.price === 'number' ? `€${firstProduct.price.toFixed(2)}` : firstProduct.price || '€0.00'
+        }],
+        currentVariantIndex: 0
+      };
+    }
+    // Fallback to default
+    return {
+      name: 'Your Order',
+      price: '€0.00',
+      image: 'https://via.placeholder.com/400x500',
+      selectedColor: '#000000',
+      allVariants: [{
+        color: '#000000',
+        colorName: 'Default',
+        image: 'https://via.placeholder.com/400x500',
+        price: '€0.00'
+      }],
+      currentVariantIndex: 0
+    };
+  })();
 
   // Networks for mobile money
   const mobileNetworks = [
@@ -184,28 +210,43 @@ const PaymentPage = () => {
     }));
   };
 
+  // Mock Paystack initialization with better error handling
   const mockPaystackInitialize = (email, amount, currency = 'GHS') => {
     return new Promise((resolve, reject) => {
       // Simulating Paystack integration
       setTimeout(() => {
-        // 90% success rate in this mock
-        if (Math.random() > 0.1) {
-          resolve({
-            reference: `REF-${Date.now()}`,
-            status: 'success',
-            message: 'Payment complete!',
-            transaction: {
-              id: Math.floor(Math.random() * 1000000),
-              amount: amount * 100, // Paystack uses kobo/pesewas
+        // Always succeed in the mock for better testing
+        resolve({
+          reference: `REF-${Date.now()}`,
+          status: 'success',
+          message: 'Payment complete!',
+          transaction: {
+            id: Math.floor(Math.random() * 1000000),
+            amount: parseFloat(amount) * 100, // Paystack uses kobo/pesewas
+          }
+        });
+      }, 1500); // Shorter delay for better UX
+    });
+  };
+
+  // Fix mock credit card payment
+  const mockCreditCardPayment = (cardDetails) => {
+    return new Promise((resolve, reject) => {
+      // Always succeed in the mock for better testing
+      setTimeout(() => {
+        resolve({
+          reference: `CARD-${Date.now()}`,
+          status: 'success',
+          message: 'Payment complete!',
+          transaction: {
+            id: Math.floor(Math.random() * 1000000),
+            card: {
+              last4: cardDetails.cardNumber ? cardDetails.cardNumber.slice(-4) : '1234',
+              brand: cardDetails.cardNumber?.startsWith('4') ? 'Visa' : 'MasterCard',
             }
-          });
-        } else {
-          reject({
-            status: 'failed',
-            message: 'Payment failed. Please try again.'
-          });
-        }
-      }, 2000); // Simulate network delay
+          }
+        });
+      }, 1500);
     });
   };
 
@@ -216,6 +257,96 @@ const PaymentPage = () => {
     
     // Remove currency symbols and other non-numeric characters
     return parseFloat(price.replace(/[^0-9.-]+/g, '')) || 0;
+  };
+
+  // Fix: Handle missing or undefined properties safely
+  const safelyFormatPrice = (price) => {
+    if (price === undefined || price === null) return '€0.00';
+    if (typeof price === 'string' && price.includes('€')) return price;
+    return `€${typeof price === 'number' ? price.toFixed(2) : '0.00'}`;
+  };
+
+  const navigateToOrderConfirmation = (paymentMethod, transactionId, amount) => {
+    try {
+      // Ensure numeric values for prices
+      const calculatedAmount = parsePrice(amount || formData.amount || 0);
+      const subtotal = parsePrice(orderInfo?.subtotal || calculatedAmount);
+      const shipping = parsePrice(orderInfo?.shipping || 0);
+      const tax = parsePrice(orderInfo?.tax || 0);
+      const discount = parsePrice(orderInfo?.discount || 0);
+      const total = subtotal + shipping + tax - discount;
+      
+      // Process order items to ensure valid prices and quantities
+      const processedItems = Array.isArray(orderInfo?.products) 
+        ? orderInfo.products.map(item => ({
+            id: item.id,
+            name: item.name || 'Product',
+            price: parsePrice(item.price),
+            quantity: parseInt(item.quantity) || 1,
+            image: item.image,
+            colorName: item.colorName,
+            size: item.size
+          }))
+        : [];
+
+      // Create order details for confirmation page
+      const orderDetails = {
+        id: transactionId || `txn-${Date.now()}`,
+        orderNumber: orderInfo?.orderNumber || `ORD-${Date.now()}`,
+        date: new Date().toISOString(),
+        paymentMethod: paymentMethod,
+        transactionId: transactionId,
+        cardDetails: paymentMethod === 'Credit Card' ? {
+          brand: cardDetails.cardNumber?.startsWith('4') ? 'Visa' : 'MasterCard',
+          last4: cardDetails.cardNumber ? cardDetails.cardNumber.replace(/\s/g, '').slice(-4) : '1234'
+        } : undefined,
+        amount: calculatedAmount,
+        subtotal: subtotal,
+        shipping: shipping,
+        tax: tax,
+        discount: discount,
+        total: total,
+        items: processedItems.length > 0 ? processedItems : [{
+          id: 'default-item',
+          name: productInfo.name,
+          price: parsePrice(productInfo.price),
+          quantity: 1,
+          image: productInfo.image,
+          colorName: productInfo.colorName,
+          size: productInfo.size
+        }],
+        customer: {
+          name: orderInfo?.contactInfo?.name || cardDetails.cardHolder || 'Customer',
+          email: formData.email || orderInfo?.contactInfo?.email || 'customer@example.com',
+          phone: formData.phone || orderInfo?.contactInfo?.phone || ''
+        },
+        shippingAddress: orderInfo?.shippingAddress || null,
+        billingAddress: orderInfo?.billingAddress || orderInfo?.shippingAddress || null,
+        shippingMethod: orderInfo?.shippingMethod || 'Standard Shipping'
+      };
+
+      // Update the payment status in the store
+      orderStore.setPaymentStatus({
+        status: 'success',
+        transactionId: transactionId,
+        paymentMethod: paymentMethod,
+        date: new Date()
+      });
+      
+      console.log("Navigating to order confirmation with:", orderDetails);
+      
+      // Navigate to order confirmation page
+      navigate('/order-confirmation', {
+        state: { orderDetails }
+      });
+    } catch (error) {
+      console.error('Navigation error:', error);
+      setPaymentStatus({
+        status: 'error',
+        message: 'Error processing your payment. Please try again.'
+      });
+      setIsProcessing(false);
+    }
   };
 
   const processCreditCardPayment = async () => {
@@ -238,79 +369,27 @@ const PaymentPage = () => {
     }
     
     try {
+      setPaymentStatus({
+        status: 'processing',
+        message: 'Processing your payment...'
+      });
+      
       // In a real app, you would call your payment processor here
-      const response = await mockPaystackInitialize(formData.email, formData.amount);
+      const response = await mockCreditCardPayment(cardDetails);
       
       setPaymentStatus({
         status: 'success',
-        message: 'Payment successful! Your order is being processed.'
+        message: 'Payment successful! Preparing your order...'
       });
       
-      // Get last 4 digits of the card number
-      const last4 = cardDetails.cardNumber.replace(/\s/g, '').slice(-4);
-      
-      // Ensure numeric values for prices
-      const amount = parsePrice(formData.amount);
-      const subtotal = parsePrice(orderInfo.subtotal || amount);
-      const shipping = parsePrice(orderInfo.shipping || 0);
-      const tax = parsePrice(orderInfo.tax || 0);
-      const discount = parsePrice(orderInfo.discount || 0);
-      
-      // Process order items to ensure valid prices and quantities
-      const processedItems = Array.isArray(orderInfo.products) 
-        ? orderInfo.products.map(item => ({
-            ...item,
-            price: parsePrice(item.price),
-            quantity: parseInt(item.quantity) || 1
-          }))
-        : [];
-      
-      // Simulate redirect after successful payment
+      // Navigate to confirmation page with a short delay
       setTimeout(() => {
-        navigate('/order-confirmation', { 
-          state: { 
-            orderDetails: {
-              id: response.reference,
-              product: productInfo.name,
-              amount: amount,
-              date: new Date().toISOString(),
-              paymentMethod: 'Credit Card',
-              // Add items array from orderInfo to ensure order details work correctly
-              items: processedItems,
-              // Include subtotal, shipping, tax etc. as numeric values
-              subtotal: subtotal,
-              shipping: shipping,
-              tax: tax,
-              discount: discount,
-              // Add customer info
-              customer: {
-                name: orderInfo.contactInfo?.name || cardDetails.cardHolder,
-                email: formData.email,
-                phone: formData.phone || orderInfo.contactInfo?.phone
-              },
-              // Add card details
-              cardDetails: {
-                brand: cardDetails.cardNumber.startsWith('4') ? 'Visa' : 
-                       cardDetails.cardNumber.startsWith('5') ? 'MasterCard' : 'Card',
-                last4: last4
-              },
-              // Add shipping address from orderInfo if available
-              shippingAddress: orderInfo.addressInfo ? {
-                name: orderInfo.addressInfo.fullName,
-                street: orderInfo.addressInfo.street,
-                city: orderInfo.addressInfo.city,
-                state: orderInfo.addressInfo.state,
-                zip: orderInfo.addressInfo.zip,
-                country: orderInfo.addressInfo.country,
-                phone: orderInfo.contactInfo?.phone
-              } : undefined
-            }
-          }
-        });
-      }, 2000);
+        navigateToOrderConfirmation('Credit Card', response.reference, formData.amount);
+      }, 1000);
       
       return true;
     } catch (error) {
+      console.error('Credit card payment error:', error);
       setPaymentStatus({
         status: 'error',
         message: error.message || 'Payment failed. Please try again.'
@@ -330,79 +409,34 @@ const PaymentPage = () => {
     }
     
     try {
-      // In a real app, you would call your payment processor API here
-      const response = await mockPaystackInitialize(formData.email, formData.amount);
-      
-      // Show pending status first as mobile money often requires user confirmation
+      // Show pending status first
       setPaymentStatus({
         status: 'pending',
         message: 'Please check your phone for a prompt to complete the payment.'
       });
       
-      // Ensure numeric values for prices
-      const amount = parsePrice(formData.amount);
-      const subtotal = parsePrice(orderInfo.subtotal || amount);
-      const shipping = parsePrice(orderInfo.shipping || 0);
-      const tax = parsePrice(orderInfo.tax || 0);
-      const discount = parsePrice(orderInfo.discount || 0);
+      // In a real app, you would call your payment processor API here
+      const response = await mockPaystackInitialize(
+        formData.email || 'customer@example.com', 
+        parsePrice(formData.amount) || 0
+      );
       
-      // Process order items to ensure valid prices and quantities
-      const processedItems = Array.isArray(orderInfo.products) 
-        ? orderInfo.products.map(item => ({
-            ...item,
-            price: parsePrice(item.price),
-            quantity: parseInt(item.quantity) || 1
-          }))
-        : [];
-      
-      // Simulate mobile money confirmation
+      // Update to success
       setTimeout(() => {
         setPaymentStatus({
           status: 'success',
-          message: 'Payment successful! Your order is being processed.'
+          message: 'Payment successful! Preparing your order...'
         });
         
         // Navigate to confirmation page
         setTimeout(() => {
-          navigate('/order-confirmation', { 
-            state: { 
-              orderDetails: {
-                id: response.reference,
-                product: productInfo.name,
-                amount: amount,
-                date: new Date().toISOString(),
-                paymentMethod: 'Mobile Money',
-                // Add items array from orderInfo to ensure order details work correctly
-                items: processedItems,
-                // Include subtotal, shipping, tax etc. as numeric values
-                subtotal: subtotal,
-                shipping: shipping,
-                tax: tax,
-                discount: discount,
-                // Add customer info
-                customer: {
-                  name: orderInfo.contactInfo?.name,
-                  email: formData.email,
-                  phone: formData.phone || orderInfo.contactInfo?.phone
-                },
-                // Add shipping address from orderInfo if available
-                shippingAddress: orderInfo.addressInfo ? {
-                  name: orderInfo.addressInfo.fullName,
-                  street: orderInfo.addressInfo.street,
-                  city: orderInfo.addressInfo.city,
-                  state: orderInfo.addressInfo.state,
-                  zip: orderInfo.addressInfo.zip,
-                  country: orderInfo.addressInfo.country,
-                  phone: formData.phone
-                } : undefined
-              }
-            }
-          });
-        }, 2000);
-      }, 3000);
+          navigateToOrderConfirmation('Mobile Money', response.reference, formData.amount);
+        }, 1000);
+      }, 1500);
       
       return true;
     } catch (error) {
+      console.error('Mobile money payment error:', error);
       setPaymentStatus({
         status: 'error',
         message: error.message || 'Mobile money payment failed. Please try again.'
@@ -414,80 +448,29 @@ const PaymentPage = () => {
   const processBankTransferPayment = async () => {
     try {
       // Generate bank transfer details
-      const reference = `REF-${Date.now()}`;
+      const reference = `BANK-${Date.now()}`;
       
       setPaymentStatus({
         status: 'pending',
         message: 'Please complete your bank transfer with the details provided.'
       });
       
-      // Ensure numeric values for prices
-      const amount = parsePrice(formData.amount);
-      const subtotal = parsePrice(orderInfo.subtotal || amount);
-      const shipping = parsePrice(orderInfo.shipping || 0);
-      const tax = parsePrice(orderInfo.tax || 0);
-      const discount = parsePrice(orderInfo.discount || 0);
-      
-      // Process order items to ensure valid prices and quantities
-      const processedItems = Array.isArray(orderInfo.products) 
-        ? orderInfo.products.map(item => ({
-            ...item,
-            price: parsePrice(item.price),
-            quantity: parseInt(item.quantity) || 1
-          }))
-        : [];
-      
-      // In a real app, you would show bank account details here
-      // For simplification, we'll just simulate a successful transfer
-      
       // Simulate waiting for bank transfer
       setTimeout(() => {
         setPaymentStatus({
           status: 'success',
-          message: 'Bank transfer confirmed! Your order is being processed.'
+          message: 'Bank transfer confirmed! Preparing your order...'
         });
         
         // Navigate to confirmation page
         setTimeout(() => {
-          navigate('/order-confirmation', { 
-            state: { 
-              orderDetails: {
-                id: reference,
-                product: productInfo.name,
-                amount: amount,
-                date: new Date().toISOString(),
-                paymentMethod: 'Bank Transfer',
-                // Add items array from orderInfo to ensure order details work correctly
-                items: processedItems,
-                // Include subtotal, shipping, tax etc. as numeric values
-                subtotal: subtotal,
-                shipping: shipping,
-                tax: tax,
-                discount: discount,
-                // Add customer info
-                customer: {
-                  name: orderInfo.contactInfo?.name,
-                  email: formData.email,
-                  phone: orderInfo.contactInfo?.phone
-                },
-                // Add shipping address from orderInfo if available
-                shippingAddress: orderInfo.addressInfo ? {
-                  name: orderInfo.addressInfo.fullName,
-                  street: orderInfo.addressInfo.street,
-                  city: orderInfo.addressInfo.city,
-                  state: orderInfo.addressInfo.state,
-                  zip: orderInfo.addressInfo.zip,
-                  country: orderInfo.addressInfo.country,
-                  phone: orderInfo.contactInfo?.phone
-                } : undefined
-              }
-            }
-          });
-        }, 2000);
-      }, 3000);
+          navigateToOrderConfirmation('Bank Transfer', reference, formData.amount);
+        }, 1000);
+      }, 2000);
       
       return true;
     } catch (error) {
+      console.error('Bank transfer error:', error);
       setPaymentStatus({
         status: 'error',
         message: error.message || 'Bank transfer setup failed. Please try again.'
@@ -496,10 +479,9 @@ const PaymentPage = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handlePayment = async () => {
     setIsProcessing(true);
-
+    
     try {
       let success = false;
       
@@ -534,78 +516,10 @@ const PaymentPage = () => {
     }
   };
 
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    
-    try {
-      let response;
-      let receiptNumber = `INV-${Date.now()}`;
-      
-      // Based on selected payment method, call appropriate processor
-      if (selectedMethod === 'credit-card') {
-        response = await mockCreditCardPayment(cardDetails);
-      } else if (selectedMethod === 'paystack') {
-        response = await mockPaystackInitialize(formData.email, parseFloat(formData.amount), 'GHS');
-      } else {
-        throw new Error('Please select a payment method');
-      }
-      
-      if (response.status === 'success') {
-        // Set success status and prepare navigation
-        setPaymentStatus({
-          status: 'success',
-          message: 'Payment successful!'
-        });
-        
-        setTimeout(() => {
-          // Construct order details for confirmation page
-          const orderDetails = {
-            paymentMethod: selectedMethod === 'credit-card' ? 'Credit Card' : 'Mobile Money',
-            cardDetails: selectedMethod === 'credit-card' ? {
-              brand: getCardBrand(cardDetails.cardNumber),
-              last4: cardDetails.cardNumber.slice(-4)
-            } : null,
-            transactionId: response.reference || response.transaction?.id || `txn_${Date.now()}`,
-            amount: total,
-            date: new Date(),
-            receiptId: receiptNumber,
-            // Include items from cart or single product
-            items: orderInfo.products,
-            // Include shipping & customer information
-            shippingAddress: orderInfo.shippingAddress,
-            billingAddress: orderInfo.billingAddress,
-            shippingMethod: orderInfo.shippingMethodName,
-            subtotal: orderInfo.subtotal,
-            shipping: orderInfo.shipping,
-            tax: orderInfo.tax,
-            discount: orderInfo.discount,
-            customer: orderInfo.customer,
-            // Include user information if available
-            userId: orderInfo.userId,
-            isNewUser: orderInfo.isNewUser
-          };
-          
-          // Navigate to confirmation page
-          navigate('/order-confirmation', {
-            state: { orderDetails }
-          });
-        }, 1500);
-      } else {
-        // Handle payment failure
-        setPaymentStatus({
-          status: 'error',
-          message: response.message || 'Payment failed. Please try again.'
-        });
-        setIsProcessing(false);
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      setPaymentStatus({
-        status: 'error',
-        message: error.message || 'An error occurred during payment processing. Please try again.'
-      });
-      setIsProcessing(false);
-    }
+  // Replace the handleSubmit function to use handlePayment
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handlePayment();
   };
 
   return (
@@ -625,52 +539,105 @@ const PaymentPage = () => {
             <div className="bg-gray-50 p-8 flex flex-col">
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
-                <div className="aspect-[3/4] max-w-sm mx-auto mb-6 overflow-hidden rounded-lg">
-                  <img
-                    src={currentImage}
-                    alt={productInfo.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      console.error('Image failed to load:', currentImage);
-                      e.target.src = 'https://via.placeholder.com/400x500';
-                    }}
-                  />
-                </div>
+                
+                {/* If we have multiple products from orderInfo, show them all */}
+                {orderInfo && orderInfo.products && orderInfo.products.length > 0 ? (
+                  <div className="space-y-4 mb-6">
+                    {orderInfo.products.map((product, index) => (
+                      <div key={index} className="flex items-center space-x-4">
+                        <div className="w-16 h-16 overflow-hidden rounded-lg">
+                          <img
+                            src={product.image || 'https://via.placeholder.com/400x500'}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/150?text=Product';
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium">{product.name}</h3>
+                          <p className="text-sm text-gray-600">
+                            {product.colorName && `Color: ${product.colorName}`} 
+                            {product.size && product.colorName && ' | '} 
+                            {product.size && `Size: ${product.size}`}
+                            {product.quantity > 1 && ` | Qty: ${product.quantity}`}
+                          </p>
+                        </div>
+                        <div className="font-medium">
+                          {typeof product.price === 'number' ? `€${product.price.toFixed(2)}` : product.price}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="aspect-[3/4] max-w-sm mx-auto mb-6 overflow-hidden rounded-lg">
+                    <img
+                      src={currentImage || productInfo.image}
+                      alt={productInfo.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error('Image failed to load:', currentImage);
+                        e.target.src = 'https://via.placeholder.com/400x500';
+                      }}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Product</span>
-                    <span className="font-medium">{productInfo.name}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Price</span>
-                    <span className="font-medium text-lg">
-                      {productInfo.allVariants[selectedVariantIndex]?.price || productInfo.price}
+                    <span className="font-medium">
+                      {orderInfo && orderInfo.products && orderInfo.products.length > 1 
+                        ? `${orderInfo.products.length} items` 
+                        : productInfo.name}
                     </span>
                   </div>
-                  {productInfo.allVariants && productInfo.allVariants.length > 0 && (
-                    <div>
-                      <span className="text-gray-600 block mb-2">Color</span>
-                      <div className="flex gap-2">
-                        {productInfo.allVariants.map((variant, index) => (
-                          <button
-                            key={index}
-                            className={`w-6 h-6 rounded-full border-2 transition-all duration-200 ${
-                              selectedVariantIndex === index 
-                                ? 'border-blue-500 ring-2 ring-blue-500 ring-offset-2' 
-                                : 'border-gray-300 hover:border-gray-400'
-                            }`}
-                            style={{ backgroundColor: variant.color }}
-                            onClick={() => handleVariantSelect(index)}
-                          />
-                        ))}
-                      </div>
+                  
+                  {!orderInfo.subtotal && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Price</span>
+                      <span className="font-medium text-lg">
+                        {productInfo.allVariants[selectedVariantIndex]?.price || productInfo.price}
+                      </span>
                     </div>
                   )}
+                  
+                  {orderInfo && orderInfo.subtotal !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="font-medium text-lg">{safelyFormatPrice(orderInfo.subtotal)}</span>
+                    </div>
+                  )}
+                  
+                  {orderInfo && orderInfo.shipping !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Shipping</span>
+                      <span className="font-medium text-lg">{safelyFormatPrice(orderInfo.shipping)}</span>
+                    </div>
+                  )}
+                  
+                  {orderInfo && orderInfo.tax !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Tax</span>
+                      <span className="font-medium text-lg">{safelyFormatPrice(orderInfo.tax)}</span>
+                    </div>
+                  )}
+                  
+                  {orderInfo && orderInfo.discount !== undefined && orderInfo.discount > 0 && (
+                    <div className="flex justify-between items-center text-green-600">
+                      <span>Discount</span>
+                      <span className="font-medium text-lg">-{safelyFormatPrice(orderInfo.discount)}</span>
+                    </div>
+                  )}
+                  
                   <div className="border-t border-gray-200 pt-4">
                     <div className="flex justify-between items-center">
                       <span className="font-medium">Total</span>
                       <span className="font-bold text-xl text-blue-600">
-                        {productInfo.allVariants[selectedVariantIndex]?.price || productInfo.price}
+                        {orderInfo && orderInfo.total !== undefined
+                          ? safelyFormatPrice(orderInfo.total)
+                          : productInfo.allVariants[selectedVariantIndex]?.price || productInfo.price}
                       </span>
                     </div>
                   </div>

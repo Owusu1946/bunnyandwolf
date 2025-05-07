@@ -218,14 +218,14 @@ const Navbar = () => {
                           <RiUserSettingsLine className="w-4 h-4 mr-3 text-gray-500" />
                           <span>My Profile</span>
                         </Link>
-                        <Link 
+                        {/* <Link 
                           to="/orders" 
                           className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
                           onClick={() => setIsProfileDropdownOpen(false)}
                         >
                           <FaShoppingBag className="w-4 h-4 mr-3 text-gray-500" />
                           <span>Order History</span>
-                        </Link>
+                        </Link> */}
                         <Link 
                           to="/wishlist" 
                           className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"

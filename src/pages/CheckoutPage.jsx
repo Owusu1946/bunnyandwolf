@@ -21,11 +21,13 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { register } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
+import { useOrderStore } from '../store/orderStore';
 
 const CheckoutPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const orderStore = useOrderStore();
   
   // Check if coming from cart or product page
   const isFromCart = location.state?.fromCart || false;
@@ -420,7 +422,17 @@ const CheckoutPage = () => {
 
       // Construct order info
       const orderInfo = {
-        products: orderProducts,
+        products: orderProducts.map(product => ({
+          id: product.id || `PROD-${Math.random().toString(36).substr(2, 9)}`,
+          name: product.name,
+          price: product.price,
+          quantity: product.quantity,
+          image: product.image,
+          variant: {
+            color: product.colorName || product.selectedColor,
+            size: product.size
+          }
+        })),
         contactInfo: {
           email: contactInfo.email,
           phone: contactInfo.phone
@@ -458,17 +470,58 @@ const CheckoutPage = () => {
           email: contactInfo.email,
           phone: contactInfo.phone
         },
-        // Add user information if logged in or just registered
         userId: user ? user.id : null,
         isNewUser: isNewUser,
         date: new Date().toISOString(),
         orderNumber: `ORD-${Date.now()}`
       };
-
-      // Navigate to payment page with order info and other relevant state
+      
+      // Create a draft order for orderStore
+      const draftOrder = {
+        _id: `draft-${Date.now()}`,
+        orderNumber: orderInfo.orderNumber,
+        status: 'Draft',
+        trackingNumber: `TRK${Math.floor(Math.random() * 10000000000)}`,
+        items: orderProducts,
+        totalAmount: totalCalc,
+        subtotal: subtotalCalc,
+        shipping: shippingCost,
+        tax: tax,
+        discount: discountAmount,
+        shippingAddress: {
+          name: `${addressInfo.firstName} ${addressInfo.lastName}`,
+          street: addressInfo.address1,
+          addressLine2: addressInfo.address2,
+          city: addressInfo.city,
+          state: addressInfo.state,
+          zip: addressInfo.zipCode,
+          country: addressInfo.country,
+          phone: contactInfo.phone
+        },
+        billingAddress: {
+          name: `${addressInfo.firstName} ${addressInfo.lastName}`,
+          street: addressInfo.address1,
+          city: addressInfo.city,
+          state: addressInfo.state,
+          zip: addressInfo.zipCode,
+          country: addressInfo.country
+        },
+        customerName: `${addressInfo.firstName} ${addressInfo.lastName}`,
+        customerEmail: contactInfo.email,
+        shippingMethod: shippingMethod,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Save to Zustand store
+      orderStore.setOrderInfo(orderInfo);
+      
+      // Add draft order to store orders array - will be updated with final details after payment
+      // but ensures it shows in Profile even if user abandons checkout
+      orderStore.addOrder(draftOrder);
+      
+      // Navigate to payment page (no need to pass orderInfo in state)
       navigate('/payment', { 
         state: { 
-          orderInfo,
           isFromCart,
           clearCartOnSuccess: isFromCart
         } 
