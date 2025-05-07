@@ -18,9 +18,47 @@ export const register = async (userData) => {
 
 export const login = async (email, password) => {
   try {
-    const response = await axios.post(`${API_URL}/auth/login`, { email, password });
+    console.log('🔄 Login request initiated to:', `${API_URL}/auth/login`);
+    console.log('📦 Request body:', { email, password: '********' });
+    
+    const response = await axios.post(`${API_URL}/auth/login`, { email, password }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).catch(error => {
+      console.error('❌ Network error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      throw error;
+    });
+    
+    console.log('✅ Login response successful:', {
+      success: response.data.success,
+      status: response.status,
+      hasToken: !!response.data.token,
+      hasUser: !!response.data.user
+    });
+    
+    // Store token in local storage if remember me is checked
+    if (response.data.token) {
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      console.log('💾 Auth data stored in localStorage');
+    }
+    
     return response.data;
   } catch (error) {
+    console.error('❌ Login error:', { 
+      message: error.message, 
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    if (error.response?.data?.error) {
+      console.error('📄 Server error message:', error.response.data.error);
+    }
     throw error.response?.data?.error || 'Invalid credentials';
   }
 };

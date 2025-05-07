@@ -6,6 +6,7 @@ import { FiShoppingCart, FiDollarSign } from 'react-icons/fi';
 import { GiCardboardBox } from 'react-icons/gi';
 import { login, socialAuth } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
+import apiConfig from '../config/apiConfig';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -52,7 +53,22 @@ const Login = () => {
     }
 
     try {
+      console.log('🔑 Login attempt:', { email: formData.email, passwordLength: formData.password.length });
+      console.log('📡 API URL used:', apiConfig.baseURL);
+      
       const response = await login(formData.email, formData.password);
+      
+      console.log('✅ Login response:', { 
+        success: !!response, 
+        hasToken: !!response?.token, 
+        hasUser: !!response?.user,
+        user: response?.user ? {
+          firstName: response.user.firstName,
+          lastName: response.user.lastName,
+          email: response.user.email,
+          role: response.user.role
+        } : null
+      });
       
       if (!response || !response.token || !response.user) {
         throw new Error('Invalid response from server');
@@ -70,17 +86,24 @@ const Login = () => {
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(userData));
       
+      console.log('💾 User data stored in localStorage', { 
+        token: !!response.token,
+        user: userData 
+      });
+      
       // Update the user state in AuthContext
       setUser(userData);
+      console.log('🔄 User state updated in AuthContext');
 
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
       }
       
       // Navigate to home page
+      console.log('🔀 Navigating to home page');
       navigate('/home');
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('❌ Login error:', err);
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -348,6 +371,48 @@ const Login = () => {
                 className="group relative w-full flex justify-center py-3 px-4 border border-white text-sm font-medium rounded-lg text-black bg-white hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 {loading ? 'Signing in...' : 'Sign in'}
+              </motion.button>
+            </div>
+
+            {/* Test API connection button */}
+            <div>
+              <motion.button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    setError('');
+                    console.log('Testing API connection to:', apiConfig.baseURL);
+                    
+                    // Simple fetch request to test connectivity
+                    const response = await fetch(`${apiConfig.baseURL}/auth/test-connection`, {
+                      method: 'GET',
+                      headers: {
+                        'Content-Type': 'application/json'
+                      }
+                    });
+                    
+                    const data = await response.json();
+                    console.log('API test response:', data);
+                    
+                    if (response.ok) {
+                      alert(`API connection successful: ${JSON.stringify(data)}`);
+                    } else {
+                      throw new Error(data.error || 'Connection failed');
+                    }
+                  } catch (err) {
+                    console.error('API test error:', err);
+                    setError(`API connection error: ${err.message}`);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="mt-4 group relative w-full flex justify-center py-2 px-4 border border-cyan-500 text-sm font-medium rounded-lg text-cyan-500 bg-transparent hover:bg-cyan-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Test API Connection
               </motion.button>
             </div>
 
