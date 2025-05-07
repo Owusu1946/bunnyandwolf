@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import apiConfig from '../config/apiConfig';
 
 export const useProductStore = create(
   persist(
@@ -140,7 +141,7 @@ export const useProductStore = create(
       // Fetch products from API
       fetchProductsFromAPI: async () => {
         try {
-          const response = await fetch('http://localhost:5000/api/v1/products');
+          const response = await fetch(`${apiConfig.baseURL}/products`);
           const data = await response.json();
           
           if (data.success) {

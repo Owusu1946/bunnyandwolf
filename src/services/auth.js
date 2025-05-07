@@ -1,6 +1,7 @@
 import axios from 'axios';
+import apiConfig from '../config/apiConfig';
 
-const API_URL = 'http://localhost:5000/api/v1';
+const API_URL = apiConfig.baseURL;
 
 export const register = async (userData) => {
   try {
@@ -31,9 +32,12 @@ export const socialAuth = async (provider) => {
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
     
+    // Extract the base domain without the /api/v1 path
+    const baseUrl = apiConfig.baseURL.replace('/api/v1', '');
+    
     return new Promise((resolve, reject) => {
       const popup = window.open(
-        `http://localhost:5000/api/v1/auth/${provider}`,
+        `${baseUrl}/api/v1/auth/${provider}`,
         'Social Login',
         `width=${width},height=${height},left=${left},top=${top}`
       );
@@ -51,8 +55,11 @@ export const socialAuth = async (provider) => {
         }
       }, 1000);
 
+      // Use the domain from our config
+      const expectedOrigin = new URL(baseUrl).origin;
+      
       window.addEventListener('message', function(event) {
-        if (event.origin !== 'http://localhost:5000') return;
+        if (event.origin !== expectedOrigin) return;
         
         clearInterval(timer);
         

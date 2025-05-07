@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import apiConfig from '../config/apiConfig';
 
 export const useAdminOrderStore = create((set, get) => ({
   // Store state
@@ -22,17 +23,15 @@ export const useAdminOrderStore = create((set, get) => ({
         throw new Error('Authentication required');
       }
       
-      // Use environment-aware API URL
-      const API_URL = import.meta.env.PROD 
-        ? 'https://sinosply-backend.onrender.com/api/v1/admin/orders'
-        : 'http://localhost:5000/api/v1/admin/orders';
+      // Use the API config
+      const API_URL = `${apiConfig.baseURL}/admin/orders`;
       
       console.log('📡 [adminOrderStore] Sending request to:', API_URL);
       const response = await axios.get(API_URL, {
         headers: {
           Authorization: `Bearer ${token}`
         },
-        timeout: 10000 // Add 10 second timeout
+        timeout: apiConfig.timeout
       }).catch(error => {
         console.error('❌ [adminOrderStore] Network error details:', {
           message: error.message,
@@ -160,7 +159,7 @@ export const useAdminOrderStore = create((set, get) => ({
       }
       
       const response = await axios.patch(
-        `http://localhost:5000/api/v1/admin/orders/${orderId}/status`,
+        `${apiConfig.baseURL}/admin/orders/${orderId}/status`,
         { status: newStatus },
         {
           headers: {
@@ -214,7 +213,7 @@ export const useAdminOrderStore = create((set, get) => ({
       };
       
       const response = await axios.patch(
-        `http://localhost:5000/api/v1/admin/orders/${orderId}/tracking`,
+        `${apiConfig.baseURL}/admin/orders/${orderId}/tracking`,
         updateData,
         {
           headers: {
