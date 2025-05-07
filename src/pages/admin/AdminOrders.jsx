@@ -4,6 +4,7 @@ import { useAdminOrderStore } from '../../store/adminOrderStore';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import axios from 'axios';
+import apiConfig from '../../config/apiConfig';
 
 const AdminOrders = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +35,7 @@ const AdminOrders = () => {
       const token = localStorage.getItem('token');
       
       // Test the API test endpoint
-      const testResponse = await axios.get('http://localhost:5000/api/v1/admin/test', {
+      const testResponse = await axios.get(`${apiConfig.baseURL}/admin/test`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 5000
       });
@@ -47,7 +48,7 @@ const AdminOrders = () => {
       });
 
       // Try the real orders endpoint
-      const ordersResponse = await axios.get('http://localhost:5000/api/v1/admin/orders', {
+      const ordersResponse = await axios.get(`${apiConfig.baseURL}/admin/orders`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 5000
       });

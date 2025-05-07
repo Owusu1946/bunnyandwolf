@@ -3,6 +3,7 @@ import { FaUser, FaEnvelope, FaEdit, FaKey, FaCheck, FaSearch } from 'react-icon
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import apiConfig from '../../config/apiConfig';
 
 const AdminProfile = () => {
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,7 @@ const AdminProfile = () => {
   const fetchAdminProfile = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/v1/admin/profile', {
+      const response = await axios.get(`${apiConfig.baseURL}/admin/profile`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -65,7 +66,7 @@ const AdminProfile = () => {
     setLoading(true);
 
     try {
-      const response = await axios.put('http://localhost:5000/api/v1/admin/profile', {
+      const response = await axios.put(`${apiConfig.baseURL}/admin/profile`, {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
@@ -99,7 +100,7 @@ const AdminProfile = () => {
     }
 
     try {
-      await axios.put('http://localhost:5000/api/v1/admin/change-password', {
+      await axios.put(`${apiConfig.baseURL}/admin/change-password`, {
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
       }, {

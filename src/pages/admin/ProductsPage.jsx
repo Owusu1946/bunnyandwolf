@@ -4,6 +4,7 @@ import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { useProductStore } from '../../store/productStore';
+import apiConfig from '../../config/apiConfig';
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
@@ -63,7 +64,7 @@ const ProductsPage = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/v1/products`, {
+      const response = await axios.get(`${apiConfig.baseURL}/products`, {
         params: {
           page: currentPage,
           limit: 10,
@@ -285,7 +286,7 @@ const ProductsPage = () => {
       }
       
       const response = await axios.post(
-        'http://localhost:5000/api/v1/products',
+        `${apiConfig.baseURL}/products`,
         productData,
         {
           headers: {
@@ -347,7 +348,7 @@ const ProductsPage = () => {
         const token = localStorage.getItem('token');
         
         const response = await axios.delete(
-          `http://localhost:5000/api/v1/products/${id}`,
+          `${apiConfig.baseURL}/products/${id}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -393,7 +394,7 @@ const ProductsPage = () => {
       const token = localStorage.getItem('token');
       
       const response = await axios.delete(
-        `http://localhost:5000/api/v1/products/${productToDelete._id}`,
+        `${apiConfig.baseURL}/products/${productToDelete._id}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -441,7 +442,7 @@ const ProductsPage = () => {
       const token = localStorage.getItem('token');
       
       const response = await axios.post(
-        'http://localhost:5000/api/v1/products',
+        `${apiConfig.baseURL}/products`,
         duplicatedProduct,
         {
           headers: {
@@ -574,7 +575,7 @@ const ProductsPage = () => {
       }
       
       const response = await axios.put(
-        `http://localhost:5000/api/v1/products/${editingProduct._id}`,
+        `${apiConfig.baseURL}/products/${editingProduct._id}`,
         productData,
         {
           headers: {
