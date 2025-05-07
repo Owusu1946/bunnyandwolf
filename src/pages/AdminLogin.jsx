@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import LoadingOverlay from '../components/LoadingOverlay';
+import apiConfig from '../config/apiConfig';
 
 const AdminLogin = () => {
   const [formData, setFormData] = useState({
@@ -27,7 +28,9 @@ const AdminLogin = () => {
     setLoading(true);
     
     try {
-      const response = await axios.post('http://localhost:5000/api/v1/auth/admin/login', {
+      console.log('Attempting admin login with API URL:', `${apiConfig.baseURL}/auth/admin/login`);
+      
+      const response = await axios.post(`${apiConfig.baseURL}/auth/admin/login`, {
         email: formData.email,
         password: formData.password
       });
@@ -103,6 +106,35 @@ const AdminLogin = () => {
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500"
             >
               Sign in as Admin
+            </button>
+          </div>
+          
+          {/* Test API Connection Button */}
+          <div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  setError('');
+                  const testUrl = `${apiConfig.baseURL}/auth/test-connection`;
+                  console.log('Testing API connection:', testUrl);
+                  
+                  const response = await fetch(testUrl);
+                  const data = await response.json();
+                  
+                  console.log('API test response:', data);
+                  alert(`API Connection Test: ${JSON.stringify(data)}`);
+                } catch (err) {
+                  console.error('API test error:', err);
+                  setError(`API Connection Failed: ${err.message}`);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="mt-4 group relative w-full flex justify-center py-2 px-4 border border-cyan-500 text-sm font-medium rounded-md text-cyan-500 bg-transparent hover:bg-cyan-700/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500"
+            >
+              Test API Connection
             </button>
           </div>
         </form>
