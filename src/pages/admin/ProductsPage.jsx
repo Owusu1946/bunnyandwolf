@@ -648,13 +648,12 @@ const ProductsPage = () => {
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="all">All Categories</option>
-                  <option value="dresses">Dresses</option>
-                  <option value="tops">Tops</option>
-                  <option value="bottoms">Bottoms</option>
-                  <option value="outerwear">Outerwear</option>
-                  <option value="activewear">Activewear</option>
-                  <option value="accessories">Accessories</option>
-                  <option value="shoes">Shoes</option>
+                  <option value="NEW ARRIVALS">NEW ARRIVALS</option>
+                  <option value="BEST SELLERS">BEST SELLERS</option>
+                  <option value="DRESSES">DRESSES</option>
+                  <option value="TOPS">TOPS</option>
+                  <option value="BOTTOMS">BOTTOMS</option>
+                  <option value="BACK IN STOCK">BACK IN STOCK</option>
                 </select>
               </div>
               <button
@@ -843,13 +842,12 @@ const ProductsPage = () => {
                           required
                         >
                           <option value="">Select Category</option>
-                          <option value="dresses">Dresses</option>
-                          <option value="tops">Tops</option>
-                          <option value="bottoms">Bottoms</option>
-                          <option value="outerwear">Outerwear</option>
-                          <option value="activewear">Activewear</option>
-                          <option value="accessories">Accessories</option>
-                          <option value="shoes">Shoes</option>
+                          <option value="NEW ARRIVALS">NEW ARRIVALS</option>
+                          <option value="BEST SELLERS">BEST SELLERS</option>
+                          <option value="DRESSES">DRESSES</option>
+                          <option value="TOPS">TOPS</option>
+                          <option value="BOTTOMS">BOTTOMS</option>
+                          <option value="BACK IN STOCK">BACK IN STOCK</option>
                         </select>
                       </div>
                       
@@ -859,7 +857,7 @@ const ProductsPage = () => {
                         </label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="text-gray-500">€</span>
+                            <span className="text-gray-500">GH₵</span>
                           </div>
                           <input
                             type="number"
@@ -880,7 +878,7 @@ const ProductsPage = () => {
                         </label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="text-gray-500">€</span>
+                            <span className="text-gray-500">GH₵</span>
                           </div>
                           <input
                             type="number"
@@ -1046,7 +1044,7 @@ const ProductsPage = () => {
                               </label>
                               <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                  <span className="text-gray-500">€</span>
+                                  <span className="text-gray-500">GH₵</span>
                                 </div>
                                 <input
                                   type="number"
@@ -1193,13 +1191,12 @@ const ProductsPage = () => {
                           required
                         >
                           <option value="">Select Category</option>
-                          <option value="dresses">Dresses</option>
-                          <option value="tops">Tops</option>
-                          <option value="bottoms">Bottoms</option>
-                          <option value="outerwear">Outerwear</option>
-                          <option value="activewear">Activewear</option>
-                          <option value="accessories">Accessories</option>
-                          <option value="shoes">Shoes</option>
+                          <option value="NEW ARRIVALS">NEW ARRIVALS</option>
+                          <option value="BEST SELLERS">BEST SELLERS</option>
+                          <option value="DRESSES">DRESSES</option>
+                          <option value="TOPS">TOPS</option>
+                          <option value="BOTTOMS">BOTTOMS</option>
+                          <option value="BACK IN STOCK">BACK IN STOCK</option>
                         </select>
                       </div>
                       
@@ -1209,7 +1206,7 @@ const ProductsPage = () => {
                         </label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="text-gray-500">€</span>
+                            <span className="text-gray-500">GH₵</span>
                           </div>
                           <input
                             type="number"
@@ -1230,7 +1227,7 @@ const ProductsPage = () => {
                         </label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="text-gray-500">€</span>
+                            <span className="text-gray-500">GH₵</span>
                           </div>
                           <input
                             type="number"
@@ -1396,7 +1393,7 @@ const ProductsPage = () => {
                               </label>
                               <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                  <span className="text-gray-500">€</span>
+                                  <span className="text-gray-500">GH₵</span>
                                 </div>
                                 <input
                                   type="number"

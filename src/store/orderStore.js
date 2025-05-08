@@ -8,6 +8,7 @@ export const useOrderStore = create(
       paymentStatus: null,
       trackingInfo: null,
       orders: [], // Store user orders
+      selectedOrder: null, // Track the currently selected order for view/edit
       
       setOrderInfo: (orderInfo) => {
         // Create a tracking number if not provided
@@ -135,14 +136,49 @@ export const useOrderStore = create(
         };
 
         set({ orders: [sampleOrder] });
-      }
+      },
+
+      // New functions for selected order
+      selectOrder: (orderId) => {
+        const orders = get().orders;
+        const order = orders.find(o => o._id === orderId);
+        set({ selectedOrder: order || null });
+      },
+      
+      clearSelectedOrder: () => set({ selectedOrder: null }),
+      
+      getSelectedOrder: () => get().selectedOrder,
+
+      // Add update order function
+      updateOrder: (orderId, updatedData) => {
+        const orders = get().orders;
+        const updatedOrders = orders.map(order => 
+          order._id === orderId ? { ...order, ...updatedData, updatedAt: new Date().toISOString() } : order
+        );
+        
+        set({ 
+          orders: updatedOrders,
+          // If the selected order is being updated, update that too
+          selectedOrder: get().selectedOrder?._id === orderId 
+            ? { ...get().selectedOrder, ...updatedData, updatedAt: new Date().toISOString() } 
+            : get().selectedOrder
+        });
+        
+        return updatedOrders.find(order => order._id === orderId);
+      },
+
+      // Convenience function to just update status
+      updateOrderStatus: (orderId, newStatus) => {
+        return get().updateOrder(orderId, { status: newStatus });
+      },
     }),
     {
       name: 'sinosply-order-storage',
       partialize: (state) => ({ 
         orderInfo: state.orderInfo,
         trackingInfo: state.trackingInfo,
-        orders: state.orders // Also persist orders
+        orders: state.orders,
+        selectedOrder: state.selectedOrder // Also persist selectedOrder
       })
     }
   )

@@ -3,6 +3,7 @@ import { FaCog, FaBell, FaGlobe, FaLock, FaCheck, FaSearch } from 'react-icons/f
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import apiConfig from '../../config/apiConfig';
 
 const AdminSettings = () => {
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,7 @@ const AdminSettings = () => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/v1/admin/settings', {
+      const response = await axios.get('${apiConfig.baseURL}/admin/settings', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -56,7 +57,7 @@ const AdminSettings = () => {
     setLoading(true);
 
     try {
-      await axios.put('http://localhost:5000/api/v1/admin/settings', settings, {
+      await axios.put('${apiConfig.baseURL}/admin/settings', settings, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }

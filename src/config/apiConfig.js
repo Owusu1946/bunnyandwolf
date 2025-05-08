@@ -5,8 +5,8 @@ const apiConfig = {
     ? 'https://sinosply-backend.onrender.com/api/v1'
     : 'http://localhost:5000/api/v1',
     
-  // Request timeout in milliseconds
-  timeout: 15000,
+  // Request timeout in milliseconds - increased to prevent timeout errors
+  timeout: 30000,
   
   // Get auth token from localStorage
   getAuthHeader: () => {

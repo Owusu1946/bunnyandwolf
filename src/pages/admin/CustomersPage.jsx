@@ -1,93 +1,365 @@
-import { useState, useEffect } from 'react';
-import { FaSearch, FaEye, FaUserEdit, FaTrash } from 'react-icons/fa';
-import axios from 'axios';
+import { useState, useEffect, useCallback } from 'react';
+import { FaSearch, FaEye, FaUserEdit, FaTrash, FaSync, FaCheck, FaDownload, FaDatabase, FaExclamationTriangle, FaWifi, FaNetworkWired } from 'react-icons/fa';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import { useCustomersStore } from '../../store/customersStore';
+
+// Format time ago for display
+function formatTimeAgo(timestamp) {
+  const now = Date.now();
+  const seconds = Math.floor((now - timestamp) / 1000);
+  
+  if (seconds < 60) return `${seconds} seconds ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  return `${Math.floor(seconds / 86400)} days ago`;
+}
+
+// Skeleton loader for customer rows
+const CustomerRowSkeleton = () => {
+  return (
+    <div className="grid grid-cols-5 gap-4 px-6 py-4 animate-pulse">
+      <div className="col-span-2">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full"></div>
+          <div className="ml-4">
+            <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded w-32"></div>
+          </div>
+        </div>
+      </div>
+      <div className="h-4 bg-gray-200 rounded w-20 self-center"></div>
+      <div className="self-center">
+        <div className="h-6 bg-gray-200 rounded-full w-16"></div>
+      </div>
+      <div className="flex justify-center space-x-3 self-center">
+        <div className="h-5 w-5 bg-gray-200 rounded-full"></div>
+        <div className="h-5 w-5 bg-gray-200 rounded-full"></div>
+        <div className="h-5 w-5 bg-gray-200 rounded-full"></div>
+      </div>
+    </div>
+  );
+};
+
+// Network status indicator component
+const NetworkStatus = ({ isOnline, isCached, lastUpdate, isRefreshing }) => {
+  const timeAgo = lastUpdate ? formatTimeAgo(lastUpdate) : 'never';
+  
+  return (
+    <div className="text-xs flex items-center bg-gray-50 px-2 py-1 rounded-md">
+      {isOnline ? (
+        <FaNetworkWired className="text-green-500 mr-1" title="Online" />
+      ) : (
+        <FaWifi className="text-red-500 mr-1" title="Offline" />
+      )}
+      
+      {isRefreshing ? (
+        <FaSync className="text-blue-500 animate-spin mr-1" title="Syncing" />
+      ) : isCached ? (
+        <FaDatabase className="text-blue-400 mr-1" title="Cached Data" />
+      ) : (
+        <FaDatabase className="text-green-500 mr-1" title="Live Data" />
+      )}
+      
+      <span className="ml-1">
+        {isOnline ? 'Online' : 'Offline'} • {isCached ? 'Using cache' : 'Live data'} • Updated {timeAgo}
+      </span>
+    </div>
+  );
+};
 
 const CustomersPage = () => {
-  const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [networkError, setNetworkError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  
+  // Get store state and actions
+  const { 
+    customers, 
+    totalPages, 
+    currentPage, 
+    isLoading,
+    isBackgroundRefreshing,
+    error,
+    fetchCustomers, 
+    forceRefresh,
+    deleteCustomer,
+    selectCustomer,
+    lastFetchTime,
+    isCacheStale
+  } = useCustomersStore();
 
+  // Monitor online status
   useEffect(() => {
-    fetchCustomers();
+    const handleOnline = () => {
+      console.log("[NETWORK] Browser reports online status");
+      setIsOnline(true);
+      setNetworkError(null);
+      
+      // When connection is restored, refresh data
+      if (isCacheStale()) {
+        console.log("[NETWORK] Connection restored and cache is stale, refreshing data");
+        handleRefresh();
+      }
+    };
+    
+    const handleOffline = () => {
+      console.log("[NETWORK] Browser reports offline status");
+      setIsOnline(false);
+      setNetworkError("You are currently offline. Showing cached data.");
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isCacheStale]);
+  
+  // Fetch customers on initial load only
+  useEffect(() => {
+    const loadCustomers = async () => {
+      console.log("[CUSTOMERS PAGE] Initial data load");
+      try {
+        await fetchCustomers(currentPage, 10, searchTerm);
+        setNetworkError(null);
+        setRetryCount(0);
+      } catch (err) {
+        console.error("[CUSTOMERS PAGE] Error loading customers:", err);
+        
+        // Check if it's a network error
+        if (!err.response && err.message.includes('Network Error')) {
+          setNetworkError("Cannot connect to server. Using cached data if available.");
+          setIsOnline(false);
+        }
+      }
+    };
+    
+    loadCustomers();
+    // Empty dependency array to ensure it only runs once on mount
+  }, []);
+  
+  // Handle page change as a separate effect
+  useEffect(() => {
+    // Skip on initial render
+    const handlePageChange = async () => {
+      if (currentPage > 1) {
+        console.log(`[CUSTOMERS PAGE] Changing to page ${currentPage}`);
+        try {
+          await fetchCustomers(currentPage, 10, searchTerm);
+        } catch (err) {
+          console.error("[CUSTOMERS PAGE] Page change error:", err);
+        }
+      }
+    };
+    
+    handlePageChange();
   }, [currentPage]);
 
-  const fetchCustomers = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/v1/users`, {
-        params: {
-          page: currentPage,
-          limit: 10,
-          search: searchTerm || undefined
-        },
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+  // Calculate cache status
+  const isCacheExpired = isCacheStale();
+  const cacheTimeAgo = lastFetchTime 
+    ? formatTimeAgo(lastFetchTime) 
+    : 'never';
+
+  // Handle search
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchCustomers(1, 10, searchTerm)
+      .catch(err => {
+        console.error("[CUSTOMERS PAGE] Search error:", err);
+        if (!err.response && err.message.includes('Network Error')) {
+          setNetworkError("Cannot connect to server. Searching in cached data only.");
         }
       });
-      
-      setCustomers(response.data.data);
-      setTotalPages(Math.ceil(response.data.total / 10));
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-    } finally {
-      setLoading(false);
+  };
+
+  // Handle refresh with retry logic
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setNetworkError(null);
+    
+    forceRefresh(currentPage, 10, searchTerm)
+      .then(() => {
+        setSuccessMessage('Customer list refreshed successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+        setRetryCount(0);
+        setIsOnline(true);
+      })
+      .catch(err => {
+        console.error('[CUSTOMERS PAGE] Error refreshing customers:', err);
+        
+        // Network error handling
+        if (!err.response && err.message.includes('Network Error')) {
+          setNetworkError("Cannot connect to server. Please check your internet connection.");
+          setIsOnline(false);
+        } else if (err.response && err.response.status >= 500) {
+          setNetworkError(`Server error (${err.response.status}): ${err.response.data.message || 'Unknown error'}`);
+        } else {
+          setNetworkError(`Error: ${err.message}`);
+        }
+      })
+      .finally(() => {
+        setIsRefreshing(false);
+      });
+  };
+  
+  // Retry connecting to the server
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setNetworkError(null);
+    handleRefresh();
+  };
+
+  // Handle page change
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      // Just update the page in store, the useEffect will handle the fetch
+      console.log(`[CUSTOMERS PAGE] Page change requested to: ${page}`);
+      useCustomersStore.setState({ currentPage: page });
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchCustomers();
-  };
-
+  // Handle delete with confirmation
   const handleDelete = async (id) => {
+    if (!isOnline) {
+      alert("You are offline. Cannot delete customers while offline.");
+      return;
+    }
+    
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/v1/users/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        
-        // Refresh customers list
-        fetchCustomers();
+        await deleteCustomer(id);
+        setSuccessMessage('Customer deleted successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
       } catch (error) {
-        console.error('Error deleting user:', error);
+        console.error('[CUSTOMERS PAGE] Error deleting user:', error);
+        
+        // Specific error handling for deletes
+        if (!error.response && error.message.includes('Network Error')) {
+          alert("Network error. Cannot delete customer while offline.");
+        } else if (error.response && error.response.status === 404) {
+          alert("Customer not found. It may have been already deleted.");
+        } else {
+          alert(`Error deleting customer: ${error.message}`);
+        }
       }
     }
   };
+
+  // Handle view customer
+  const handleViewCustomer = (id) => {
+    selectCustomer(id);
+    // You can add navigation to a detail page if needed
+    // navigate(`/admin/customers/${id}`);
+  };
+
+  // Determine data source for status display
+  const isUsingCachedData = isCacheExpired || !!networkError || !isOnline;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
       <div className="flex-1 ml-64">
-        {loading && <LoadingOverlay />}
+        {isLoading && !isRefreshing && <LoadingOverlay />}
         
         <div className="p-4">
-          <div className="flex justify-between items-center mb-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search customers..."
-                className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
-              />
-              <div className="absolute left-3 top-2.5 text-gray-400">
-                <FaSearch />
-              </div>
+          <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+            <div className="relative mb-4 md:mb-0">
+              <form onSubmit={handleSearch}>
+                <input
+                  type="text"
+                  placeholder="Search customers..."
+                  className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <div className="absolute left-3 top-2.5 text-gray-400">
+                  <FaSearch />
+                </div>
+                <button type="submit" className="hidden">Search</button>
+              </form>
             </div>
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white">
-                O
-              </div>
+            
+            <div className="flex items-center gap-4">
+              {/* Network/Cache status indicator */}
+              <NetworkStatus 
+                isOnline={isOnline}
+                isCached={isUsingCachedData}
+                lastUpdate={lastFetchTime}
+                isRefreshing={isBackgroundRefreshing || isRefreshing}
+              />
+              
+              <button
+                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                <FaDownload className={`mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+              </button>
             </div>
           </div>
+          
+          {/* Success message */}
+          {successMessage && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 flex items-center">
+              <FaCheck className="mr-2" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+          
+          {/* Network error message */}
+          {networkError && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-700">{networkError}</p>
+                  {!isOnline && (
+                    <p className="text-xs text-yellow-600 mt-1">
+                      Showing cached data from {formatTimeAgo(lastFetchTime)}
+                    </p>
+                  )}
+                </div>
+                <div className="ml-auto pl-3">
+                  <button 
+                    onClick={handleRetry}
+                    disabled={isRefreshing}
+                    className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded hover:bg-yellow-200 focus:outline-none"
+                  >
+                    {isRefreshing ? 'Trying...' : `Retry${retryCount > 0 ? ` (${retryCount})` : ''}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* MongoDB/API error message */}
+          {error && !networkError && (
+            <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6">
+              <h3 className="font-semibold mb-2 flex items-center">
+                <FaExclamationTriangle className="mr-2" /> Database Error:
+              </h3>
+              <p>{error}</p>
+              <div className="mt-2 flex space-x-2">
+                <button 
+                  className="text-sm px-3 py-1 bg-red-200 text-red-800 rounded-md hover:bg-red-300"
+                  onClick={handleRefresh}
+                >
+                  Refresh Data
+                </button>
+              </div>
+            </div>
+          )}
           
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="min-w-full divide-y divide-gray-200">
@@ -99,16 +371,21 @@ const CustomersPage = () => {
                   Joined Date
                 </div>
                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Orders
+                  Role
                 </div>
                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
                   Actions
                 </div>
               </div>
               
-              {customers.length > 0 ? (
-                <div className="bg-white divide-y divide-gray-200">
-                  {customers.map((customer) => (
+              <div className="bg-white divide-y divide-gray-200">
+                {isRefreshing ? (
+                  // Show skeleton loaders while refreshing
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <CustomerRowSkeleton key={index} />
+                  ))
+                ) : customers.length > 0 ? (
+                  customers.map((customer) => (
                     <div key={customer._id} className="grid grid-cols-5 gap-4 px-6 py-4 hover:bg-gray-50">
                       <div className="col-span-2">
                         <div className="flex items-center">
@@ -125,42 +402,56 @@ const CustomersPage = () => {
                         </div>
                       </div>
                       <div className="text-sm text-gray-500 self-center">
-                        {new Date(customer.createdAt).toLocaleDateString()}
+                        {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'Unknown'}
                       </div>
                       <div className="text-sm self-center">
-                        <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-                          {customer.orderCount || 0} orders
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          customer.role === 'admin' 
+                            ? 'bg-purple-100 text-purple-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {customer.role || 'user'}
                         </span>
                       </div>
                       <div className="flex justify-center space-x-3 self-center">
-                        <button className="text-blue-600 hover:text-blue-900">
+                        <button 
+                          className="text-blue-600 hover:text-blue-900"
+                          onClick={() => handleViewCustomer(customer._id)}
+                          title="View Customer"
+                        >
                           <FaEye />
                         </button>
-                        <button className="text-green-600 hover:text-green-900">
-                          <FaUserEdit />
+                        <button 
+                          className="text-green-600 hover:text-green-900"
+                          title="Edit Customer"
+                          disabled={!isOnline}
+                        >
+                          <FaUserEdit className={!isOnline ? 'opacity-50' : ''} />
                         </button>
                         <button 
-                          className="text-red-600 hover:text-red-900"
-                          onClick={() => handleDelete(customer._id)}
+                          className={`text-red-600 ${isOnline ? 'hover:text-red-900' : 'opacity-50 cursor-not-allowed'}`}
+                          onClick={isOnline ? () => handleDelete(customer._id) : undefined}
+                          title={isOnline ? "Delete Customer" : "Cannot delete while offline"}
+                          disabled={!isOnline}
                         >
                           <FaTrash />
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                  </svg>
-                  <h3 className="text-xl font-medium text-gray-700 mb-1">No customers found</h3>
-                  <p className="text-gray-500">Customers will appear here once they register</p>
-                </div>
-              )}
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20">
+                    <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    <h3 className="text-xl font-medium text-gray-700 mb-1">No customers found</h3>
+                    <p className="text-gray-500">Customers will appear here once they register</p>
+                  </div>
+                )}
+              </div>
             </div>
             
-            {customers.length > 0 && (
+            {customers.length > 0 && totalPages > 1 && (
               <div className="px-6 py-4 flex items-center justify-between border-t">
                 <div>
                   <p className="text-sm text-gray-700">
@@ -170,7 +461,7 @@ const CustomersPage = () => {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setCurrentPage(currentPage - 1)}
+                    onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                     className={`px-3 py-1 border rounded ${
                       currentPage === 1
@@ -181,7 +472,7 @@ const CustomersPage = () => {
                     Previous
                   </button>
                   <button
-                    onClick={() => setCurrentPage(currentPage + 1)}
+                    onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className={`px-3 py-1 border rounded ${
                       currentPage === totalPages

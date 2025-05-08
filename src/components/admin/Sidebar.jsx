@@ -34,7 +34,7 @@ const Sidebar = () => {
   
   const menuItems = [
     { path: '/admin/dashboard', icon: FaHome, label: 'Dashboard' },
-    { path: '/admin/orders', icon: FaShoppingCart, label: 'Orders' },
+    // { path: '/admin/orders', icon: FaShoppingCart, label: 'Orders' },
     { path: '/admin/all-orders', icon: FaShoppingCart, label: 'All Orders' },
     { path: '/admin/products', icon: FaBoxes, label: 'Products' },
     { path: '/admin/customers', icon: FaUsers, label: 'Customers' },

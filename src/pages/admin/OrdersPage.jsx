@@ -9,6 +9,7 @@ import OrderFilterPanel from '../../components/admin/orders/OrderFilterPanel';
 import OrderStatsCards from '../../components/admin/orders/OrderStatsCards';
 import OrderBulkActions from '../../components/admin/orders/OrderBulkActions';
 import { generateDummyOrders } from '../../utils/dummyData';
+import apiConfig from '../../config/apiConfig';
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -45,7 +46,7 @@ const OrdersPage = () => {
     setLoading(true);
     try {
       // In a real app, this would be an API call:
-      // const response = await axios.get('http://localhost:5000/api/v1/admin/orders');
+      // const response = await axios.get('${apiConfig.baseURL}/admin/orders');
       // setOrders(response.data.data);
       
       // Using dummy data for now
@@ -273,7 +274,7 @@ const OrdersPage = () => {
     
     try {
       // In a real app, this would call the API
-      // await axios.post('http://localhost:5000/api/v1/admin/orders/bulk-action', {
+      // await axios.post('${apiConfig.baseURL}/admin/orders/bulk-action', {
       //   orderIds: selectedOrders,
       //   action
       // });
@@ -317,7 +318,7 @@ const OrdersPage = () => {
     
     try {
       // In a real app, this would call the API
-      // await axios.put(`http://localhost:5000/api/v1/admin/orders/${orderNumber}/status`, {
+      // await axios.put(`${apiConfig.baseURL}/admin/orders/${orderNumber}/status`, {
       //   status: newStatus
       // });
       

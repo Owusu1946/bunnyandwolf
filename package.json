@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "update-api-urls": "node --experimental-json-modules --experimental-modules --es-module-specifier-resolution=node src/pages/admin/ApiUrlUpdater.js"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",
