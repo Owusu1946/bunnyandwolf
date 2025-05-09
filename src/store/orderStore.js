@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import axios from 'axios';
 
 export const useOrderStore = create(
   persist(
@@ -9,6 +10,38 @@ export const useOrderStore = create(
       trackingInfo: null,
       orders: [], // Store user orders
       selectedOrder: null, // Track the currently selected order for view/edit
+      
+      // Fetch all orders from the API
+      fetchOrders: async () => {
+        try {
+          // Get token from localStorage
+          const token = localStorage.getItem('token');
+          if (!token) {
+            console.error('No token found, cannot fetch orders');
+            return { success: false, error: 'Authentication required' };
+          }
+          
+          console.log('Fetching all orders from API...');
+          
+          // Make API request
+          const response = await axios.get('http://localhost:5000/api/v1/orders', {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          
+          console.log(`Fetched ${response.data.data.length} orders from API`);
+          console.log('Orders:', response.data.data);
+          
+          // Update store with fetched orders
+          set({ orders: response.data.data || [] });
+          
+          return { success: true, data: response.data.data };
+        } catch (error) {
+          console.error('Error fetching orders:', error);
+          return { success: false, error: error.message };
+        }
+      },
       
       setOrderInfo: (orderInfo) => {
         // Create a tracking number if not provided

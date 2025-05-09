@@ -74,18 +74,38 @@ const AdminOrders = () => {
     clearSelectedOrder,
     selectedOrder,
     updateOrder,
-    updateOrderStatus
+    updateOrderStatus,
+    fetchOrders
   } = useOrderStore();
 
-  // First load - ensure we have sample order data if no orders exist
+  // First load - fetch all orders from the API
   useEffect(() => {
-    const allOrders = getOrders();
-    if (!allOrders || allOrders.length === 0) {
-      initializeWithSampleOrder();
-    }
+    const loadOrders = async () => {
+      setIsLoading(true);
+      try {
+        console.log('Loading all orders...');
+        const result = await fetchOrders();
+        
+        // If API fetch fails or no orders were returned, try to use sample data
+        if (!result.success || !result.data || result.data.length === 0) {
+          console.log('No orders found in API, initializing with sample data');
+          initializeWithSampleOrder();
+        } else {
+          console.log(`Loaded ${result.data.length} orders`);
+        }
+      } catch (error) {
+        console.error('Error loading orders:', error);
+        setError('Failed to load orders. Using sample data instead.');
+        initializeWithSampleOrder();
+      } finally {
+        setIsLoading(false);
+        
+        // Apply initial filtering
+        filterAndSortOrders();
+      }
+    };
     
-    // Apply initial filtering
-    filterAndSortOrders();
+    loadOrders();
   }, []);
 
   // Handle filter changes

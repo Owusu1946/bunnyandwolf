@@ -49,7 +49,7 @@ const AdminDashboard = () => {
   const customerCount = totalCustomers || customers.length || 0;
   
   // Get orders data from order store
-  const { orders } = useOrderStore();
+  const { orders, fetchOrders } = useOrderStore();
   const orderCount = orders.length || 0;
   
   // Get products data
@@ -116,10 +116,19 @@ const AdminDashboard = () => {
       fetchCustomers();
     }
     
-    // Load sample order if needed for demonstration
-    if (orders.length === 0) {
-      useOrderStore.getState().initializeWithSampleOrder();
-    }
+    // Load all orders from API (or use sample if needed)
+    const loadOrders = async () => {
+      try {
+        console.log('Dashboard - Loading all orders...');
+        const result = await fetchOrders();
+        if (!result.success || orders.length === 0) {
+          useOrderStore.getState().initializeWithSampleOrder();
+        }
+      } catch (error) {
+        console.error('Dashboard - Error fetching orders:', error);
+      }
+    };
+    loadOrders();
     
     // Load products if needed
     if (products.length === 0) {
@@ -127,7 +136,7 @@ const AdminDashboard = () => {
     }
     
     fetchStats();
-  }, [user, navigate, fetchCustomers, customers.length, orders.length, products.length]);
+  }, [user, navigate, fetchCustomers, customers.length, products.length]);
 
   const fetchStats = async () => {
     try {
