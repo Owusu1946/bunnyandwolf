@@ -8,6 +8,12 @@ const apiConfig = {
   // Request timeout in milliseconds - increased to prevent timeout errors
   timeout: 30000,
   
+  // Default headers for all requests
+  headers: {
+    'Content-Type': 'application/json',
+    'Origin': import.meta.env.PROD ? 'https://bunnyandwolf.vercel.app' : 'http://localhost:5173'
+  },
+  
   // Get auth token from localStorage
   getAuthHeader: () => {
     const token = localStorage.getItem('token');
