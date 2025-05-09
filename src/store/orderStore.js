@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios';
+import apiConfig from '../config/apiConfig.js';
 
 export const useOrderStore = create(
   persist(
@@ -23,8 +24,8 @@ export const useOrderStore = create(
           
           console.log('Fetching all orders from API...');
           
-          // Make API request
-          const response = await axios.get('http://localhost:5000/api/v1/orders', {
+          // Make API request with apiConfig baseURL
+          const response = await axios.get(`${apiConfig.baseURL}/orders`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
