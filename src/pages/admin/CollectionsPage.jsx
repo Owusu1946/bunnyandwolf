@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaShoppingBag, FaEye, FaArrowLeft } from 'react-icons/fa';
+import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaShoppingBag, FaEye, FaArrowLeft, FaChevronDown, FaChevronRight, FaCheck } from 'react-icons/fa';
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
@@ -40,6 +40,10 @@ const CollectionsPage = () => {
     featured: false,
     products: []
   });
+
+  // State for managing category expansion in dropdown
+  const [expandedCategories, setExpandedCategories] = useState([]);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
 
   useEffect(() => {
     fetchCollections();
@@ -201,6 +205,64 @@ const CollectionsPage = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  // Toggle category expansion
+  const toggleCategory = (category) => {
+    setExpandedCategories(prev => 
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  // Check if a product is selected
+  const isProductSelected = (productId) => {
+    return newCollection.products.includes(productId);
+  };
+
+  // Toggle product selection
+  const toggleProductSelection = (productId) => {
+    setNewCollection(prev => {
+      if (prev.products.includes(productId)) {
+        return {
+          ...prev,
+          products: prev.products.filter(id => id !== productId)
+        };
+      } else {
+        return {
+          ...prev,
+          products: [...prev.products, productId]
+        };
+      }
+    });
+  };
+
+  // Filter products based on search term
+  const getFilteredProducts = () => {
+    if (!productSearchTerm.trim()) return allProducts;
+    
+    return allProducts.filter(product => 
+      product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+      product.description?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+      product.category.toLowerCase().includes(productSearchTerm.toLowerCase())
+    );
+  };
+
+  // Group products by category
+  const getProductsByCategory = () => {
+    const filtered = getFilteredProducts();
+    const groupedProducts = {};
+    
+    filtered.forEach(product => {
+      const category = product.category || 'Uncategorized';
+      if (!groupedProducts[category]) {
+        groupedProducts[category] = [];
+      }
+      groupedProducts[category].push(product);
+    });
+    
+    return groupedProducts;
   };
 
   const handleAddCollection = async () => {
@@ -647,7 +709,7 @@ const CollectionsPage = () => {
         {/* Add Collection Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">Add New Collection</h2>
                 <button 
@@ -717,6 +779,87 @@ const CollectionsPage = () => {
                     )}
                   </div>
                   
+                  {/* Product Selection Section */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Select Products for this Collection
+                    </label>
+                    
+                    <div className="mb-4">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search products..."
+                          value={productSearchTerm}
+                          onChange={(e) => setProductSearchTerm(e.target.value)}
+                          className="block w-full px-4 py-2 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        />
+                        <div className="absolute left-3 top-2.5 text-gray-400">
+                          <FaSearch />
+                        </div>
+                      </div>
+                      
+                      {newCollection.products.length > 0 && (
+                        <div className="mt-2 text-sm text-purple-600">
+                          {newCollection.products.length} product{newCollection.products.length !== 1 ? 's' : ''} selected
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="border border-gray-200 rounded-md max-h-96 overflow-y-auto">
+                      {Object.entries(getProductsByCategory()).map(([category, products]) => (
+                        <div key={category} className="border-b border-gray-200 last:border-b-0">
+                          <div 
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                            onClick={() => toggleCategory(category)}
+                          >
+                            <div className="font-medium">{category} ({products.length})</div>
+                            <div>
+                              {expandedCategories.includes(category) ? <FaChevronDown /> : <FaChevronRight />}
+                            </div>
+                          </div>
+                          
+                          {expandedCategories.includes(category) && (
+                            <div className="pl-4 pb-2">
+                              {products.map(product => (
+                                <div 
+                                  key={product._id} 
+                                  className={`flex items-center p-2 cursor-pointer hover:bg-gray-50 border-l-2 ${isProductSelected(product._id) ? 'border-purple-500' : 'border-transparent'}`}
+                                  onClick={() => toggleProductSelection(product._id)}
+                                >
+                                  <div className="w-8 h-8 mr-3 flex-shrink-0">
+                                    <img 
+                                      src={product.image || product.variants?.[0]?.additionalImages?.[0]} 
+                                      alt={product.name}
+                                      className="w-8 h-8 object-cover rounded-sm"
+                                      onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = 'https://via.placeholder.com/80?text=Product';
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                    <p className="text-xs text-gray-500">GH₵{product.basePrice?.toFixed(2) || "0.00"}</p>
+                                  </div>
+                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isProductSelected(product._id) ? 'bg-purple-500 text-white' : 'border border-gray-300'}`}>
+                                    {isProductSelected(product._id) && <FaCheck className="w-3 h-3" />}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {Object.keys(getProductsByCategory()).length === 0 && (
+                        <div className="p-4 text-center text-gray-500">
+                          No products found matching your search.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
                   <div className="flex items-start">
                     <div className="flex items-center h-5">
                       <input
@@ -759,7 +902,7 @@ const CollectionsPage = () => {
         {/* Edit Collection Modal */}
         {showEditModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">Edit Collection</h2>
                 <button 
@@ -827,6 +970,87 @@ const CollectionsPage = () => {
                         />
                       </div>
                     )}
+                  </div>
+                  
+                  {/* Product Selection Section */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Select Products for this Collection
+                    </label>
+                    
+                    <div className="mb-4">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search products..."
+                          value={productSearchTerm}
+                          onChange={(e) => setProductSearchTerm(e.target.value)}
+                          className="block w-full px-4 py-2 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        />
+                        <div className="absolute left-3 top-2.5 text-gray-400">
+                          <FaSearch />
+                        </div>
+                      </div>
+                      
+                      {newCollection.products.length > 0 && (
+                        <div className="mt-2 text-sm text-purple-600">
+                          {newCollection.products.length} product{newCollection.products.length !== 1 ? 's' : ''} selected
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="border border-gray-200 rounded-md max-h-96 overflow-y-auto">
+                      {Object.entries(getProductsByCategory()).map(([category, products]) => (
+                        <div key={category} className="border-b border-gray-200 last:border-b-0">
+                          <div 
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                            onClick={() => toggleCategory(category)}
+                          >
+                            <div className="font-medium">{category} ({products.length})</div>
+                            <div>
+                              {expandedCategories.includes(category) ? <FaChevronDown /> : <FaChevronRight />}
+                            </div>
+                          </div>
+                          
+                          {expandedCategories.includes(category) && (
+                            <div className="pl-4 pb-2">
+                              {products.map(product => (
+                                <div 
+                                  key={product._id} 
+                                  className={`flex items-center p-2 cursor-pointer hover:bg-gray-50 border-l-2 ${isProductSelected(product._id) ? 'border-purple-500' : 'border-transparent'}`}
+                                  onClick={() => toggleProductSelection(product._id)}
+                                >
+                                  <div className="w-8 h-8 mr-3 flex-shrink-0">
+                                    <img 
+                                      src={product.image || product.variants?.[0]?.additionalImages?.[0]} 
+                                      alt={product.name}
+                                      className="w-8 h-8 object-cover rounded-sm"
+                                      onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = 'https://via.placeholder.com/80?text=Product';
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                    <p className="text-xs text-gray-500">GH₵{product.basePrice?.toFixed(2) || "0.00"}</p>
+                                  </div>
+                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isProductSelected(product._id) ? 'bg-purple-500 text-white' : 'border border-gray-300'}`}>
+                                    {isProductSelected(product._id) && <FaCheck className="w-3 h-3" />}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {Object.keys(getProductsByCategory()).length === 0 && (
+                        <div className="p-4 text-center text-gray-500">
+                          No products found matching your search.
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="flex items-start">
