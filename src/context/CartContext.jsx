@@ -31,7 +31,15 @@ export const CartProvider = ({ children }) => {
     setCartCount(count);
     
     const amount = cartItems.reduce((total, item) => {
-      const price = parseFloat(item.price.replace('€', ''));
+      // Handle both string prices (with currency symbols) and numeric prices
+      let price;
+      if (typeof item.price === 'string') {
+        // Remove currency symbol if it's a string (e.g., "GH₵95.00" or "€95.00")
+        price = parseFloat(item.price.replace(/[^\d.]/g, ''));
+      } else {
+        // Use directly if it's already a number
+        price = item.price;
+      }
       return total + (price * item.quantity);
     }, 0);
     setTotalAmount(amount);
@@ -52,13 +60,20 @@ export const CartProvider = ({ children }) => {
         
         if (product.variants && product.currentVariantIndex !== undefined) {
           // Format from ProductDetailsPage
-          productPrice = product.variants[product.currentVariantIndex].price;
-          productImage = product.variants[product.currentVariantIndex].image;
+          const variant = product.variants[product.currentVariantIndex];
+          // Ensure price is a number
+          productPrice = typeof variant.price === 'string' 
+            ? parseFloat(variant.price.replace(/[^\d.]/g, ''))
+            : parseFloat(variant.price);
+          productImage = variant.image || variant.additionalImages?.[0];
           productName = product.name;
-          productColorName = product.variants[product.currentVariantIndex].colorName;
+          productColorName = variant.colorName;
         } else {
           // Format from WishlistPage or elsewhere
-          productPrice = product.price;
+          // Ensure price is a number
+          productPrice = typeof product.price === 'string'
+            ? parseFloat(product.price.replace(/[^\d.]/g, ''))
+            : parseFloat(product.price);
           productImage = product.image;
           productName = product.name;
           productColorName = product.colorName;

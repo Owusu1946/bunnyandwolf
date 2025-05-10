@@ -13,7 +13,8 @@ import {
   Info,
   ArrowLeft,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader
 } from 'lucide-react';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -22,6 +23,7 @@ import Footer from '../components/Footer';
 import { register } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { useOrderStore } from '../store/orderStore';
+import axios from 'axios';
 
 const CheckoutPage = () => {
   const location = useLocation();
@@ -36,19 +38,21 @@ const CheckoutPage = () => {
   console.log("Initial checkout state:", { 
     isFromCart, 
     cartItemsLength: cartItems?.length || 0,
-    locationState: location.state
+    locationState: location.state,
+    productInfo: location.state?.productInfo
   });
   
   // Get product info from location state or use cart items
   const productInfo = !isFromCart ? (location.state?.productInfo || {
+    id: 'sample-id',
     name: 'Sample Product',
-    price: '€0.00',
+    price: 'GH₵0.00',
     image: 'https://via.placeholder.com/400x500',
     selectedColor: '#000000',
     colorName: 'Black',
     size: 'M',
     quantity: 1,
-    allVariants: [],
+    variants: [],
     currentVariantIndex: 0
   }) : null;
   
@@ -86,6 +90,11 @@ const CheckoutPage = () => {
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState('');
+  const [couponError, setCouponError] = useState('');
+  const [couponSuccess, setCouponSuccess] = useState('');
+  const [isCouponLoading, setIsCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [taxRate, setTaxRate] = useState(0.15); // 15% tax rate
   const [subtotal, setSubtotal] = useState(0);
   const [total, setTotal] = useState(0);
@@ -141,13 +150,15 @@ const CheckoutPage = () => {
       // If cartTotal is not provided but we have cartItems, calculate from items
       if (calculatedSubtotal === 0 && cartItems.length > 0) {
         calculatedSubtotal = cartItems.reduce((total, item) => {
-          const price = parseFloat(item.price.replace('€', ''));
+          // Handle both € and GH₵ currency symbols
+          const price = parseFloat(item.price?.toString().replace(/[€GH₵\s]/g, '').replace(/,/g, '.') || 0);
           return total + (price * item.quantity);
         }, 0);
       }
     } else {
       // Calculate from single product
-      const price = parseFloat(productInfo.price?.replace('€', '') || 0);
+      // Handle both € and GH₵ currency symbols
+      const price = parseFloat(productInfo.price?.toString().replace(/[€GH₵\s]/g, '').replace(/,/g, '.') || 0);
       const quantity = productInfo.quantity || 1;
       calculatedSubtotal = price * quantity;
     }
@@ -157,8 +168,11 @@ const CheckoutPage = () => {
     // Calculate tax
     const calculatedTax = calculatedSubtotal * taxRate;
     
+    // Make sure discount is a number
+    const discountValue = typeof discount === 'number' ? discount : 0;
+    
     // Calculate total
-    const calculatedTotal = calculatedSubtotal + shippingCost + calculatedTax - discount;
+    const calculatedTotal = calculatedSubtotal + shippingCost + calculatedTax - discountValue;
     setTotal(calculatedTotal);
   }, [productInfo, shippingCost, discount, taxRate, isFromCart, location.state, cartItems]);
   
@@ -262,18 +276,119 @@ const CheckoutPage = () => {
   };
   
   // Handle coupon code application
-  const handleApplyCoupon = () => {
-    // In a real app, you would validate the coupon code against your backend
-    if (couponCode.toLowerCase() === 'discount10') {
-      // Apply a 10% discount
-      setDiscount(subtotal * 0.1);
-      alert('Coupon applied successfully!');
-    } else if (couponCode.toLowerCase() === 'freeshipping') {
-      // Free shipping coupon
-      setShippingCost(0);
-      alert('Free shipping coupon applied successfully!');
-    } else {
-      alert('Invalid coupon code.');
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code');
+      return;
+    }
+    
+    try {
+      setIsCouponLoading(true);
+      setCouponError('');
+      setCouponSuccess('');
+      
+      // Get coupons from localStorage or use default sample coupons if none exist
+      const storedCouponsJson = localStorage.getItem('sinosply_coupons');
+      const availableCoupons = storedCouponsJson ? 
+        JSON.parse(storedCouponsJson) : 
+        [
+          {
+            code: 'WELCOME10',
+            discountType: 'percentage',
+            discountValue: 10,
+            minPurchaseAmount: 0,
+            maxDiscountAmount: null,
+            startDate: '2023-01-01',
+            endDate: '2023-12-31',
+            isActive: true
+          },
+          {
+            code: 'FREESHIP',
+            discountType: 'fixed',
+            discountValue: 15,
+            minPurchaseAmount: 75,
+            maxDiscountAmount: 15,
+            startDate: '2025-05-09',
+            endDate: '2025-05-15',
+            isActive: true
+          },
+          {
+            code: 'DISCOUNT10',
+            discountType: 'percentage', 
+            discountValue: 10,
+            minPurchaseAmount: 0,
+            isActive: true
+          }
+        ];
+      
+      // Find the coupon in our available coupons
+      const enteredCode = couponCode.trim().toUpperCase();
+      const coupon = availableCoupons.find(c => c.code.toUpperCase() === enteredCode);
+      
+      if (!coupon) {
+        setCouponError('Invalid coupon code');
+        return;
+      }
+      
+      if (!coupon.isActive) {
+        setCouponError('This coupon is no longer active');
+        return;
+      }
+      
+      // Check if current date is within coupon validity
+      const now = new Date();
+      if (coupon.startDate && new Date(coupon.startDate) > now) {
+        setCouponError('This coupon is not active yet');
+        return;
+      }
+      
+      if (coupon.endDate && new Date(coupon.endDate) < now) {
+        setCouponError('This coupon has expired');
+        return;
+      }
+      
+      // Check minimum purchase amount
+      if (coupon.minPurchaseAmount > subtotal) {
+        setCouponError(`This coupon requires a minimum purchase of GH₵${coupon.minPurchaseAmount.toFixed(2)}`);
+        return;
+      }
+      
+      // Calculate discount based on coupon type
+      let calculatedDiscount = 0;
+      
+      if (coupon.discountType === 'percentage') {
+        calculatedDiscount = (subtotal * (parseFloat(coupon.discountValue) / 100));
+        
+        // Check if there's a maximum discount cap
+        if (coupon.maxDiscountAmount && calculatedDiscount > parseFloat(coupon.maxDiscountAmount)) {
+          calculatedDiscount = parseFloat(coupon.maxDiscountAmount);
+        }
+        
+      } else if (coupon.discountType === 'fixed') {
+        calculatedDiscount = parseFloat(coupon.discountValue);
+      }
+      
+      // Ensure discount is a number
+      calculatedDiscount = isNaN(calculatedDiscount) ? 0 : Number(calculatedDiscount);
+      
+      // Update state with discount
+      setDiscount(calculatedDiscount);
+      setDiscountType(coupon.discountType);
+      setAppliedCoupon(coupon);
+      setCouponSuccess(`Coupon applied! ${coupon.discountType === 'percentage' ? 
+        `${coupon.discountValue}% off` : 
+        `GH₵${Number(coupon.discountValue).toFixed(2)} off`}`);
+      
+      if (coupon.code === 'FREESHIP') {
+        setShippingCost(0);
+        setCouponSuccess('Free shipping coupon applied successfully!');
+      }
+      
+    } catch (err) {
+      console.error('Error validating coupon:', err);
+      setCouponError('Error validating coupon. Please try again.');
+    } finally {
+      setIsCouponLoading(false);
     }
   };
   
@@ -375,7 +490,7 @@ const CheckoutPage = () => {
         ? cartItems.map(item => ({
             id: item.id || item._id,
             name: item.name,
-            price: parseFloat(typeof item.price === 'string' ? item.price.replace(/[^0-9.-]+/g, '') : item.price),
+            price: parseFloat(typeof item.price === 'string' ? item.price.replace(/[€GH₵\s]/g, '') : item.price),
             quantity: item.quantity,
             image: item.image,
             colorName: item.colorName,
@@ -384,20 +499,21 @@ const CheckoutPage = () => {
         : [{
             id: productInfo.id || productInfo._id,
             name: productInfo.name,
-            price: parseFloat(typeof productInfo.price === 'string' ? productInfo.price.replace(/[^0-9.-]+/g, '') : productInfo.price),
+            price: parseFloat(typeof productInfo.price === 'string' ? productInfo.price.replace(/[€GH₵\s]/g, '').replace(/,/g, '.') : productInfo.price),
             quantity: productInfo.quantity || 1,
             image: productInfo.image,
-            colorName: productInfo.colorName,
-            size: productInfo.size
+            colorName: productInfo.colorName || 'Default',
+            size: productInfo.size || 'One Size'
           }];
 
       // Calculate subtotal
       const subtotalCalc = isFromCart
         ? cartItems.reduce((total, item) => {
-            const price = parseFloat(typeof item.price === 'string' ? item.price.replace(/[^0-9.-]+/g, '') : item.price);
+            // Handle both € and GH₵ currency symbols
+            const price = parseFloat(typeof item.price === 'string' ? item.price.replace(/[€GH₵\s]/g, '') : item.price);
             return total + (price * item.quantity);
           }, 0)
-        : parseFloat(typeof productInfo.price === 'string' ? productInfo.price.replace(/[^0-9.-]+/g, '') : productInfo.price) * (productInfo.quantity || 1);
+        : parseFloat(typeof productInfo.price === 'string' ? productInfo.price.replace(/[€GH₵\s]/g, '') : productInfo.price) * (productInfo.quantity || 1);
 
       // Calculate shipping cost based on method
       const shippingCost = shippingMethod === 'standard' ? 5.99 : shippingMethod === 'express' ? 15.99 : 24.99;
@@ -962,7 +1078,7 @@ const CheckoutPage = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-medium">€{method.price.toFixed(2)}</div>
+                        <div className="text-lg font-medium">GH₵{method.price.toFixed(2)}</div>
                         <div className="text-sm text-gray-500">{method.carrier}</div>
                       </div>
                     </div>
@@ -1057,7 +1173,7 @@ const CheckoutPage = () => {
                             {shippingMethods.find(m => m.id === shippingMethod)?.carrier} - {estimatedDelivery}
                           </p>
                         </div>
-                        <p className="font-medium">€{shippingCost.toFixed(2)}</p>
+                        <p className="font-medium">GH₵{shippingCost.toFixed(2)}</p>
                       </div>
                     )}
                   </div>
@@ -1118,7 +1234,7 @@ const CheckoutPage = () => {
                             <p className="font-medium text-gray-900">{productInfo.price}</p>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
-                            Color: {productInfo.colorName} | Size: {productInfo.size} | Qty: {productInfo.quantity}
+                            Color: {productInfo.colorName || 'Default'} | Size: {productInfo.size || 'One Size'} | Qty: {productInfo.quantity || 1}
                           </p>
                         </div>
                       </div>
@@ -1180,32 +1296,59 @@ const CheckoutPage = () => {
                 </div>
               )}
               
+              {/* Display single product in summary when coming from Buy Now */}
+              {!isFromCart && productInfo && (
+                <div className="mb-4 border-b border-gray-200 pb-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Item</h3>
+                  <div className="flex items-center mb-3">
+                    <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-md">
+                      <img
+                        src={productInfo.image}
+                        alt={productInfo.name}
+                        className="h-full w-full object-cover object-center"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/150?text=No+Image';
+                        }}
+                      />
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{productInfo.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {productInfo.colorName || 'Default'} | {productInfo.size || 'One Size'} | Qty: {productInfo.quantity || 1}
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">{productInfo.price}</p>
+                  </div>
+                </div>
+              )}
+              
               <div className="space-y-4">
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">€{subtotal.toFixed(2)}</span>
+                  <span className="font-medium">GH₵{subtotal.toFixed(2)}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Shipping</span>
-                  <span className="font-medium">€{shippingCost.toFixed(2)}</span>
+                  <span className="font-medium">GH₵{shippingCost.toFixed(2)}</span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Tax (15%)</span>
-                  <span className="font-medium">€{(subtotal * taxRate).toFixed(2)}</span>
+                  <span className="font-medium">GH₵{(subtotal * taxRate).toFixed(2)}</span>
                 </div>
                 
                 {discount > 0 && (
                   <div className="flex justify-between py-2 border-b border-gray-200 text-green-600">
                     <span>Discount</span>
-                    <span className="font-medium">-€{discount.toFixed(2)}</span>
+                    <span className="font-medium">-GH₵{parseFloat(discount).toFixed(2)}</span>
                   </div>
                 )}
                 
                 <div className="flex justify-between py-2 text-lg font-bold">
                   <span>Total</span>
-                  <span>€{total.toFixed(2)}</span>
+                  <span>GH₵{parseFloat(total).toFixed(2)}</span>
                 </div>
                 
                 {/* Coupon Code */}
@@ -1216,21 +1359,74 @@ const CheckoutPage = () => {
                       type="text"
                       id="couponCode"
                       value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value);
+                        setCouponError('');
+                        setCouponSuccess('');
+                      }}
+                      disabled={appliedCoupon || isCouponLoading}
                       className="flex-1 py-2 px-3 border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter code"
                     />
                     <button
                       type="button"
                       onClick={handleApplyCoupon}
-                      className="bg-gray-200 text-gray-800 py-2 px-4 rounded-r-lg hover:bg-gray-300 font-medium"
+                      disabled={!couponCode.trim() || appliedCoupon || isCouponLoading}
+                      className={`py-2 px-4 rounded-r-lg font-medium flex items-center justify-center min-w-[80px] ${
+                        !couponCode.trim() || appliedCoupon ? 
+                        'bg-gray-200 text-gray-500 cursor-not-allowed' : 
+                        'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                     >
-                      Apply
+                      {isCouponLoading ? (
+                        <Loader className="w-4 h-4 animate-spin" />
+                      ) : appliedCoupon ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        'Apply'
+                      )}
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Try "DISCOUNT10" for 10% off or "FREESHIPPING" for free shipping
-                  </p>
+                  
+                  {couponError && (
+                    <p className="mt-2 text-xs text-red-600">{couponError}</p>
+                  )}
+                  
+                  {couponSuccess && (
+                    <div className="mt-2 text-xs text-green-600 flex items-center">
+                      <Check className="w-3 h-3 mr-1" />
+                      {couponSuccess}
+                    </div>
+                  )}
+                  
+                  {appliedCoupon ? (
+                    <div className="mt-2 flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Coupon applied</span>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setDiscount(0);
+                          setCouponCode('');
+                          setAppliedCoupon(null);
+                          setCouponSuccess('');
+                          if (appliedCoupon.code === 'FREESHIP') {
+                            // Reset shipping cost based on selected method
+                            const method = shippingMethods.find(m => m.id === shippingMethod);
+                            if (method) {
+                              setShippingCost(method.price);
+                            }
+                          }
+                        }}
+                        className="text-xs text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Enter a coupon code to get discounts (try "SUMMER25", "WELCOME10", or "FREESHIP")
+                    </p>
+                  )}
                 </div>
                 
                 {/* Estimated Delivery */}

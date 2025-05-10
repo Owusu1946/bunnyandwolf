@@ -18,19 +18,16 @@ const ChatsPage = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // all, unread, priority
+  const [connected, setConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const inputRef = useRef(null);
+  const socketRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const activeCustomers = useRef(new Map());
   
-  const quickReplies = [
-    "Thanks for reaching out to us!",
-    "Let me check that for you right away.",
-    "Your order will be shipped within 24 hours.",
-    "Is there anything else I can help you with?",
-    "I'll need a bit more information to assist you better.",
-  ];
-
-  // Dummy data for demonstration
+  // Define dummy chats data
   const dummyChats = [
     {
       _id: '1',
@@ -73,52 +70,10 @@ const ChatsPage = () => {
       lastMessage: 'When will my order be shipped?',
       unread: true,
       updatedAt: new Date(Date.now() - 1000 * 60 * 60) // 1 hour ago
-    },
-    {
-      _id: '4',
-      user: {
-        _id: '104',
-        firstName: 'David',
-        lastName: 'Okonkwo',
-        email: 'david.okonkwo@example.com',
-        avatar: 'https://randomuser.me/api/portraits/men/22.jpg'
-      },
-      lastMessage: 'Is the product water-resistant?',
-      unread: false,
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 3) // 3 hours ago
-    },
-    {
-      _id: '5',
-      user: {
-        _id: '105',
-        firstName: 'Alexandra',
-        lastName: 'Kim',
-        email: 'alexandra.kim@example.com',
-        avatar: 'https://randomuser.me/api/portraits/women/90.jpg'
-      },
-      lastMessage: 'I need to change my shipping address',
-      unread: true,
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 5) // 5 hours ago
-    },
-    {
-      _id: '6',
-      user: {
-        _id: '106',
-        firstName: 'Robert',
-        lastName: 'Zhang',
-        email: 'robert.zhang@example.com',
-        avatar: 'https://randomuser.me/api/portraits/men/76.jpg',
-        online: true,
-        lastSeen: new Date()
-      },
-      lastMessage: 'My order is missing items! Order #89742',
-      unread: true,
-      priority: 'urgent',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 15) // 15 minutes ago
     }
   ];
-
-  // Dummy messages for each chat
+  
+  // Define dummy messages for demo chats
   const dummyMessages = {
     '1': [
       {
@@ -209,83 +164,366 @@ const ChatsPage = () => {
         sender: 'user',
         createdAt: new Date(Date.now() - 1000 * 60 * 60)
       }
-    ],
-    '4': [
-      {
-        _id: '4001',
-        content: 'Hi there, I\'m looking at the smart watch on your website. Is it water-resistant?',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 240)
-      },
-      {
-        _id: '4002',
-        content: 'Hello David! Yes, our smart watch is water-resistant with an IP67 rating. This means it can withstand immersion in water up to 1 meter for about 30 minutes.',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 235)
-      },
-      {
-        _id: '4003',
-        content: 'That sounds good. Can I swim with it?',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 230)
-      },
-      {
-        _id: '4004',
-        content: 'While it can handle brief water exposure, we don\'t recommend swimming or showering with it regularly. It\'s designed to survive accidental water contact rather than constant submersion.',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 225)
-      },
-      {
-        _id: '4005',
-        content: 'Is the product water-resistant?',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3)
-      }
-    ],
-    '5': [
-      {
-        _id: '5001',
-        content: 'Hello, I need to change my shipping address for order #90123.',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 300)
-      },
-      {
-        _id: '5002',
-        content: 'Hi Alexandra, I\'d be happy to help with that. Could you provide the new shipping address?',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 295)
-      },
-      {
-        _id: '5003',
-        content: 'Yes, the new address is 742 Evergreen Terrace, Springfield.',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 290)
-      },
-      {
-        _id: '5004',
-        content: 'Thank you. I\'ve updated your shipping address. Your order has not been shipped yet, so it will go to the new address.',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 285)
-      },
-      {
-        _id: '5005',
-        content: 'I need to change my shipping address',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5)
-      }
     ]
   };
 
+  const quickReplies = [
+    "Thanks for reaching out to us!",
+    "Let me check that for you right away.",
+    "Your order will be shipped within 24 hours.",
+    "Is there anything else I can help you with?",
+    "I'll need a bit more information to assist you better.",
+  ];
+
+  // Set up WebSocket connection
   useEffect(() => {
-    // Simulate fetching chats from API
+    connectWebSocket();
+    
+    // First load dummy chats
     setTimeout(() => {
       setChats(dummyChats);
       setLoading(false);
+      
+      // Load any saved chat histories from localStorage for persistence
+      loadSavedChats();
     }, 800);
+    
+    return () => {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.close();
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
+    };
   }, []);
+  
+  const connectWebSocket = () => {
+    try {
+      // Use secure WebSockets if on HTTPS
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/admin/chat`;
+      
+      // For demo/development, use a public echo WebSocket server
+      // In production, replace with your actual WebSocket server URL
+      const demoWsUrl = 'wss://echo.websocket.events';
+      
+      socketRef.current = new WebSocket(demoWsUrl);
+      
+      socketRef.current.onopen = () => {
+        console.log('Admin WebSocket connected');
+        setConnected(true);
+        setReconnecting(false);
+        
+        // Wait a short moment to ensure WebSocket is fully connected
+        setTimeout(() => {
+          try {
+            // Check if WebSocket is open before sending
+            if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+              // Send an initial message to identify this client as admin
+              const initMessage = {
+                type: 'init',
+                userType: 'admin',
+                timestamp: new Date().toISOString()
+              };
+              socketRef.current.send(JSON.stringify(initMessage));
+            } else {
+              console.log('WebSocket not ready for sending messages');
+            }
+          } catch (error) {
+            console.error('Error sending init message:', error);
+          }
+        }, 500);
+      };
+      
+      socketRef.current.onmessage = (event) => {
+        try {
+          // First check if the message is valid JSON
+          let data;
+          try {
+            data = JSON.parse(event.data);
+          } catch (parseError) {
+            console.log('Received non-JSON message:', event.data);
+            return; // Skip processing for non-JSON messages
+          }
+          
+          // Process messages from customers
+          if (data.type === 'message' && data.sender === 'customer') {
+            handleCustomerMessage(data);
+          } else if (data.type === 'init' && data.userType === 'customer') {
+            // Track active customers
+            activeCustomers.current.set(data.sessionId, {
+              lastSeen: new Date(),
+              online: true
+            });
+            
+            // Update the chat in the list if it exists
+            setChats(prevChats => {
+              const updatedChats = [...prevChats];
+              const chatIndex = updatedChats.findIndex(chat => chat._id === data.sessionId);
+              
+              if (chatIndex >= 0) {
+                updatedChats[chatIndex] = {
+                  ...updatedChats[chatIndex],
+                  user: {
+                    ...updatedChats[chatIndex].user,
+                    online: true,
+                    lastSeen: new Date()
+                  }
+                };
+              }
+              
+              return updatedChats;
+            });
+          }
+        } catch (error) {
+          console.error("Error processing WebSocket message:", error);
+        }
+      };
+      
+      socketRef.current.onclose = (event) => {
+        console.log('Admin WebSocket disconnected', event.code, event.reason);
+        setConnected(false);
+        
+        // Attempt to reconnect after delay
+        if (!event.wasClean) {
+          setReconnecting(true);
+          reconnectTimerRef.current = setTimeout(() => {
+            console.log('Attempting to reconnect Admin WebSocket...');
+            connectWebSocket();
+          }, 3000);
+        }
+      };
+      
+      socketRef.current.onerror = (error) => {
+        console.error('Admin WebSocket error:', error);
+        setConnected(false);
+      };
+    } catch (error) {
+      console.error("Error connecting to Admin WebSocket:", error);
+      setConnected(false);
+    }
+  };
+  
+  // Process incoming customer message
+  const handleCustomerMessage = (messageData) => {
+    const { sessionId, messageId, content, timestamp } = messageData;
+    
+    // Check if we already have a chat for this customer
+    const existingChatIndex = chats.findIndex(
+      chat => chat._id === sessionId
+    );
+    
+    if (existingChatIndex >= 0) {
+      // Update existing chat
+      const updatedChats = [...chats];
+      updatedChats[existingChatIndex] = {
+        ...updatedChats[existingChatIndex],
+        lastMessage: content,
+        updatedAt: new Date(timestamp) || new Date(),
+      unread: true,
+      user: {
+          ...updatedChats[existingChatIndex].user,
+        online: true,
+        lastSeen: new Date()
+        }
+      };
+      
+      setChats(updatedChats);
+      
+      // Update activeCustomers Map
+      activeCustomers.current.set(sessionId, {
+        lastSeen: new Date(),
+        online: true
+      });
+      
+      // If this is the currently selected chat, add message to display
+      if (selectedChat && selectedChat._id === sessionId) {
+        const newMessage = {
+          _id: messageId,
+          content: content,
+        sender: 'user',
+          createdAt: new Date(timestamp),
+          status: 'read'
+        };
+        
+        setMessages(prevMessages => [...prevMessages, newMessage]);
+        
+        // Update local storage for persistence
+        saveMessagesToLocalStorage(sessionId, [
+          ...messages,
+          {
+            id: messageId,
+            text: content,
+        sender: 'user',
+            time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      } else {
+        // If not viewing this chat, append to stored messages
+        const existingMessages = loadMessagesFromLocalStorage(sessionId) || [];
+        saveMessagesToLocalStorage(sessionId, [
+          ...existingMessages,
+          {
+            id: messageId,
+            text: content,
+        sender: 'user',
+            time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      }
+    } else {
+      // Create new chat for this customer
+      createNewCustomerChat(sessionId, content, timestamp, messageId);
+    }
+  };
+  
+  // Create a new customer chat
+  const createNewCustomerChat = (sessionId, lastMessage, timestamp, messageId) => {
+    const newChat = {
+      _id: sessionId,
+      user: {
+        _id: sessionId,
+        firstName: 'Customer',
+        lastName: `#${sessionId.slice(-5)}`,
+        email: 'customer@example.com',
+        avatar: 'https://randomuser.me/api/portraits/lego/1.jpg',
+        online: true,
+        lastSeen: new Date()
+      },
+      lastMessage: lastMessage,
+      unread: true,
+      priority: 'normal',
+      updatedAt: new Date(timestamp) || new Date()
+    };
+    
+    setChats(prevChats => [...prevChats, newChat]);
+    
+    // Save the first message to storage
+    saveMessagesToLocalStorage(sessionId, [
+      {
+        id: messageId,
+        text: lastMessage,
+        sender: 'user',
+        time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
+  };
+  
+  // Load saved chat histories (for persistence across refreshes)
+  const loadSavedChats = () => {
+    try {
+      // Get all keys from localStorage that match our pattern
+      const chatSessions = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sinosply_chat_messages_customer-')) {
+          const sessionId = key.replace('sinosply_chat_messages_', '');
+          chatSessions.push(sessionId);
+        }
+      }
+      
+      // Process each chat session
+      chatSessions.forEach(sessionId => {
+        const messages = loadMessagesFromLocalStorage(sessionId);
+        if (messages && messages.length > 0) {
+          // Get the latest message
+          const lastMessage = messages[messages.length - 1];
+          
+          // Create or update chat entry
+          const existingChatIndex = chats.findIndex(chat => chat._id === sessionId);
+          
+          if (existingChatIndex >= 0) {
+            // Update existing chat
+            const updatedChats = [...chats];
+            updatedChats[existingChatIndex] = {
+              ...updatedChats[existingChatIndex],
+              lastMessage: lastMessage.text,
+              updatedAt: new Date(lastMessage.time || Date.now())
+            };
+            setChats(updatedChats);
+          } else {
+            // Create new chat
+            const newChat = {
+              _id: sessionId,
+              user: {
+                _id: sessionId,
+                firstName: 'Customer',
+                lastName: `#${sessionId.slice(-5)}`,
+                email: 'customer@example.com',
+                avatar: 'https://randomuser.me/api/portraits/lego/1.jpg',
+                online: false,
+                lastSeen: new Date()
+              },
+              lastMessage: lastMessage.text,
+              unread: lastMessage.sender === 'user',
+              priority: 'normal',
+              updatedAt: new Date(lastMessage.time || Date.now())
+            };
+            setChats(prevChats => [...prevChats, newChat]);
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error loading saved chats:", error);
+    }
+  };
+  
+  // Local storage helpers for message persistence
+  const loadMessagesFromLocalStorage = (sessionId) => {
+    try {
+      const saved = localStorage.getItem(`sinosply_chat_messages_${sessionId}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error(`Error loading messages for ${sessionId}:`, error);
+      return null;
+    }
+  };
+  
+  const saveMessagesToLocalStorage = (sessionId, messages) => {
+    try {
+      localStorage.setItem(`sinosply_chat_messages_${sessionId}`, JSON.stringify(messages));
+    } catch (error) {
+      console.error(`Error saving messages for ${sessionId}:`, error);
+    }
+  };
 
+  // Send typing indicator to customer
+  const sendTypingIndicator = (isTyping) => {
+    if (!selectedChat || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN || !selectedChat._id.startsWith('customer-')) {
+      return;
+    }
+    
+    try {
+      const typingMessage = {
+        type: 'typing',
+        sessionId: selectedChat._id,
+        isTyping: isTyping,
+        timestamp: new Date().toISOString()
+      };
+      
+      socketRef.current.send(JSON.stringify(typingMessage));
+    } catch (error) {
+      console.error("Error sending typing indicator:", error);
+    }
+  };
+  
+  // Hook up typing indicator
   useEffect(() => {
+    if (newMessage && selectedChat && selectedChat._id.startsWith('customer-')) {
+      sendTypingIndicator(true);
+      
+      // Clear typing indicator after a delay
+      const typingTimeout = setTimeout(() => {
+        sendTypingIndicator(false);
+      }, 3000);
+      
+      return () => clearTimeout(typingTimeout);
+    }
+  }, [newMessage, selectedChat]);
+
     // Scroll to bottom when messages change
+  useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
@@ -293,7 +531,33 @@ const ChatsPage = () => {
 
   useEffect(() => {
     if (selectedChat) {
-      // Fetch messages for selected chat
+      // Load real messages for customer chats
+      if (selectedChat._id.startsWith('customer-')) {
+        const savedMessages = loadMessagesFromLocalStorage(selectedChat._id);
+        
+        if (savedMessages && savedMessages.length > 0) {
+          setMessages(
+            savedMessages.map(msg => ({
+              _id: msg.id,
+              content: msg.text,
+              sender: msg.sender === 'user' ? 'user' : 'admin',
+              createdAt: new Date(msg.time || new Date()),
+              status: 'read'
+            }))
+          );
+          
+          // Mark chat as read
+          setChats(prevChats => 
+            prevChats.map(chat => 
+              chat._id === selectedChat._id ? { ...chat, unread: false } : chat
+            )
+          );
+          
+          return; // Exit early, we loaded messages from localStorage
+        }
+      }
+      
+      // Fetch messages for selected chat - fallback to dummy data for demo
       const chatMessages = dummyMessages[selectedChat._id] || [];
       setMessages(chatMessages);
       
@@ -304,7 +568,7 @@ const ChatsPage = () => {
         )
       );
       
-      // Simulate typing indicator after selection
+      // Simulate typing indicator after selection for dummy chats
       const randomDelay = Math.floor(Math.random() * 5000) + 1000;
       if (selectedChat._id === '1' || selectedChat._id === '3') {
         setTimeout(() => {
@@ -347,10 +611,11 @@ const ChatsPage = () => {
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedChat) return;
+    if (!newMessage.trim() || !selectedChat || !connected) return;
     
+    const messageId = `admin-msg-${Date.now()}`;
     const messageObj = {
-      _id: `msg-${Date.now()}`,
+      _id: messageId,
       content: newMessage,
       sender: 'admin',
       status: 'sent',
@@ -373,10 +638,46 @@ const ChatsPage = () => {
       )
     );
     
-    // Clear input
-    setNewMessage('');
-    
-    // Simulate message status update (sent → delivered → read)
+    // If this is a real customer chat, send via WebSocket
+    if (selectedChat._id.startsWith('customer-') && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        const adminMessage = {
+          type: 'message',
+          messageId: messageId,
+          sessionId: selectedChat._id,
+          content: newMessage,
+          sender: 'admin',
+          timestamp: new Date().toISOString()
+        };
+        
+        socketRef.current.send(JSON.stringify(adminMessage));
+        
+        // Store message in localStorage for persistence
+        const existingMessages = loadMessagesFromLocalStorage(selectedChat._id) || [];
+        saveMessagesToLocalStorage(selectedChat._id, [
+          ...existingMessages,
+          {
+            id: messageId,
+            text: newMessage,
+            sender: 'support',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'delivered'
+          }
+        ]);
+        
+        // Update message status to delivered
+        setTimeout(() => {
+          setMessages(prev => 
+            prev.map(msg => 
+              msg._id === messageId ? { ...msg, status: 'delivered' } : msg
+            )
+          );
+        }, 500);
+      } catch (error) {
+        console.error("Error sending message via WebSocket:", error);
+      }
+    } else {
+      // For demo chats, simulate message status updates and responses
     setTimeout(() => {
       setMessages(prev => 
         prev.map(msg => 
@@ -438,6 +739,13 @@ const ChatsPage = () => {
         }, typingDelay);
       }
     }, 1000);
+    }
+    
+    // Clear input
+    setNewMessage('');
+    
+    // Clear typing indicator
+    sendTypingIndicator(false);
   };
 
   const handleQuickReply = (reply) => {
@@ -505,8 +813,16 @@ const ChatsPage = () => {
       
       <div className="flex-1 ml-64">
         <div className="h-screen flex flex-col">
-          <header className="bg-white border-b shadow-sm px-6 py-4">
+          <header className="bg-white border-b shadow-sm px-6 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-semibold text-gray-800">Customer Support</h1>
+            
+            {/* WebSocket status indicator */}
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-full mr-2 ${connected ? 'bg-green-500' : reconnecting ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+              <span className="text-sm text-gray-600">
+                {connected ? 'Connected' : reconnecting ? 'Reconnecting...' : 'Offline'}
+              </span>
+            </div>
           </header>
           
           <div className="flex-1 flex overflow-hidden">

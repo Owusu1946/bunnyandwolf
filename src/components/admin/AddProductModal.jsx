@@ -1,5 +1,5 @@
- 
-import { FaTimes, FaUpload, FaSave } from 'react-icons/fa';
+import { useState, useRef } from 'react';
+import { FaTimes, FaUpload, FaSave, FaStar } from 'react-icons/fa';
 import axios from 'axios';
 
 const AddProductModal = ({ isOpen, onClose, onProductAdded }) => {
@@ -16,6 +16,7 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded }) => {
     stock: '',
     image: null,
     sku: '',
+    isFeatured: false,
   });
 
   const handleInputChange = (e) => {
@@ -81,6 +82,7 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded }) => {
       stock: '',
       image: null,
       sku: '',
+      isFeatured: false,
     });
     setImagePreview(null);
     if (fileInputRef.current) {
@@ -205,6 +207,29 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded }) => {
                 value={formData.sku}
                 onChange={handleInputChange}
               />
+            </div>
+            
+            <div className="md:col-span-2 mt-2 mb-2">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <input
+                    id="isFeatured"
+                    name="isFeatured"
+                    type="checkbox"
+                    className="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-yellow-300 rounded"
+                    checked={formData.isFeatured}
+                    onChange={handleInputChange}
+                  />
+                  <div className="ml-3">
+                    <label htmlFor="isFeatured" className="font-medium text-yellow-800 flex items-center">
+                      <FaStar className="text-yellow-500 mr-1" /> Feature this product
+                    </label>
+                    <p className="text-yellow-700 text-sm">
+                      Featured products will be highlighted on the homepage and in featured sections
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div className="md:col-span-2">

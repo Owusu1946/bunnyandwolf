@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { WishlistProvider } from './context/WishlistContext'
 import { ToastProvider } from './components/ToastManager'
+import { SidebarProvider } from './context/SidebarContext'
 import ResetPassword from './pages/ResetPassword'
 import Profile from './pages/Profile'
 import AdminLogin from './pages/AdminLogin'
@@ -25,10 +26,22 @@ import AdminOrders from './pages/admin/AdminOrders'
 import ProductsPage from './pages/admin/ProductsPage'
 import CustomersPage from './pages/admin/CustomersPage'
 import ChatsPage from './pages/admin/ChatsPage'
+import CouponsPage from './pages/admin/CouponsPage'
+import CampaignsPage from './pages/admin/CampaignsPage'
 import AdminProfile from './pages/admin/AdminProfile'
 import AdminSettings from './pages/admin/AdminSettings'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
+import CollectionsPage from './pages/admin/CollectionsPage'
+import PlatformsPage from './pages/admin/PlatformsPage'
+// Wrap AdminRoute components with SidebarProvider
+const AdminRouteWithSidebar = ({ children }) => (
+  <SidebarProvider>
+    <AdminRoute>
+      {children}
+    </AdminRoute>
+  </SidebarProvider>
+);
 
 function App() {
   return (
@@ -59,45 +72,67 @@ function App() {
                   } 
                 />
                 <Route path="/admin/login" element={<AdminLogin />} />
+                
+                {/* Admin Routes with SidebarProvider */}
                 <Route path="/admin/dashboard" element={
-                  <AdminRoute>
+                  <AdminRouteWithSidebar>
                     <AdminDashboard />
-                  </AdminRoute>
+                  </AdminRouteWithSidebar>
                 } />
                 <Route path="/admin/orders" element={
-                  <AdminRoute>
+                  <AdminRouteWithSidebar>
                     <OrdersPage />
-                  </AdminRoute>
+                  </AdminRouteWithSidebar>
                 } />
                 <Route path="/admin/all-orders" element={
-                  <AdminRoute>
+                  <AdminRouteWithSidebar>
                     <AdminOrders />
-                  </AdminRoute>
+                  </AdminRouteWithSidebar>
                 } />
                 <Route path="/admin/products" element={
-                  <AdminRoute>
+                  <AdminRouteWithSidebar>
                     <ProductsPage />
-                  </AdminRoute>
+                  </AdminRouteWithSidebar>
                 } />
                 <Route path="/admin/customers" element={
-                  <AdminRoute>
+                  <AdminRouteWithSidebar>
                     <CustomersPage />
-                  </AdminRoute>
+                  </AdminRouteWithSidebar>
                 } />
                 <Route path="/admin/chats" element={
-                  <AdminRoute>
+                  <AdminRouteWithSidebar>
                     <ChatsPage />
-                  </AdminRoute>
+                  </AdminRouteWithSidebar>
+                } />
+                <Route path="/admin/coupons" element={
+                  <AdminRouteWithSidebar>
+                    <CouponsPage />
+                  </AdminRouteWithSidebar>
+                } />
+                <Route path="/admin/campaigns" element={
+                  <AdminRouteWithSidebar>
+                    <CampaignsPage />
+                  </AdminRouteWithSidebar>
                 } />
                 <Route path="/admin/profile" element={
-                  <AdminRoute>
+                  <AdminRouteWithSidebar>
                     <AdminProfile />
-                  </AdminRoute>
+                  </AdminRouteWithSidebar>
                 } />
                 <Route path="/admin/settings" element={
-                  <AdminRoute>
+                  <AdminRouteWithSidebar>
                     <AdminSettings />
-                  </AdminRoute>
+                  </AdminRouteWithSidebar>
+                } />
+                <Route path="/admin/collections" element={
+                  <AdminRouteWithSidebar>
+                    <CollectionsPage />
+                  </AdminRouteWithSidebar>
+                } />
+                <Route path="/admin/platforms" element={
+                  <AdminRouteWithSidebar>
+                    <PlatformsPage />
+                  </AdminRouteWithSidebar>
                 } />
                 <Route path="/faq" element={<FAQ />} />
                 <Route path="/contact" element={<Contact />} />

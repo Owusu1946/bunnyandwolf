@@ -101,6 +101,11 @@ export const useProductStore = create(
             ${product.category} 
             ${product.details?.join(' ') || ''}
             ${product.variants?.map(v => v.colorName).join(' ') || ''}
+            price ${product.basePrice} 
+            ${product.salePrice ? 'sale ' + product.salePrice : ''}
+            stock ${product.stock}
+            quantity ${product.stock}
+            ${product.stock === 0 ? 'out of stock' : 'in stock'}
           `.toLowerCase();
           
           return searchTerms.every(term => searchableText.includes(term));

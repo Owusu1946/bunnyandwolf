@@ -1,16 +1,9 @@
 import  { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FaApple, FaGooglePlay, FaTiktok, FaFacebookF, FaInstagram, FaSnapchatGhost, FaYoutube, FaPinterestP, FaComments } from 'react-icons/fa';
+import { FaApple, FaGooglePlay, FaTiktok, FaFacebookF, FaInstagram, FaSnapchatGhost, FaYoutube, FaPinterestP } from 'react-icons/fa';
 import '../styles/Footer.css';
 
 const Footer = () => {
-  const [showChat, setShowChat] = useState(false);
-
-  const handleChatClick = () => {
-    setShowChat(!showChat);
-    
-  };
-
   return (
     <footer className="footer">
       <div className="footer-content">
@@ -124,10 +117,6 @@ const Footer = () => {
           <Link to="/sitemap">SITEMAP</Link>
         </div>
       </div>
-
-      <button className="chat-button" onClick={handleChatClick}>
-        <FaComments className="chat-icon" />
-      </button>
     </footer>
   );
 };

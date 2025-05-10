@@ -1,0 +1,784 @@
+import { useState, useEffect } from 'react';
+import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaGlobe, FaLink, FaCheck } from 'react-icons/fa';
+import Sidebar from '../../components/admin/Sidebar';
+import LoadingOverlay from '../../components/LoadingOverlay';
+import apiConfig from '../../config/apiConfig';
+import axios from 'axios';
+import { usePlatformsStore } from '../../store/platformsStore';
+
+const PlatformsPage = () => {
+  // Use platforms store
+  const {
+    platforms,
+    loading,
+    error,
+    fetchPlatformsFromAPI,
+    createPlatform,
+    updatePlatform,
+    deletePlatform
+  } = usePlatformsStore();
+  
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [currentPlatform, setCurrentPlatform] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Form state for new/edit platform
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    logoUrl: '',
+    bannerUrl: '',
+    domain: '',
+    theme: 'default',
+    isActive: true,
+    productCategories: []
+  });
+
+  // Product categories for demonstration
+  const availableCategories = [
+    { id: '1', name: 'Electronics' },
+    { id: '2', name: 'Clothing' },
+    { id: '3', name: 'Home & Kitchen' },
+    { id: '4', name: 'Furniture' },
+    { id: '5', name: 'Beauty' },
+    { id: '6', name: 'Sports' },
+    { id: '7', name: 'Toys' },
+    { id: '8', name: 'Books' },
+    { id: '9', name: 'Jewelry' }
+  ];
+
+  // Available themes
+  const availableThemes = [
+    { id: 'default', name: 'Default' },
+    { id: 'modern', name: 'Modern' },
+    { id: 'elegant', name: 'Elegant' },
+    { id: 'minimalist', name: 'Minimalist' },
+    { id: 'colorful', name: 'Colorful' },
+    { id: 'dark', name: 'Dark Mode' }
+  ];
+
+  // Load platforms when component mounts
+  useEffect(() => {
+    fetchPlatformsFromAPI();
+  }, [fetchPlatformsFromAPI]);
+
+  // Handle search
+  const filteredPlatforms = platforms.filter(platform => 
+    platform.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    platform.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    platform.domain.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Open add modal
+  const handleAddPlatform = () => {
+    setFormData({
+      name: '',
+      description: '',
+      logoUrl: '',
+      bannerUrl: '',
+      domain: '',
+      theme: 'default',
+      isActive: true,
+      productCategories: []
+    });
+    setShowAddModal(true);
+  };
+
+  // Open edit modal
+  const handleEditPlatform = (platform) => {
+    setCurrentPlatform(platform);
+    setFormData({
+      name: platform.name,
+      description: platform.description || '',
+      logoUrl: platform.logoUrl || '',
+      bannerUrl: platform.bannerUrl || '',
+      domain: platform.domain,
+      theme: platform.theme || 'default',
+      isActive: platform.isActive !== undefined ? platform.isActive : true,
+      productCategories: platform.productCategories || []
+    });
+    setShowEditModal(true);
+  };
+
+  // Open delete modal
+  const handleDeletePlatform = (platform) => {
+    setCurrentPlatform(platform);
+    setShowDeleteModal(true);
+  };
+
+  // Handle form changes
+  const handleChange = (e) => {
+    const { name, value, checked, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  // Handle category toggle
+  const handleCategoryToggle = (categoryId) => {
+    setFormData(prev => {
+      if (prev.productCategories.includes(categoryId)) {
+        return {
+          ...prev,
+          productCategories: prev.productCategories.filter(id => id !== categoryId)
+        };
+      } else {
+        return {
+          ...prev,
+          productCategories: [...prev.productCategories, categoryId]
+        };
+      }
+    });
+  };
+
+  // Save new platform
+  const handleSavePlatform = async () => {
+    try {
+      await createPlatform(formData);
+      setShowAddModal(false);
+    } catch (error) {
+      alert(`Error creating platform: ${error.message}`);
+    }
+  };
+
+  // Update existing platform
+  const handleUpdatePlatform = async () => {
+    try {
+      await updatePlatform(currentPlatform._id, formData);
+      setShowEditModal(false);
+      setCurrentPlatform(null);
+    } catch (error) {
+      alert(`Error updating platform: ${error.message}`);
+    }
+  };
+
+  // Confirm delete platform
+  const handleConfirmDelete = async () => {
+    try {
+      await deletePlatform(currentPlatform._id);
+      setShowDeleteModal(false);
+      setCurrentPlatform(null);
+    } catch (error) {
+      alert(`Error deleting platform: ${error.message}`);
+    }
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'GHS',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
+      
+      <div className="flex-1 ml-64">
+        {loading && <LoadingOverlay />}
+        
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search platforms..."
+                className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <div className="absolute left-3 top-2.5 text-gray-400">
+                <FaSearch />
+              </div>
+            </div>
+            <div className="flex items-center">
+              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white">
+                O
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-semibold text-gray-800">Storefront Platforms</h2>
+              <button
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
+                onClick={handleAddPlatform}
+              >
+                <FaPlus className="mr-2" /> Add Platform
+              </button>
+            </div>
+            
+            {/* Error message */}
+            {error && (
+              <div className="p-4 bg-red-50 text-red-700 border-b border-red-100">
+                <p className="font-medium">Error: {error}</p>
+                <p className="text-sm mt-1">Please try again or contact support if the error persists.</p>
+              </div>
+            )}
+            
+            {/* Platform List */}
+            {filteredPlatforms.length > 0 ? (
+              <div className="divide-y divide-gray-200">
+                {filteredPlatforms.map((platform) => (
+                  <div key={platform._id} className="p-4 hover:bg-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div className="flex">
+                        <img
+                          src={platform.logoUrl}
+                          alt={platform.name}
+                          className="w-16 h-16 rounded-lg object-cover mr-4"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://via.placeholder.com/80?text=Logo';
+                          }}
+                        />
+                        <div>
+                          <h3 className="font-medium text-lg text-gray-900 flex items-center">
+                            {platform.name}
+                            {platform.isActive ? (
+                              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Active
+                              </span>
+                            ) : (
+                              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                Inactive
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-sm text-gray-500 mt-1">{platform.description}</p>
+                          <div className="flex items-center mt-2 text-sm text-gray-500">
+                            <FaLink className="mr-1" />
+                            <a href={`https://${platform.domain}`} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">
+                              {platform.domain}
+                            </a>
+                          </div>
+                          <div className="mt-2 text-sm text-gray-500">
+                            Created on {formatDate(platform.createdAt)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-x-2">
+                        <button
+                          className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                          onClick={() => handleEditPlatform(platform)}
+                        >
+                          <FaEdit className="inline mr-1" /> Edit
+                        </button>
+                        <button
+                          className="px-3 py-1 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                          onClick={() => handleDeletePlatform(platform)}
+                        >
+                          <FaTrash className="inline mr-1" /> Delete
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="text-sm font-medium text-gray-500">Theme</div>
+                        <div className="text-lg font-semibold">{availableThemes.find(t => t.id === platform.theme)?.name || platform.theme}</div>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="text-sm font-medium text-gray-500">Total Sales</div>
+                        <div className="text-lg font-semibold">{platform.salesCount?.toLocaleString() || '0'} orders</div>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="text-sm font-medium text-gray-500">Revenue</div>
+                        <div className="text-lg font-semibold text-green-600">{formatCurrency(platform.revenue || 0)}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {platform.productCategories?.map(categoryId => {
+                        const category = availableCategories.find(cat => cat.id === categoryId);
+                        return category && (
+                          <span key={categoryId} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            {category.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20">
+                <FaGlobe className="w-16 h-16 text-gray-300 mb-4" />
+                <h3 className="text-xl font-medium text-gray-700 mb-1">No platforms found</h3>
+                <p className="text-gray-500">Create your first storefront platform</p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Add Platform Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center p-6 border-b">
+                <h2 className="text-xl font-bold text-gray-900">Add New Platform</h2>
+                <button 
+                  onClick={() => setShowAddModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+              
+              <div className="p-6">
+                <form>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Platform Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        required
+                        placeholder="e.g., Sinosply Electronics"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="domain" className="block text-sm font-medium text-gray-700 mb-1">
+                        Domain <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                          https://
+                        </span>
+                        <input
+                          type="text"
+                          id="domain"
+                          name="domain"
+                          value={formData.domain}
+                          onChange={handleChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-r-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                          required
+                          placeholder="electronics.sinosply.com"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="col-span-1 md:col-span-2">
+                      <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleChange}
+                        rows="3"
+                        className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="Describe what this storefront sells or its purpose"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="logoUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                        Logo URL
+                      </label>
+                      <div className="flex items-center">
+                        <input
+                          type="text"
+                          id="logoUrl"
+                          name="logoUrl"
+                          value={formData.logoUrl}
+                          onChange={handleChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="https://example.com/logo.png"
+                        />
+                      </div>
+                      {formData.logoUrl && (
+                        <div className="mt-2 flex justify-center">
+                          <img 
+                            src={formData.logoUrl} 
+                            alt="Logo Preview" 
+                            className="h-16 w-16 object-cover rounded"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://via.placeholder.com/80?text=Logo';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="bannerUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                        Banner URL
+                      </label>
+                      <div className="flex items-center">
+                        <input
+                          type="text"
+                          id="bannerUrl"
+                          name="bannerUrl"
+                          value={formData.bannerUrl}
+                          onChange={handleChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="https://example.com/banner.jpg"
+                        />
+                      </div>
+                      {formData.bannerUrl && (
+                        <div className="mt-2 flex justify-center">
+                          <img 
+                            src={formData.bannerUrl} 
+                            alt="Banner Preview" 
+                            className="h-20 w-full object-cover rounded"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://via.placeholder.com/800x200?text=Banner';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="theme" className="block text-sm font-medium text-gray-700 mb-1">
+                        Theme
+                      </label>
+                      <select
+                        id="theme"
+                        name="theme"
+                        value={formData.theme}
+                        onChange={handleChange}
+                        className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {availableThemes.map(theme => (
+                          <option key={theme.id} value={theme.id}>{theme.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="isActive"
+                        name="isActive"
+                        checked={formData.isActive}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
+                        Platform is active and visible to customers
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Product Categories
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {availableCategories.map(category => (
+                        <div 
+                          key={category.id}
+                          className={`flex items-center p-3 rounded-lg cursor-pointer border ${
+                            formData.productCategories.includes(category.id)
+                              ? 'bg-purple-50 border-purple-300'
+                              : 'bg-white border-gray-200'
+                          }`}
+                          onClick={() => handleCategoryToggle(category.id)}
+                        >
+                          <div className={`h-4 w-4 rounded flex items-center justify-center mr-2 ${
+                            formData.productCategories.includes(category.id)
+                              ? 'bg-purple-600 text-white'
+                              : 'border border-gray-300'
+                          }`}>
+                            {formData.productCategories.includes(category.id) && <FaCheck className="h-3 w-3" />}
+                          </div>
+                          <span className="text-sm">{category.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end gap-3 mt-8 pt-4 border-t">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModal(false)}
+                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSavePlatform}
+                      className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                      disabled={loading}
+                    >
+                      {loading ? "Creating..." : "Create Platform"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Edit Platform Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center p-6 border-b">
+                <h2 className="text-xl font-bold text-gray-900">Edit Platform</h2>
+                <button 
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+              
+              <div className="p-6">
+                <form>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Platform Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="edit-domain" className="block text-sm font-medium text-gray-700 mb-1">
+                        Domain <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                          https://
+                        </span>
+                        <input
+                          type="text"
+                          id="edit-domain"
+                          name="domain"
+                          value={formData.domain}
+                          onChange={handleChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-r-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="col-span-1 md:col-span-2">
+                      <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        id="edit-description"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleChange}
+                        rows="3"
+                        className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="edit-logoUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                        Logo URL
+                      </label>
+                      <div className="flex items-center">
+                        <input
+                          type="text"
+                          id="edit-logoUrl"
+                          name="logoUrl"
+                          value={formData.logoUrl}
+                          onChange={handleChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+                      {formData.logoUrl && (
+                        <div className="mt-2 flex justify-center">
+                          <img 
+                            src={formData.logoUrl} 
+                            alt="Logo Preview" 
+                            className="h-16 w-16 object-cover rounded"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://via.placeholder.com/80?text=Logo';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="edit-bannerUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                        Banner URL
+                      </label>
+                      <div className="flex items-center">
+                        <input
+                          type="text"
+                          id="edit-bannerUrl"
+                          name="bannerUrl"
+                          value={formData.bannerUrl}
+                          onChange={handleChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+                      {formData.bannerUrl && (
+                        <div className="mt-2 flex justify-center">
+                          <img 
+                            src={formData.bannerUrl} 
+                            alt="Banner Preview" 
+                            className="h-20 w-full object-cover rounded"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://via.placeholder.com/800x200?text=Banner';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="edit-theme" className="block text-sm font-medium text-gray-700 mb-1">
+                        Theme
+                      </label>
+                      <select
+                        id="edit-theme"
+                        name="theme"
+                        value={formData.theme}
+                        onChange={handleChange}
+                        className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {availableThemes.map(theme => (
+                          <option key={theme.id} value={theme.id}>{theme.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="edit-isActive"
+                        name="isActive"
+                        checked={formData.isActive}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="edit-isActive" className="ml-2 block text-sm text-gray-700">
+                        Platform is active and visible to customers
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Product Categories
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {availableCategories.map(category => (
+                        <div 
+                          key={category.id}
+                          className={`flex items-center p-3 rounded-lg cursor-pointer border ${
+                            formData.productCategories.includes(category.id)
+                              ? 'bg-purple-50 border-purple-300'
+                              : 'bg-white border-gray-200'
+                          }`}
+                          onClick={() => handleCategoryToggle(category.id)}
+                        >
+                          <div className={`h-4 w-4 rounded flex items-center justify-center mr-2 ${
+                            formData.productCategories.includes(category.id)
+                              ? 'bg-purple-600 text-white'
+                              : 'border border-gray-300'
+                          }`}>
+                            {formData.productCategories.includes(category.id) && <FaCheck className="h-3 w-3" />}
+                          </div>
+                          <span className="text-sm">{category.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end gap-3 mt-8 pt-4 border-t">
+                    <button
+                      type="button"
+                      onClick={() => setShowEditModal(false)}
+                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUpdatePlatform}
+                      className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                      disabled={loading}
+                    >
+                      {loading ? "Updating..." : "Update Platform"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && currentPlatform && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+              <div className="mb-4">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                  <FaTrash className="h-6 w-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 text-center">Delete Platform</h3>
+                <p className="text-gray-500 text-center mt-2">
+                  Are you sure you want to delete <span className="font-medium">{currentPlatform.name}</span>? This action cannot be undone.
+                </p>
+              </div>
+              
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  disabled={loading}
+                >
+                  {loading ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PlatformsPage; 

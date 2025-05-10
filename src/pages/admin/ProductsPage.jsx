@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaCopy } from 'react-icons/fa';
+import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaCopy, FaStar } from 'react-icons/fa';
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { useProductStore } from '../../store/productStore';
+import { useCollectionsStore } from '../../store/collectionsStore';
 import apiConfig from '../../config/apiConfig';
 
 const ProductsPage = () => {
@@ -22,6 +23,13 @@ const ProductsPage = () => {
   // Product store
   const productStore = useProductStore();
   
+  // Collections store
+  const { 
+    collections, 
+    fetchCollectionsFromAPI, 
+    addProductToCollection 
+  } = useCollectionsStore();
+  
   // New product state
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -39,7 +47,9 @@ const ProductsPage = () => {
       }
     ],
     sizes: ['XS', 'S', 'M', 'L', 'XL'],
-    stock: 0
+    stock: 0,
+    collectionId: '',
+    isFeatured: false
   });
 
   useEffect(() => {
@@ -59,6 +69,9 @@ const ProductsPage = () => {
       // Otherwise fetch from API
       fetchProducts();
     }
+    
+    // Fetch collections for dropdown
+    fetchCollectionsFromAPI();
   }, []);
 
   const fetchProducts = async () => {
@@ -300,6 +313,28 @@ const ProductsPage = () => {
         // Add the product to the product store
         productStore.addProduct(response.data.data);
         
+        // If a collection was selected, add the product to that collection
+        if (newProduct.collectionId) {
+          try {
+            await axios.post(
+              `${apiConfig.baseURL}/collections/${newProduct.collectionId}/products`,
+              { productId: response.data.data._id },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                }
+              }
+            );
+            
+            // Refresh collections to update product counts
+            fetchCollectionsFromAPI();
+          } catch (collectionError) {
+            console.error('Error associating product with collection:', collectionError);
+            // Don't block the product creation if collection association fails
+          }
+        }
+        
         // Show success message
         alert('Product added successfully!');
         
@@ -323,7 +358,9 @@ const ProductsPage = () => {
             }
           ],
           sizes: ['XS', 'S', 'M', 'L', 'XL'],
-          stock: 0
+          stock: 0,
+          collectionId: '',
+          isFeatured: false
         });
         
         // Refresh products list
@@ -527,7 +564,9 @@ const ProductsPage = () => {
         }
       ],
       sizes: ['XS', 'S', 'M', 'L', 'XL'],
-      stock: 0
+      stock: 0,
+      collectionId: '',
+      isFeatured: false
     });
   };
   
@@ -588,6 +627,29 @@ const ProductsPage = () => {
       if (response.data.success) {
         // Update the product in the store
         productStore.addProduct(response.data.data);
+        
+        // If collection changed, update the collection association
+        if (newProduct.collectionId) {
+          try {
+            // First add to new collection
+            await axios.post(
+              `${apiConfig.baseURL}/collections/${newProduct.collectionId}/products`,
+              { productId: response.data.data._id },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                }
+              }
+            );
+            
+            // Refresh collections to update product counts
+            fetchCollectionsFromAPI();
+          } catch (collectionError) {
+            console.error('Error associating product with collection:', collectionError);
+            // Don't block the product update if collection association fails
+          }
+        }
         
         // Update local product list
         setProducts(prevProducts => 
@@ -852,6 +914,26 @@ const ProductsPage = () => {
                       </div>
                       
                       <div>
+                        <label htmlFor="collectionId" className="block text-sm font-medium text-gray-700 mb-1">
+                          Collection (Optional)
+                        </label>
+                        <select
+                          id="collectionId"
+                          name="collectionId"
+                          value={newProduct.collectionId}
+                          onChange={handleNewProductChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="">Select Collection</option>
+                          {collections.map((collection) => (
+                            <option key={collection._id} value={collection._id}>
+                              {collection.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
                         <label htmlFor="basePrice" className="block text-sm font-medium text-gray-700 mb-1">
                           Regular Price <span className="text-red-500">*</span>
                         </label>
@@ -906,6 +988,33 @@ const ProductsPage = () => {
                           min="0"
                           required
                         />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Feature Flag Section */}
+                  <div className="mb-8">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <input
+                          id="isFeatured"
+                          name="isFeatured"
+                          type="checkbox"
+                          className="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-yellow-300 rounded"
+                          checked={newProduct.isFeatured}
+                          onChange={(e) => setNewProduct(prev => ({
+                            ...prev,
+                            isFeatured: e.target.checked
+                          }))}
+                        />
+                        <div className="ml-3">
+                          <label htmlFor="isFeatured" className="font-medium text-yellow-800 flex items-center">
+                            <FaStar className="text-yellow-500 mr-1" /> Feature this product
+                          </label>
+                          <p className="text-yellow-700 text-sm">
+                            Featured products will be highlighted on the homepage and in featured sections
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1201,6 +1310,26 @@ const ProductsPage = () => {
                       </div>
                       
                       <div>
+                        <label htmlFor="edit-collectionId" className="block text-sm font-medium text-gray-700 mb-1">
+                          Collection (Optional)
+                        </label>
+                        <select
+                          id="edit-collectionId"
+                          name="collectionId"
+                          value={newProduct.collectionId}
+                          onChange={handleNewProductChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="">Select Collection</option>
+                          {collections.map((collection) => (
+                            <option key={collection._id} value={collection._id}>
+                              {collection.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
                         <label htmlFor="edit-basePrice" className="block text-sm font-medium text-gray-700 mb-1">
                           Regular Price <span className="text-red-500">*</span>
                         </label>
@@ -1255,6 +1384,33 @@ const ProductsPage = () => {
                           min="0"
                           required
                         />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Feature Flag Section */}
+                  <div className="mb-8">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <input
+                          id="edit-isFeatured"
+                          name="isFeatured"
+                          type="checkbox"
+                          className="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-yellow-300 rounded"
+                          checked={newProduct.isFeatured}
+                          onChange={(e) => setNewProduct(prev => ({
+                            ...prev,
+                            isFeatured: e.target.checked
+                          }))}
+                        />
+                        <div className="ml-3">
+                          <label htmlFor="edit-isFeatured" className="font-medium text-yellow-800 flex items-center">
+                            <FaStar className="text-yellow-500 mr-1" /> Feature this product
+                          </label>
+                          <p className="text-yellow-700 text-sm">
+                            Featured products will be highlighted on the homepage and in featured sections
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>

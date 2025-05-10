@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FaSearch, FaEye, FaUserEdit, FaTrash, FaSync, FaCheck, FaDownload, FaDatabase, FaExclamationTriangle, FaWifi, FaNetworkWired } from 'react-icons/fa';
+import { FaSearch, FaEye, FaUserEdit, FaTrash, FaSync, FaCheck, FaDownload, FaDatabase, FaExclamationTriangle, FaWifi, FaNetworkWired, FaCommentDots } from 'react-icons/fa';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { useCustomersStore } from '../../store/customersStore';
+import AdminChatPanel from '../../components/admin/AdminChatPanel';
+import { useChatStore } from '../../store/chatStore';
 
 // Format time ago for display
 function formatTimeAgo(timestamp) {
@@ -75,6 +77,10 @@ const CustomersPage = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [networkError, setNetworkError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  
+  // Get chat store for unread count
+  const totalUnreadChats = useChatStore(state => state.getTotalUnreadCount());
   
   // Get store state and actions
   const { 
@@ -288,6 +294,20 @@ const CustomersPage = () => {
             </div>
             
             <div className="flex items-center gap-4">
+              {/* Chat button */}
+              <button
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center relative"
+                onClick={() => setChatPanelOpen(true)}
+              >
+                <FaCommentDots className="mr-2" />
+                Customer Chat
+                {totalUnreadChats > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {totalUnreadChats}
+                  </span>
+                )}
+              </button>
+              
               {/* Network/Cache status indicator */}
               <NetworkStatus 
                 isOnline={isOnline}
@@ -488,6 +508,11 @@ const CustomersPage = () => {
           </div>
         </div>
       </div>
+      
+      {/* Admin Chat Panel */}
+      {chatPanelOpen && (
+        <AdminChatPanel onClose={() => setChatPanelOpen(false)} />
+      )}
     </div>
   );
 };

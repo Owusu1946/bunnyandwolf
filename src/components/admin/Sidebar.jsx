@@ -15,31 +15,39 @@ import {
   FaCalendarAlt,
   FaChartBar,
   FaChevronRight,
-  FaChevronLeft
+  FaChevronLeft,
+  FaTicketAlt,
+  FaBullhorn,
+  FaShoppingBag,
+  FaStore
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
+import { useSidebar } from '../../context/SidebarContext';
 import axios from 'axios';
+import apiConfig from '../../config/apiConfig';
 
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { collapsed, setCollapsed } = useSidebar();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportType, setReportType] = useState('sales');
   const [reportPeriod, setReportPeriod] = useState('month');
   const [reportFormat, setReportFormat] = useState('pdf');
-  const [collapsed, setCollapsed] = useState(window.innerWidth < 1024);
   
   const menuItems = [
     { path: '/admin/dashboard', icon: FaHome, label: 'Dashboard' },
-    // { path: '/admin/orders', icon: FaShoppingCart, label: 'Orders' },
     { path: '/admin/all-orders', icon: FaShoppingCart, label: 'All Orders' },
     { path: '/admin/products', icon: FaBoxes, label: 'Products' },
+    { path: '/admin/collections', icon: FaShoppingBag, label: 'Collections' },
+    { path: '/admin/platforms', icon: FaStore, label: 'Platforms' },
     { path: '/admin/customers', icon: FaUsers, label: 'Customers' },
-    { path: '/admin/chats', icon: FaComments, label: 'Chats' },
-    { path: '/admin/campaigns', icon: FaBoxes, label: 'Campaigns' }
+    // { path: '/admin/chats', icon: FaComments, label: 'Chats' },
+    { path: '/admin/campaigns', icon: FaBullhorn, label: 'Campaigns' },
+    { path: '/admin/coupons', icon: FaTicketAlt, label: 'Coupons' },
   ];
 
   const bottomMenuItems = [
@@ -65,14 +73,15 @@ const Sidebar = () => {
     try {
       setGeneratingReport(true);
       
-      const response = await axios.get(`http://localhost:5000/api/v1/admin/reports/generate`, {
+      const response = await axios.get(`${apiConfig.baseURL}/admin/reports/generate`, {
         params: {
           type: reportType,
           period: reportPeriod,
           format: reportFormat
         },
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          ...apiConfig.headers,
+          ...apiConfig.getAuthHeader()
         },
         responseType: 'blob' // Important for file downloads
       });
