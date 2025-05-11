@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { FaFilter, FaStar, FaHeart, FaRegHeart, FaChevronDown } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaFilter, FaStar, FaHeart, FaRegHeart, FaChevronDown, FaSearch } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useCollectionsStore } from '../store/collectionsStore';
 import { useProductStore } from '../store/productStore';
 import CustomerSupportChat from '../components/CustomerSupportChat';
+import { LazyLoadImage } from 'react-lazy-load-image-component';
+import 'react-lazy-load-image-component/src/effects/blur.css';
 
 const FeaturedCollectionPage = () => {
   const { collectionId } = useParams();
@@ -17,6 +19,7 @@ const FeaturedCollectionPage = () => {
   const [collection, setCollection] = useState(null);
   const [collectionProducts, setCollectionProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [imageLoaded, setImageLoaded] = useState({});
   
   // Filter states
   const [priceRange, setPriceRange] = useState([0, 1000]);
@@ -25,6 +28,11 @@ const FeaturedCollectionPage = () => {
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [showFilters, setShowFilters] = useState(true);
   const [wishlist, setWishlist] = useState([]);
+  const [hoveredProduct, setHoveredProduct] = useState(null);
+  const [showQuickView, setShowQuickView] = useState(false);
+  
+  // Refs
+  const filterRef = useRef(null);
   
   // Load collection and products
   useEffect(() => {
@@ -50,9 +58,10 @@ const FeaturedCollectionPage = () => {
       }
       
       setCollectionProducts(associatedProducts);
+      setTimeout(() => setLoading(false), 300);
+    } else {
+      setLoading(false);
     }
-    
-    setLoading(false);
   }, [collectionId, collections, products, getCollectionById]);
   
   // Extract unique categories and sizes from products
@@ -136,35 +145,84 @@ const FeaturedCollectionPage = () => {
     setSortOption('featured');
   };
 
+  // Get best product image
+  const getProductImage = (product) => {
+    // Try to get main product image
+    if (product.image && product.image.startsWith('http')) {
+      return product.image;
+    }
+    
+    // Try to get first variant image
+    if (product.variants && product.variants.length > 0) {
+      const variantImages = product.variants[0].images;
+      if (variantImages && variantImages.length > 0 && variantImages[0].startsWith('http')) {
+        return variantImages[0];
+      }
+    }
+    
+    // Try secondary images if available
+    if (product.images && product.images.length > 0 && product.images[0].startsWith('http')) {
+      return product.images[0];
+    }
+    
+    // Return placeholder if no valid image found
+    return "https://via.placeholder.com/300x400?text=Sinosply";
+  };
+
+  // Get secondary product image for hover effect
+  const getSecondaryImage = (product) => {
+    // Check if product has multiple images or variants with images
+    if (product.images && product.images.length > 1 && product.images[1].startsWith('http')) {
+      return product.images[1];
+    }
+    
+    if (product.variants && product.variants.length > 0) {
+      const variantImages = product.variants[0].images;
+      if (variantImages && variantImages.length > 1 && variantImages[1].startsWith('http')) {
+        return variantImages[1];
+      }
+    }
+    
+    // Return the same primary image if no secondary image available
+    return getProductImage(product);
+  };
+
+  // Handle image load event
+  const handleImageLoaded = (productId) => {
+    setImageLoaded(prev => ({...prev, [productId]: true}));
+  };
+
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
-      
+
       {/* Collection Banner */}
-      <div className="relative w-full h-[40vh] bg-gray-900">
+      <div className="relative w-full h-[50vh] bg-gray-900 overflow-hidden">
         {collection?.image ? (
-          <img 
-            src={collection.image}
-            alt={collection?.name}
-            className="w-full h-full object-cover opacity-80"
-          />
+          <div className="w-full h-full">
+            <img 
+              src={collection.image}
+              alt={collection?.name}
+              className="w-full h-full object-cover opacity-80 transition-transform duration-10000 hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-60"></div>
+          </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <div className="animate-pulse rounded-lg bg-gray-700 w-full h-full"></div>
           </div>
         )}
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">{collection?.name || 'Collection'}</h1>
-          <p className="text-white text-lg max-w-2xl text-center px-4">
+        <div className="absolute inset-0 bg-black bg-opacity-30 flex flex-col items-center justify-center">
+          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 tracking-wider">{collection?.name || 'Collection'}</h1>
+          <p className="text-white text-xl max-w-2xl text-center px-6 font-light">
             {collection?.description || 'Explore our collection of curated products'}
           </p>
         </div>
       </div>
       
       {/* Collection Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Breadcrumbs */}
-        <nav className="mb-8">
+        <nav className="mb-10">
           <ol className="flex items-center space-x-2 text-sm">
             <li><Link to="/" className="text-gray-500 hover:text-black">Home</Link></li>
             <li><span className="text-gray-500">/</span></li>
@@ -177,17 +235,18 @@ const FeaturedCollectionPage = () => {
         <div className="flex flex-col md:flex-row gap-8">
           {/* Filters Sidebar */}
           <motion.div 
+            ref={filterRef}
             className={`${showFilters ? 'w-full md:w-1/4' : 'w-full md:w-auto'} bg-white`}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="sticky top-24">
-              <div className="flex items-center justify-between mb-6">
+            <div className="sticky top-24 bg-white">
+              <div className="flex items-center justify-between mb-8">
                 <h2 className="text-xl font-bold">Filters</h2>
                 <button 
                   onClick={() => setShowFilters(!showFilters)}
-                  className="md:hidden p-2 rounded-full bg-gray-100 text-gray-700"
+                  className="p-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
                 >
                   <FaFilter className="w-4 h-4" />
                 </button>
@@ -197,19 +256,19 @@ const FeaturedCollectionPage = () => {
                 <div className="space-y-8 pb-6 border-b">
                   {/* Price Range */}
                   <div>
-                    <h3 className="font-medium mb-3 flex items-center justify-between">
-                      <span>Price Range</span>
+                    <h3 className="font-medium mb-4 flex items-center justify-between">
+                      <span className="text-lg">Price Range</span>
                       <FaChevronDown className="w-3 h-3 text-gray-500" />
                     </h3>
-                    <div className="mb-2">
-                      <div className="flex items-center justify-between text-sm text-gray-600">
-                        <span>GH₵{priceRange[0]}</span>
-                        <span>GH₵{priceRange[1]}</span>
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                        <span>GH₵{priceRange[0].toFixed(2)}</span>
+                        <span>GH₵{priceRange[1].toFixed(2)}</span>
                       </div>
-                      <div className="relative mt-2">
-                        <div className="h-1 bg-gray-200 rounded-full">
+                      <div className="relative mt-2 px-1">
+                        <div className="h-2 bg-gray-200 rounded-full">
                           <div 
-                            className="absolute h-1 bg-black rounded-full"
+                            className="absolute h-2 bg-black rounded-full"
                             style={{
                               left: `${(priceRange[0] / 1000) * 100}%`,
                               width: `${((priceRange[1] - priceRange[0]) / 1000) * 100}%`
@@ -222,7 +281,7 @@ const FeaturedCollectionPage = () => {
                           max={1000}
                           value={priceRange[0]}
                           onChange={(e) => handlePriceRangeChange(e, 0)}
-                          className="absolute top-0 left-0 w-full h-1 opacity-0 cursor-pointer"
+                          className="absolute top-0 left-0 w-full h-2 opacity-0 cursor-pointer"
                         />
                         <input
                           type="range"
@@ -230,7 +289,27 @@ const FeaturedCollectionPage = () => {
                           max={1000}
                           value={priceRange[1]}
                           onChange={(e) => handlePriceRangeChange(e, 1)}
-                          className="absolute top-0 left-0 w-full h-1 opacity-0 cursor-pointer"
+                          className="absolute top-0 left-0 w-full h-2 opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-500 mb-1 block">Min</label>
+                        <input 
+                          type="number" 
+                          value={priceRange[0]}
+                          onChange={(e) => handlePriceRangeChange(e, 0)}
+                          className="w-full border border-gray-300 rounded p-2 text-sm"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-500 mb-1 block">Max</label>
+                        <input 
+                          type="number" 
+                          value={priceRange[1]}
+                          onChange={(e) => handlePriceRangeChange(e, 1)}
+                          className="w-full border border-gray-300 rounded p-2 text-sm"
                         />
                       </div>
                     </div>
@@ -239,11 +318,11 @@ const FeaturedCollectionPage = () => {
                   {/* Categories */}
                   {availableCategories.length > 0 && (
                     <div>
-                      <h3 className="font-medium mb-3 flex items-center justify-between">
-                        <span>Categories</span>
+                      <h3 className="font-medium mb-4 flex items-center justify-between">
+                        <span className="text-lg">Categories</span>
                         <FaChevronDown className="w-3 h-3 text-gray-500" />
                       </h3>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {availableCategories.map((category) => (
                           <div key={category} className="flex items-center">
                             <input
@@ -253,7 +332,7 @@ const FeaturedCollectionPage = () => {
                               onChange={() => toggleCategory(category)}
                               className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black"
                             />
-                            <label htmlFor={`category-${category}`} className="ml-2 text-sm text-gray-700">
+                            <label htmlFor={`category-${category}`} className="ml-3 text-sm text-gray-700 hover:text-black cursor-pointer">
                               {category}
                             </label>
                           </div>
@@ -265,19 +344,19 @@ const FeaturedCollectionPage = () => {
                   {/* Sizes */}
                   {availableSizes.length > 0 && (
                     <div>
-                      <h3 className="font-medium mb-3 flex items-center justify-between">
-                        <span>Sizes</span>
+                      <h3 className="font-medium mb-4 flex items-center justify-between">
+                        <span className="text-lg">Sizes</span>
                         <FaChevronDown className="w-3 h-3 text-gray-500" />
                       </h3>
                       <div className="grid grid-cols-3 gap-2">
                         {availableSizes.map((size) => (
                           <button
                             key={size}
-                            className={`px-3 py-2 text-xs border rounded-md ${
+                            className={`px-3 py-2 text-xs rounded-md ${
                               selectedSizes.includes(size)
                                 ? 'bg-black text-white border-black'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'
-                            }`}
+                                : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-500'
+                            } transition-all duration-200`}
                             onClick={() => toggleSize(size)}
                           >
                             {size}
@@ -290,7 +369,7 @@ const FeaturedCollectionPage = () => {
                   {/* Reset Button */}
                   <button
                     onClick={resetFilters}
-                    className="w-full py-2 text-sm text-gray-600 hover:text-black border-t border-gray-200 pt-4"
+                    className="w-full py-3 text-sm font-medium text-gray-600 hover:text-black transition-colors border-t border-gray-200 pt-4 hover:underline"
                   >
                     Reset All Filters
                   </button>
@@ -302,16 +381,16 @@ const FeaturedCollectionPage = () => {
           {/* Products Grid */}
           <div className="flex-1">
             {/* Sort Controls */}
-            <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+            <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
               <div className="text-sm text-gray-600">
-                <span>{sortedProducts.length} products</span>
+                <span className="font-medium">{sortedProducts.length} products</span> in this collection
               </div>
               <div className="flex items-center">
-                <label className="text-sm mr-2">Sort by:</label>
+                <label className="text-sm mr-3 text-gray-600">Sort by:</label>
                 <select
                   value={sortOption}
                   onChange={(e) => setSortOption(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm"
+                  className="border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black"
                 >
                   <option value="featured">Featured</option>
                   <option value="newest">Newest</option>
@@ -322,17 +401,18 @@ const FeaturedCollectionPage = () => {
             </div>
             
             {loading ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                 {[...Array(8)].map((_, index) => (
                   <div key={index} className="animate-pulse">
-                    <div className="bg-gray-200 h-80 rounded"></div>
+                    <div className="bg-gray-200 h-[350px] rounded-md"></div>
                     <div className="h-4 bg-gray-200 rounded mt-4 w-3/4"></div>
                     <div className="h-4 bg-gray-200 rounded mt-2 w-1/2"></div>
+                    <div className="h-4 bg-gray-200 rounded mt-2 w-1/4"></div>
                   </div>
                 ))}
               </div>
             ) : sortedProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 gap-y-12">
                 {sortedProducts.map((product) => (
                   <motion.div
                     key={product._id}
@@ -340,22 +420,57 @@ const FeaturedCollectionPage = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
                     className="group"
+                    onMouseEnter={() => setHoveredProduct(product._id)}
+                    onMouseLeave={() => setHoveredProduct(null)}
                   >
-                    <div className="relative overflow-hidden">
+                    <div className="relative overflow-hidden rounded-md">
                       <Link to={`/product/${product._id}`}>
-                        <img
-                          src={product.image || (product.variants?.[0]?.images?.[0])}
-                          alt={product.name}
-                          className="w-full h-80 object-cover transition-transform duration-300 group-hover:scale-105"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = "https://via.placeholder.com/300x400?text=Product+Image";
-                          }}
-                        />
+                        <div className="relative w-full h-96 bg-gray-100 overflow-hidden">
+                          {/* Primary Image */}
+                          <img
+                            src={getProductImage(product)}
+                            alt={product.name}
+                            className={`w-full h-full object-cover transition-opacity duration-300 ${hoveredProduct === product._id ? 'opacity-0' : 'opacity-100'}`}
+                            onLoad={() => handleImageLoaded(product._id)}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "https://via.placeholder.com/300x400?text=Sinosply";
+                            }}
+                          />
+                          {/* Secondary/Hover Image */}
+                          <img
+                            src={getSecondaryImage(product)}
+                            alt={`${product.name} alternate view`}
+                            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hoveredProduct === product._id ? 'opacity-100' : 'opacity-0'}`}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = getProductImage(product);
+                            }}
+                          />
+                          
+                          {/* Loading Overlay */}
+                          {!imageLoaded[product._id] && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+                              <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                          )}
+                          
+                          {/* Quick Shop Button */}
+                          <div className="absolute bottom-0 left-0 right-0 p-4 bg-black bg-opacity-0 translate-y-full group-hover:translate-y-0 group-hover:bg-opacity-70 transition-all duration-300 flex items-center justify-center">
+                            <Link 
+                              to={`/product/${product._id}`}
+                              className="py-2 px-4 bg-white text-black text-sm font-medium hover:bg-gray-100 transition-colors"
+                            >
+                              QUICK SHOP
+                            </Link>
+                          </div>
+                        </div>
                       </Link>
+
                       <button
                         onClick={() => toggleWishlist(product._id)}
-                        className="absolute top-3 right-3 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors"
+                        className="absolute top-3 right-3 p-3 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors"
+                        aria-label={wishlist.includes(product._id) ? "Remove from wishlist" : "Add to wishlist"}
                       >
                         {wishlist.includes(product._id) ? (
                           <FaHeart className="w-4 h-4 text-red-500" />
@@ -363,8 +478,20 @@ const FeaturedCollectionPage = () => {
                           <FaRegHeart className="w-4 h-4" />
                         )}
                       </button>
+                      
+                      {/* Sale or Sold Out Badge */}
+                      {product.salePrice && (
+                        <div className="absolute top-3 left-3 bg-red-500 text-white px-2 py-1 text-xs font-medium">
+                          SALE
+                        </div>
+                      )}
+                      {product.stock <= 0 && (
+                        <div className="absolute top-3 left-3 bg-gray-900 text-white px-2 py-1 text-xs font-medium">
+                          SOLD OUT
+                        </div>
+                      )}
                     </div>
-                    <div className="mt-4">
+                    <div className="mt-4 px-1">
                       <Link to={`/product/${product._id}`} className="block">
                         <h3 className="text-md font-medium text-gray-900 group-hover:underline">{product.name}</h3>
                       </Link>
@@ -385,14 +512,20 @@ const FeaturedCollectionPage = () => {
                         </div>
                         <span className="text-xs text-gray-500 ml-2">{product.numReviews || 0} reviews</span>
                       </div>
-                      <div className="mt-1 flex items-center justify-between">
-                        <p className="text-md font-bold text-gray-900">
-                          GH₵{(product.basePrice || product.price || 0).toFixed(2)}
-                        </p>
-                        {product.stock <= 0 && (
-                          <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                            Out of stock
-                          </span>
+                      <div className="mt-2 flex items-center gap-2">
+                        {product.salePrice ? (
+                          <>
+                            <p className="text-md font-bold text-red-600">
+                              GH₵{(product.salePrice).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-gray-500 line-through">
+                              GH₵{(product.basePrice || product.price || 0).toFixed(2)}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-md font-bold text-gray-900">
+                            GH₵{(product.basePrice || product.price || 0).toFixed(2)}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -400,17 +533,29 @@ const FeaturedCollectionPage = () => {
                 ))}
               </div>
             ) : (
-              <div className="py-20 text-center">
-                <h3 className="text-xl font-medium text-gray-700 mb-2">No products found</h3>
-                <p className="text-gray-500 mb-6">Try adjusting your filters or check out other collections.</p>
+              <motion.div 
+                className="py-20 text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-full bg-gray-100">
+                  <FaSearch className="w-6 h-6 text-gray-400" />
+                </div>
+                <h3 className="text-2xl font-medium text-gray-700 mb-3">No products found</h3>
+                <p className="text-gray-500 mb-8 max-w-md mx-auto">
+                  We couldn't find any products that match your current filters. Try adjusting your selection or explore other collections.
+                </p>
                 <button 
                   onClick={resetFilters}
                   className="bg-black text-white px-8 py-3 font-medium hover:bg-gray-800 transition-colors rounded-md"
                 >
                   Reset Filters
                 </button>
-              </div>
+              </motion.div>
             )}
+            
+            {/* Pagination if needed in future */}
           </div>
         </div>
       </div>

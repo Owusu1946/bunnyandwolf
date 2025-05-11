@@ -106,7 +106,7 @@ const CheckoutPage = () => {
       id: 'standard',
       name: 'Standard Shipping',
       description: '3-5 business days',
-      price: 5.99,
+      price: 1,
       carrier: 'DHL',
       estimatedDelivery: '3-5 business days'
     },
@@ -114,7 +114,7 @@ const CheckoutPage = () => {
       id: 'express',
       name: 'Express Shipping',
       description: '1-2 business days',
-      price: 14.99,
+      price: 1,
       carrier: 'FedEx',
       estimatedDelivery: '1-2 business days'
     },
@@ -122,7 +122,7 @@ const CheckoutPage = () => {
       id: 'sameday',
       name: 'Same Day Delivery',
       description: 'Delivered today (order before 2pm)',
-      price: 24.99,
+      price: 1,
       carrier: 'Local Courier',
       estimatedDelivery: 'Today'
     },
