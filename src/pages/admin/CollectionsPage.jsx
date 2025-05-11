@@ -21,16 +21,17 @@ const CollectionsPage = () => {
   const [currentCollection, setCurrentCollection] = useState(null);
   const [collectionProducts, setCollectionProducts] = useState([]);
   
-  // Get collections from store
-  const {
-    collections,
-    fetchCollectionsFromAPI,
-    addCollection: storeAddCollection,
-    removeCollection: storeRemoveCollection
-  } = useCollectionsStore();
+  // Get collections from store - Make sure these are actual functions
+  const collectionsStore = useCollectionsStore();
+  const collections = collectionsStore.collections || [];
+  const fetchCollectionsFromAPI = collectionsStore.fetchCollectionsFromAPI;
+  const storeAddCollection = collectionsStore.addCollection;
+  const storeRemoveCollection = collectionsStore.removeCollection;
   
   // Get products from store
-  const { products: allProducts, fetchProductsFromAPI } = useProductStore();
+  const productStore = useProductStore();
+  const allProducts = productStore.products || [];
+  const fetchProductsFromAPI = productStore.fetchProductsFromAPI;
   
   // New collection state
   const [newCollection, setNewCollection] = useState({
@@ -51,6 +52,8 @@ const CollectionsPage = () => {
 
   // Initialize collections from store or fetch if needed
   useEffect(() => {
+    console.log('Initializing collections page with store:', collectionsStore);
+    
     if (collections.length === 0) {
       fetchCollectionsFromAPI().then(() => {
         setLoading(false);
@@ -422,6 +425,18 @@ const CollectionsPage = () => {
         return;
       }
       
+      // Check if we have the collection to delete and log it
+      if (!collectionToDelete || !collectionToDelete._id) {
+        console.error('No collection to delete or missing ID:', collectionToDelete);
+        setLoading(false);
+        alert('Error: Invalid collection selected for deletion');
+        closeDeleteModal();
+        return;
+      }
+      
+      console.log('Attempting to delete collection with ID:', collectionToDelete._id);
+      console.log('storeRemoveCollection function:', storeRemoveCollection);
+      
       const response = await axios.delete(
         `${apiConfig.baseURL}/collections/${collectionToDelete._id}`,
         {
@@ -432,8 +447,20 @@ const CollectionsPage = () => {
       );
       
       if (response.data.success) {
-        // Remove from store
-        storeRemoveCollection(collectionToDelete._id);
+        try {
+          // Remove from store using the imported function directly
+          if (typeof storeRemoveCollection === 'function') {
+            storeRemoveCollection(collectionToDelete._id);
+          } else {
+            console.error('storeRemoveCollection is not a function:', storeRemoveCollection);
+            // Fallback: Reset collections from API
+            await fetchCollectionsFromAPI();
+          }
+        } catch (storeError) {
+          console.error('Error removing collection from store:', storeError);
+          // Fallback: Reset collections from API
+          await fetchCollectionsFromAPI();
+        }
         
         // Close modal
         closeDeleteModal();

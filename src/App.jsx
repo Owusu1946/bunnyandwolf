@@ -34,6 +34,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import CollectionsPage from './pages/admin/CollectionsPage'
 import PlatformsPage from './pages/admin/PlatformsPage'
+import FeaturedCollectionPage from './pages/FeaturedCollectionPage'
 // Wrap AdminRoute components with SidebarProvider
 const AdminRouteWithSidebar = ({ children }) => (
   <SidebarProvider>
@@ -65,6 +66,7 @@ function App() {
                 <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
                 <Route path="/product/:id" element={<ProductDetailsPage />} />
                 <Route path="/track-order/:trackingNumber" element={<TrackOrderPage />} />
+                <Route path="/collections/:collectionId" element={<FeaturedCollectionPage />} />
                 <Route 
                   path="/profile" 
                   element={

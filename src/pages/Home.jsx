@@ -12,6 +12,7 @@ import CustomerSupportChat from '../components/CustomerSupportChat';
 import { useProductStore } from '../store/productStore';
 import { useCollectionsStore } from '../store/collectionsStore';
 import { usePlatformsStore } from '../store/platformsStore';
+import { Link } from 'react-router-dom';
 
 
 const Home = () => {
@@ -116,7 +117,7 @@ const Home = () => {
 
   // We'll use product store data instead of hardcoded data
   // The components will handle their own data fetching from the store
-  
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
@@ -189,18 +190,18 @@ const Home = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {platformsToDisplay.map((platform) => (
                 <div key={platform._id} className="relative">
-                  <div className="h-[400px] mb-4">
-                    <img 
+              <div className="h-[400px] mb-4">
+                <img 
                       src={platform.logoUrl || platform.bannerUrl}
                       alt={platform.name}
-                      className="w-full h-full object-cover"
+                  className="w-full h-full object-cover"
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = "https://via.placeholder.com/400x400?text=Sinosply";
                       }}
-                    />
-                  </div>
-                  <div>
+                />
+              </div>
+              <div>
                     <h1 className="mb-1 mt-4 uppercase font-medium">{platform.name}</h1>
                     {platform.description && (
                       <p className="text-sm text-gray-600 mb-2">{platform.description}</p>
@@ -211,10 +212,10 @@ const Home = () => {
                       rel="noopener noreferrer" 
                       className="text-sm font-medium border-b-2 border-black hover:border-gray-500 transition-colors"
                     >
-                      SHOP NOW
-                    </a>
-                  </div>
-                </div>
+                  SHOP NOW
+                </a>
+              </div>
+            </div>
               ))}
             </div>
           )}
@@ -243,9 +244,9 @@ const Home = () => {
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
                       <h3 className="text-2xl font-bold text-center mb-2">{collection.name}</h3>
                       <p className="text-sm text-center mb-4">{collection.description || `Explore our ${collection.name}`}</p>
-                      <button className="px-6 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors duration-300">
+                      <Link to={`/collections/${collection._id}`} className="px-6 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors duration-300">
                         EXPLORE
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -253,27 +254,27 @@ const Home = () => {
             ) : (
               // Fallback collections if no featured collections are available
               [
-                { id: 1, name: "Luxury Collection", image: "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?ixlib=rb-4.0.3", description: "Exclusive designer pieces" },
-                { id: 2, name: "Sustainable Fashion", image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?ixlib=rb-4.0.3", description: "Eco-friendly clothing" },
-                { id: 3, name: "Trending Now", image: "https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3", description: "Latest fashion trends" },
-              ].map((collection) => (
+              { id: 1, name: "Luxury Collection", image: "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?ixlib=rb-4.0.3", description: "Exclusive designer pieces" },
+              { id: 2, name: "Sustainable Fashion", image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?ixlib=rb-4.0.3", description: "Eco-friendly clothing" },
+              { id: 3, name: "Trending Now", image: "https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3", description: "Latest fashion trends" },
+            ].map((collection) => (
                 <div key={collection.id} className="relative group cursor-pointer h-[400px]">
                   <div className="h-full w-full rounded-lg overflow-hidden">
-                    <img
-                      src={collection.image}
-                      alt={collection.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-50 transition-all duration-300" />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
-                      <h3 className="text-2xl font-bold text-center mb-2">{collection.name}</h3>
-                      <p className="text-sm text-center mb-4">{collection.description}</p>
-                      <button className="px-6 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors duration-300">
-                        EXPLORE
-                      </button>
-                    </div>
+                  <img
+                    src={collection.image}
+                    alt={collection.name}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-50 transition-all duration-300" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
+                    <h3 className="text-2xl font-bold text-center mb-2">{collection.name}</h3>
+                    <p className="text-sm text-center mb-4">{collection.description}</p>
+                    <button className="px-6 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors duration-300">
+                      EXPLORE
+                    </button>
                   </div>
                 </div>
+              </div>
               ))
             )}
           </div>
