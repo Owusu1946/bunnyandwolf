@@ -598,6 +598,10 @@
   .search-bar {
     display: none;
   }
+  
+  .desktop-categories {
+    display: none !important;
+  }
 
   .hamburger-menu {
     display: flex;

@@ -6,7 +6,6 @@ import { BsStar } from 'react-icons/bs';
 import { BiHomeAlt } from 'react-icons/bi';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import CategoryBar from './CategoryBar';
 import '../styles/Navbar.css';
 import LoadingOverlay from './LoadingOverlay';
 
@@ -137,7 +136,7 @@ const Navbar = () => {
 
           <div className="nav-center">
             <Link to="/" className="logo">
-              SINOSPLY
+              Bunny & Wolf
             </Link>
           </div>
 
@@ -237,8 +236,8 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Desktop categories navigation */}
-        <div className="desktop-categories hidden md:flex">
+        {/* Desktop categories navigation - completely hidden on mobile */}
+        <div className="desktop-categories">
           {categories.map((category, index) => (
             <div
               key={category.path}
