@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaCog, FaBell, FaGlobe, FaLock, FaCheck, FaSearch, FaTruck, FaPercentage, FaPlus, FaTrash, FaTimes, FaEdit, FaExclamationTriangle, FaImage, FaLink, FaUserPlus, FaUsers } from 'react-icons/fa';
+import { FaCog, FaBell, FaGlobe, FaLock, FaCheck, FaSearch, FaTruck, FaPercentage, FaPlus, FaTrash, FaTimes, FaEdit, FaExclamationTriangle, FaImage, FaLink, FaUserPlus, FaUsers, FaInstagram } from 'react-icons/fa';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/admin/Sidebar';
@@ -7,6 +7,8 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import apiConfig from '../../config/apiConfig';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAuth } from '../../context/AuthContext';
+import { useInstagramStore } from '../../store/instagramStore';
+import { useSocialStore } from '../../store/socialStore';
 
 const AdminSettings = () => {
   const navigate = useNavigate();
@@ -32,6 +34,42 @@ const AdminSettings = () => {
     error: storeError,
     loading: storeLoading
   } = useSettingsStore();
+  
+  // Instagram store
+  const { 
+    instagramImages, 
+    loading: instagramLoading, 
+    error: instagramError,
+    success: instagramSuccess,
+    fetchAllInstagramImages,
+    createInstagramImage,
+    updateInstagramImage,
+    deleteInstagramImage
+  } = useInstagramStore();
+
+  // Social Links state
+  const [showNewSocialForm, setShowNewSocialForm] = useState(false);
+  const [editingSocial, setEditingSocial] = useState(null);
+  const [newSocialLink, setNewSocialLink] = useState({
+    platform: 'instagram',
+    url: '',
+    displayName: '',
+    icon: '',
+    displayOrder: 0,
+    isActive: true
+  });
+
+  // Get social store functions
+  const {
+    socialLinks,
+    loading: socialLoading,
+    error: socialError,
+    success: socialSuccess,
+    fetchAllSocialLinks,
+    createSocialLink,
+    updateSocialLink,
+    deleteSocialLink
+  } = useSocialStore();
 
   // Local states for editing
   const [localSettings, setLocalSettings] = useState({
@@ -109,6 +147,17 @@ const AdminSettings = () => {
     { id: 'reports', label: 'Reports' }
   ];
 
+  // Instagram state
+  const [showNewInstagramForm, setShowNewInstagramForm] = useState(false);
+  const [editingInstagram, setEditingInstagram] = useState(null);
+  const [newInstagramImage, setNewInstagramImage] = useState({
+    imageUrl: '',
+    caption: '',
+    link: '#',
+    displayOrder: 0,
+    isActive: true
+  });
+
   // Check authentication on component mount
   useEffect(() => {
     checkAuthentication();
@@ -143,6 +192,8 @@ const AdminSettings = () => {
       await fetchShippingMethods();
       await fetchTaxRates();
       await fetchBanners();
+      await fetchAllInstagramImages(); // Add this line to fetch Instagram images
+      await fetchAllSocialLinks(); // Fetch social links
       
       // Initialize local states
       setLocalShippingMethods(shippingMethods);
@@ -412,7 +463,12 @@ const AdminSettings = () => {
       if (existingIndex >= 0) {
         // Update existing hero banner
         const updatedBanners = [...localBanners];
-        updatedBanners[existingIndex] = { ...newBanner };
+        updatedBanners[existingIndex] = { 
+          ...newBanner,
+          buttonText: newBanner.buttonText || "Shop Now",
+          overlayPosition: newBanner.overlayPosition || "center",
+          buttonStyle: newBanner.buttonStyle || "primary"
+        };
         setLocalBanners(updatedBanners);
         setShowNewBannerForm(false);
         setSuccess(`Hero banner updated successfully`);
@@ -420,7 +476,12 @@ const AdminSettings = () => {
       }
       
       // Add new hero banner
-      setLocalBanners([...localBanners, newBanner]);
+      setLocalBanners([...localBanners, {
+        ...newBanner,
+        buttonText: newBanner.buttonText || "Shop Now",
+        overlayPosition: newBanner.overlayPosition || "center",
+        buttonStyle: newBanner.buttonStyle || "primary"
+      }]);
       setNewBanner({
         type: 'heroBanner',
         imageUrl: '',
@@ -428,6 +489,9 @@ const AdminSettings = () => {
         linkUrl: '#',
         caption: '',
         subcaption: '',
+        buttonText: 'Shop Now',
+        overlayPosition: 'center',
+        buttonStyle: 'primary',
         displayOrder: localBanners.filter(b => b.type === 'heroBanner').length + 1,
         isActive: true
       });
@@ -441,7 +505,12 @@ const AdminSettings = () => {
     if (localBanners.some(banner => banner.type === newBanner.type)) {
       // If same type exists, update it instead of adding
       const updatedBanners = localBanners.map(banner => 
-        banner.type === newBanner.type ? { ...newBanner } : banner
+        banner.type === newBanner.type ? { 
+          ...newBanner,
+          buttonText: newBanner.buttonText || "Shop Now",
+          overlayPosition: newBanner.overlayPosition || "center",
+          buttonStyle: newBanner.buttonStyle || "primary"
+        } : banner
       );
       setLocalBanners(updatedBanners);
       setShowNewBannerForm(false);
@@ -449,7 +518,12 @@ const AdminSettings = () => {
       return;
     }
 
-    setLocalBanners([...localBanners, newBanner]);
+    setLocalBanners([...localBanners, {
+      ...newBanner,
+      buttonText: newBanner.buttonText || "Shop Now",
+      overlayPosition: newBanner.overlayPosition || "center",
+      buttonStyle: newBanner.buttonStyle || "primary"
+    }]);
     setNewBanner({
       type: 'promoBanner',
       imageUrl: '',
@@ -457,6 +531,9 @@ const AdminSettings = () => {
       linkUrl: '#',
       caption: '',
       subcaption: '',
+      buttonText: 'Shop Now',
+      overlayPosition: 'center',
+      buttonStyle: 'primary',
       displayOrder: 0,
       isActive: true
     });
@@ -897,6 +974,188 @@ const AdminSettings = () => {
       ...selectedUser,
       [name]: value
     });
+  };
+
+  const handleInstagramInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewInstagramImage({
+      ...newInstagramImage,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+
+  const addNewInstagramImage = async () => {
+    // Validate required fields
+    if (!newInstagramImage.imageUrl) {
+      setError('Please provide an image URL');
+      return;
+    }
+
+    // Check for duplicate URL
+    if (instagramImages.some(image => image.imageUrl === newInstagramImage.imageUrl)) {
+      setError('An image with this URL already exists');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('🔄 [AdminSettings] Creating new Instagram image');
+      
+      // Call the store method to create the image
+      const result = await createInstagramImage(newInstagramImage);
+      
+      if (result) {
+        setSuccess('Instagram image added successfully');
+        // Reset form
+        setNewInstagramImage({
+          imageUrl: '',
+          caption: '',
+          link: '#',
+          displayOrder: 0,
+          isActive: true
+        });
+        setShowNewInstagramForm(false);
+      }
+    } catch (error) {
+      console.error('❌ [AdminSettings] Error creating Instagram image:', error);
+      setError('Failed to create Instagram image');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateInstagram = async () => {
+    setLoading(true);
+    try {
+      console.log('🔄 [AdminSettings] Updating Instagram image');
+      
+      // Pass the image ID and data to the update function
+      const response = await updateInstagramImage(editingInstagram._id, editingInstagram);
+      
+      if (response) {
+        setSuccess('Instagram image updated successfully');
+        fetchAllInstagramImages();
+        setEditingInstagram(null);
+      }
+    } catch (error) {
+      console.error('❌ [AdminSettings] Error updating Instagram image:', error);
+      setError('Failed to update Instagram image');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteInstagram = async (imageId) => {
+    if (!confirm('Are you sure you want to delete this image?')) return;
+    
+    setLoading(true);
+    try {
+      console.log(`🔄 [AdminSettings] Deleting Instagram image ${imageId}`);
+      
+      const success = await deleteInstagramImage(imageId);
+      
+      if (success) {
+        setSuccess('Instagram image deleted successfully');
+        fetchAllInstagramImages();
+      }
+    } catch (error) {
+      console.error('❌ [AdminSettings] Error deleting Instagram image:', error);
+      setError('Failed to delete Instagram image');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Social link handlers
+  const handleSocialInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewSocialLink({
+      ...newSocialLink,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+
+  const addNewSocialLink = async () => {
+    // Validate required fields
+    if (!newSocialLink.platform || !newSocialLink.url) {
+      setError('Please provide the platform and URL');
+      return;
+    }
+
+    // Validate URL format
+    if (!newSocialLink.url.match(/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/)) {
+      setError('Please enter a valid URL with http:// or https://');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('🔄 [AdminSettings] Creating new social link');
+      
+      // Call the store method to create the link
+      const result = await createSocialLink(newSocialLink);
+      
+      if (result) {
+        setSuccess('Social link added successfully');
+        // Reset form
+        setNewSocialLink({
+          platform: 'instagram',
+          url: '',
+          displayName: '',
+          icon: '',
+          displayOrder: 0,
+          isActive: true
+        });
+        setShowNewSocialForm(false);
+      }
+    } catch (error) {
+      console.error('❌ [AdminSettings] Error creating social link:', error);
+      setError('Failed to create social link');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateSocial = async () => {
+    setLoading(true);
+    try {
+      console.log('🔄 [AdminSettings] Updating social link');
+      
+      // Pass the link ID and data to the update function
+      const response = await updateSocialLink(editingSocial._id, editingSocial);
+      
+      if (response) {
+        setSuccess('Social link updated successfully');
+        fetchAllSocialLinks();
+        setEditingSocial(null);
+      }
+    } catch (error) {
+      console.error('❌ [AdminSettings] Error updating social link:', error);
+      setError('Failed to update social link');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteSocial = async (linkId) => {
+    if (!confirm('Are you sure you want to delete this social link?')) return;
+    
+    setLoading(true);
+    try {
+      console.log(`🔄 [AdminSettings] Deleting social link ${linkId}`);
+      
+      const success = await deleteSocialLink(linkId);
+      
+      if (success) {
+        setSuccess('Social link deleted successfully');
+        fetchAllSocialLinks();
+      }
+    } catch (error) {
+      console.error('❌ [AdminSettings] Error deleting social link:', error);
+      setError('Failed to delete social link');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -1694,6 +1953,60 @@ const AdminSettings = () => {
                             </p>
                           )}
                         </div>
+                        
+                        {/* Add button text field */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Button Text</label>
+                          <input
+                            type="text"
+                            name="buttonText"
+                            value={newBanner.buttonText || ""}
+                            onChange={handleNewBannerInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="e.g. Shop Now"
+                          />
+                          <p className="mt-1 text-xs text-gray-500">
+                            Leave empty to hide button
+                          </p>
+                        </div>
+                        
+                        {/* Add overlay position dropdown */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Overlay Position</label>
+                          <select
+                            name="overlayPosition"
+                            value={newBanner.overlayPosition || "center"}
+                            onChange={handleNewBannerInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          >
+                            <option value="center">Center</option>
+                            <option value="left">Left</option>
+                            <option value="right">Right</option>
+                            <option value="top-left">Top Left</option>
+                            <option value="top-right">Top Right</option>
+                            <option value="bottom-left">Bottom Left</option>
+                            <option value="bottom-right">Bottom Right</option>
+                            <option value="top-center">Top Center</option>
+                            <option value="bottom-center">Bottom Center</option>
+                          </select>
+                        </div>
+                        
+                        {/* Add button style dropdown */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Button Style</label>
+                          <select
+                            name="buttonStyle"
+                            value={newBanner.buttonStyle || "primary"}
+                            onChange={handleNewBannerInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          >
+                            <option value="primary">Primary (Black)</option>
+                            <option value="secondary">Secondary (White)</option>
+                            <option value="outlined">Outlined</option>
+                            <option value="minimal">Minimal</option>
+                          </select>
+                        </div>
+                        
                         <div className="md:col-span-2 flex items-center">
                           <input
                             type="checkbox"
@@ -2155,6 +2468,473 @@ const AdminSettings = () => {
                             </tr>
                           ))
                         )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Instagram Feed Management Section */}
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="flex items-center px-6 py-4 border-b border-gray-200">
+                  <FaInstagram className="text-purple-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Instagram Feed</h3>
+                </div>
+                
+                <div className="p-6 space-y-6">
+                  <div className="mb-4 flex justify-between items-center">
+                    <p className="text-sm text-gray-600">Manage Instagram images displayed on the homepage</p>
+                    <button 
+                      type="button"
+                      onClick={() => setShowNewInstagramForm(true)}
+                      className="px-3 py-1 bg-purple-600 text-white rounded-md text-sm flex items-center"
+                    >
+                      <FaPlus className="mr-1" /> Add Image
+                    </button>
+                  </div>
+                  
+                  {/* New Instagram Image Form */}
+                  {showNewInstagramForm && (
+                    <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-medium">Add Instagram Image</h4>
+                        <button 
+                          type="button" 
+                          onClick={() => setShowNewInstagramForm(false)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <FaTimes />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Image URL*</label>
+                          <input
+                            type="text"
+                            name="imageUrl"
+                            value={newInstagramImage.imageUrl}
+                            onChange={handleInstagramInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="https://example.com/image.jpg"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Caption</label>
+                          <input
+                            type="text"
+                            name="caption"
+                            value={newInstagramImage.caption}
+                            onChange={handleInstagramInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="Image caption"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Link (Optional)</label>
+                          <input
+                            type="text"
+                            name="link"
+                            value={newInstagramImage.link}
+                            onChange={handleInstagramInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="https://instagram.com/post/123"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                          <input
+                            type="number"
+                            name="displayOrder"
+                            value={newInstagramImage.displayOrder}
+                            onChange={handleInstagramInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          />
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="instagramActive"
+                            name="isActive"
+                            checked={newInstagramImage.isActive}
+                            onChange={handleInstagramInputChange}
+                            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="instagramActive" className="ml-2 block text-sm text-gray-700">
+                            Active
+                          </label>
+                        </div>
+                      </div>
+                      
+                      {/* Preview */}
+                      <div className="mt-4">
+                        {newInstagramImage.imageUrl && (
+                          <div className="mb-4">
+                            <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                            <div className="border rounded-lg overflow-hidden">
+                              <img 
+                                src={newInstagramImage.imageUrl} 
+                                alt={newInstagramImage.caption || "Instagram preview"} 
+                                className="w-40 h-40 object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "https://via.placeholder.com/400x400?text=Image+Error";
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={addNewInstagramImage}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                          >
+                            Add Instagram Image
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Edit Instagram Image Form */}
+                  {editingInstagram && (
+                    <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-medium">Edit Instagram Image</h4>
+                        <button 
+                          type="button" 
+                          onClick={() => setEditingInstagram(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <FaTimes />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Image URL*</label>
+                          <input
+                            type="text"
+                            name="imageUrl"
+                            value={editingInstagram.imageUrl}
+                            onChange={(e) => setEditingInstagram({...editingInstagram, imageUrl: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="https://example.com/image.jpg"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Caption</label>
+                          <input
+                            type="text"
+                            name="caption"
+                            value={editingInstagram.caption}
+                            onChange={(e) => setEditingInstagram({...editingInstagram, caption: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="Image caption"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Link (Optional)</label>
+                          <input
+                            type="text"
+                            name="link"
+                            value={editingInstagram.link}
+                            onChange={(e) => setEditingInstagram({...editingInstagram, link: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="https://instagram.com/post/123"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                          <input
+                            type="number"
+                            name="displayOrder"
+                            value={editingInstagram.displayOrder}
+                            onChange={(e) => setEditingInstagram({...editingInstagram, displayOrder: parseInt(e.target.value)})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          />
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="editInstagramActive"
+                            name="isActive"
+                            checked={editingInstagram.isActive}
+                            onChange={(e) => setEditingInstagram({...editingInstagram, isActive: e.target.checked})}
+                            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="editInstagramActive" className="ml-2 block text-sm text-gray-700">
+                            Active
+                          </label>
+                        </div>
+                      </div>
+                      
+                      {/* Preview */}
+                      <div className="mt-4">
+                        {editingInstagram.imageUrl && (
+                          <div className="mb-4">
+                            <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                            <div className="border rounded-lg overflow-hidden">
+                              <img 
+                                src={editingInstagram.imageUrl} 
+                                alt={editingInstagram.caption || "Instagram preview"} 
+                                className="w-40 h-40 object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "https://via.placeholder.com/400x400?text=Image+Error";
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={updateInstagram}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                          >
+                            Update Instagram Image
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Instagram Images Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {instagramImages.map((image) => (
+                      <div key={image._id} className="relative group">
+                        <div className="border rounded-lg overflow-hidden relative">
+                          <img 
+                            src={image.imageUrl} 
+                            alt={image.caption || "Instagram image"} 
+                            className="w-full h-40 object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "https://via.placeholder.com/400x400?text=Image+Error";
+                            }}
+                          />
+                          {image.caption && (
+                            <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black to-transparent">
+                              <p className="text-white text-xs truncate">{image.caption}</p>
+                            </div>
+                          )}
+                          {!image.isActive && (
+                            <div className="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center">
+                              <span className="px-2 py-1 bg-red-500 text-white text-xs rounded">Inactive</span>
+                            </div>
+                          )}
+                          <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                            <button 
+                              type="button"
+                              onClick={() => setEditingInstagram(image)}
+                              className="p-1 bg-white rounded shadow text-blue-600 hover:text-blue-800"
+                            >
+                              <FaEdit size={14} />
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => deleteInstagram(image._id)}
+                              className="p-1 bg-white rounded shadow text-red-600 hover:text-red-800"
+                            >
+                              <FaTrash size={14} />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500 text-center">Order: {image.displayOrder}</p>
+                      </div>
+                    ))}
+                    
+                    {instagramImages.length === 0 && (
+                      <div className="col-span-full p-8 text-center bg-gray-100 rounded-lg">
+                        <p className="text-gray-500">No Instagram images added yet. Add images to display in the Instagram feed on the homepage.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Social Links Management Section */}
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="flex items-center px-6 py-4 border-b border-gray-200">
+                  <FaLink className="text-purple-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Social Links</h3>
+                </div>
+                
+                <div className="p-6 space-y-6">
+                  <div className="mb-4 flex justify-between items-center">
+                    <p className="text-sm text-gray-600">Manage social links for your site</p>
+                    <button 
+                      type="button"
+                      onClick={() => setShowNewSocialForm(true)}
+                      className="px-3 py-1 bg-purple-600 text-white rounded-md text-sm flex items-center"
+                    >
+                      <FaPlus className="mr-1" /> Add Link
+                    </button>
+                  </div>
+                  
+                  {/* New Social Link Form */}
+                  {showNewSocialForm && (
+                    <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-medium">Add New Social Link</h4>
+                        <button 
+                          type="button" 
+                          onClick={() => setShowNewSocialForm(false)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <FaTimes />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Platform</label>
+                          <select
+                            name="platform"
+                            value={newSocialLink.platform}
+                            onChange={handleSocialInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            required
+                          >
+                            <option value="instagram">Instagram</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="twitter">Twitter</option>
+                            <option value="linkedin">LinkedIn</option>
+                            <option value="pinterest">Pinterest</option>
+                            <option value="tiktok">TikTok</option>
+                            <option value="snapchat">Snapchat</option>
+                            <option value="youtube">YouTube</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">URL*</label>
+                          <input
+                            type="text"
+                            name="url"
+                            value={newSocialLink.url}
+                            onChange={handleSocialInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="https://example.com/link"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                          <input
+                            type="text"
+                            name="displayName"
+                            value={newSocialLink.displayName}
+                            onChange={handleSocialInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="e.g. @username"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Icon (Optional)</label>
+                          <input
+                            type="text"
+                            name="icon"
+                            value={newSocialLink.icon}
+                            onChange={handleSocialInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="e.g. fa-instagram"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                          <input
+                            type="number"
+                            name="displayOrder"
+                            value={newSocialLink.displayOrder}
+                            onChange={handleSocialInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="Link display order"
+                          />
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="socialActive"
+                            name="isActive"
+                            checked={newSocialLink.isActive}
+                            onChange={handleSocialInputChange}
+                            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="socialActive" className="ml-2 block text-sm text-gray-700">
+                            Active
+                          </label>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={addNewSocialLink}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                        >
+                          Add Link
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Social Links List */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Display Name</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {socialLinks.map((link) => (
+                          <tr key={link._id}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <FaLink className="text-purple-500 mr-2" />
+                                <span className="capitalize">{link.platform}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                {link.url}
+                              </a>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">{link.displayName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${link.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {link.isActive ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  setEditingSocial(link);
+                                  setShowNewSocialForm(true);
+                                }}
+                                className="text-indigo-600 hover:text-indigo-900 mr-3"
+                              >
+                                <FaEdit />
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={() => deleteSocial(link._id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                <FaTrash />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>

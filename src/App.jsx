@@ -35,6 +35,14 @@ import AdminRoute from './components/AdminRoute'
 import CollectionsPage from './pages/admin/CollectionsPage'
 import PlatformsPage from './pages/admin/PlatformsPage'
 import FeaturedCollectionPage from './pages/FeaturedCollectionPage'
+// Import category pages
+import NewArrivalsPage from './pages/NewArrivalsPage'
+import BestSellersPage from './pages/BestSellersPage'
+import DressesPage from './pages/DressesPage'
+import TopsPage from './pages/TopsPage'
+import BottomsPage from './pages/BottomsPage'
+import BackInStockPage from './pages/BackInStockPage'
+
 // Wrap AdminRoute components with SidebarProvider
 const AdminRouteWithSidebar = ({ children }) => (
   <SidebarProvider>
@@ -58,7 +66,7 @@ function App() {
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/home" element={<Home />} />
-                <Route path="/reset-password/:resettoken" element={<ResetPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
@@ -67,6 +75,15 @@ function App() {
                 <Route path="/product/:id" element={<ProductDetailsPage />} />
                 <Route path="/track-order/:trackingNumber" element={<TrackOrderPage />} />
                 <Route path="/collections/:collectionId" element={<FeaturedCollectionPage />} />
+                
+                {/* Category Pages */}
+                <Route path="/new-arrivals" element={<NewArrivalsPage />} />
+                <Route path="/best-sellers" element={<BestSellersPage />} />
+                <Route path="/dresses" element={<DressesPage />} />
+                <Route path="/tops" element={<TopsPage />} />
+                <Route path="/bottoms" element={<BottomsPage />} />
+                <Route path="/back-in-stock" element={<BackInStockPage />} />
+                
                 <Route 
                   path="/profile" 
                   element={

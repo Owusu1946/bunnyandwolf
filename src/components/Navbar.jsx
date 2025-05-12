@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaSearch, FaRegHeart, FaRegUser, FaShoppingBag, FaChevronDown, FaBars, FaTimes, FaUserCircle } from 'react-icons/fa';
 import { RiArrowRightSLine, RiLogoutBoxRLine, RiUserSettingsLine } from 'react-icons/ri';
 import { BsStar } from 'react-icons/bs';
 import { BiHomeAlt } from 'react-icons/bi';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import CategoryBar from './CategoryBar';
 import '../styles/Navbar.css';
 import LoadingOverlay from './LoadingOverlay';
 
@@ -17,76 +18,56 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const categories = [
     {
-      name: 'NEW',
-      path: '/new',
-      subcategories: ['New Arrivals', 'Coming Soon', 'New Dresses', 'New Tops', 'New Bottoms']
+      name: 'NEW ARRIVALS',
+      path: '/new-arrivals',
     },
     {
       name: 'BESTSELLERS',
-      path: '/bestsellers',
-      subcategories: ['Top Rated', 'Most Popular', 'Staff Picks', 'Customer Favorites']
-    },
-    {
-      name: 'CLOTHING',
-      path: '/clothing',
-      subcategories: ['All Clothing', 'Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Activewear']
-    },
-    {
-      name: 'DRESSES',
-      path: '/dresses',
-      subcategories: ['All Dresses', 'Mini Dresses', 'Midi Dresses', 'Maxi Dresses', 'Party Dresses']
+      path: '/best-sellers',
     },
     {
       name: 'TOPS',
       path: '/tops',
-      subcategories: ['All Tops', 'T-Shirts', 'Blouses', 'Sweaters', 'Bodysuits']
+    },
+    {
+      name: 'DRESSES',
+      path: '/dresses',
     },
     {
       name: 'BOTTOMS',
       path: '/bottoms',
-      subcategories: ['All Bottoms', 'Pants', 'Jeans', 'Skirts', 'Shorts']
     },
     {
-      name: 'OUTERWEAR',
-      path: '/outerwear',
-      subcategories: ['All Outerwear', 'Jackets', 'Coats', 'Blazers', 'Cardigans']
-    },
-    {
-      name: 'WINTER SHOP',
-      path: '/winter-shop',
-      subcategories: ['Winter Collection', 'Sweaters', 'Coats', 'Boots', 'Accessories']
-    },
-    {
-      name: 'ACCESSORIES',
-      path: '/accessories',
-      subcategories: ['All Accessories', 'Jewelry', 'Bags', 'Hats', 'Scarves']
-    },
-    {
-      name: 'SHOES',
-      path: '/shoes',
-      subcategories: ['All Shoes', 'Boots', 'Heels', 'Sneakers', 'Sandals']
-    },
-    {
-      name: 'LOWER IMPACT',
-      path: '/lower-impact',
-      subcategories: ['Sustainable', 'Eco-Friendly', 'Recycled', 'Organic']
-    },
-    {
-      name: 'TRENDING',
-      path: '/trending',
-      subcategories: ['Current Trends', 'Most Wanted', 'Style Guide', 'Influencer Picks']
-    },
-    {
-      name: 'SALE',
-      path: '/sale',
-      subcategories: ['All Sale', 'Dresses', 'Tops', 'Bottoms', 'Final Sale'],
-      isRed: true
+      name: 'BACK IN STOCK',
+      path: '/back-in-stock',
     }
   ];
+
+  // Listen for scroll events
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setScrolled(true);
+      } else {
+        setScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Close mobile menu when navigating
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    document.body.style.overflow = 'auto';
+  }, [location.pathname]);
 
   const handleMouseEnter = (index) => {
     if (window.innerWidth > 768) {
@@ -128,7 +109,7 @@ const Navbar = () => {
   };
 
   // Close profile dropdown when clicking outside
-  React.useEffect(() => {
+  useEffect(() => {
     const closeDropdown = () => setIsProfileDropdownOpen(false);
     if (isProfileDropdownOpen) {
       document.addEventListener('click', closeDropdown);
@@ -136,41 +117,36 @@ const Navbar = () => {
     return () => document.removeEventListener('click', closeDropdown);
   }, [isProfileDropdownOpen]);
 
+  // Handle mobile category toggle
+  const [expandedCategory, setExpandedCategory] = useState(null);
+  
+  const toggleMobileCategory = (index) => {
+    setExpandedCategory(expandedCategory === index ? null : index);
+  };
+
   return (
     <>
       {isLoggingOut && <LoadingOverlay message="Signing out..." />}
-      <nav className="navbar">
-        {/* <div className="announcement-bar">
-          <div className="announcement-item">STUDENT DISCOUNT</div>
-          <div className="announcement-item">FREE SHIPPING ORDERS $50+</div>
-          <div className="announcement-item">BUY NOW, PAY LATER <img src="/afterpay.png" alt="Afterpay" className="afterpay-logo" /></div>
-        </div> */}
-
+      <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
         <div className="main-nav">
           <div className="nav-left">
-            {/* <div className="currency-selector">
-              {currency} <FaChevronDown className="dropdown-arrow" />
-            </div>
-            <div className="rewards-link">
-              REWARDS <BsStar className="star-icon" />
-            </div> */}
-            <div className="discover-link">
-              DISCOVER <BiHomeAlt className="discover-icon" /> <RiArrowRightSLine className="arrow-icon" />
+            <div className="discover-link hidden md:flex items-center">
+              DISCOVER <BiHomeAlt className="discover-icon ml-1" /> <RiArrowRightSLine className="arrow-icon" />
             </div>
           </div>
 
           <div className="nav-center">
             <Link to="/" className="logo">
-              BUNNY & WOLF
+              SINOSPLY
             </Link>
           </div>
 
           <div className="nav-right">
-            <div className="search-bar">
+            <div className="search-bar hidden md:flex">
               <input 
                 type="text" 
                 placeholder="SEARCH" 
-                className="border-0 text-gray-900 text-sm focus:ring-0 focus:outline-none"
+                className="border-0 text-gray-900 text-sm focus:ring-0 focus:outline-none bg-transparent"
               />
               <button 
                 type="submit" 
@@ -181,13 +157,13 @@ const Navbar = () => {
               </button>
             </div>
             <div className="nav-icons">
-              <Link to="/wishlist" className="p-2 rounded-full hover:bg-gray-100 transition-colors" aria-label="Wishlist">
+              <Link to="/wishlist" className="icon-button" aria-label="Wishlist">
                 <FaRegHeart className="text-gray-700" />
               </Link>
               
               {user ? (
                 <div className="relative" onClick={toggleProfileDropdown}>
-                  <button className="flex items-center space-x-1 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors" aria-label="Profile">
+                  <button className="flex items-center space-x-1 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors icon-button" aria-label="Profile">
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 overflow-hidden">
                       {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
                     </div>
@@ -218,14 +194,6 @@ const Navbar = () => {
                           <RiUserSettingsLine className="w-4 h-4 mr-3 text-gray-500" />
                           <span>My Profile</span>
                         </Link>
-                        {/* <Link 
-                          to="/orders" 
-                          className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
-                          onClick={() => setIsProfileDropdownOpen(false)}
-                        >
-                          <FaShoppingBag className="w-4 h-4 mr-3 text-gray-500" />
-                          <span>Order History</span>
-                        </Link> */}
                         <Link 
                           to="/wishlist" 
                           className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
@@ -249,12 +217,12 @@ const Navbar = () => {
                   )}
                 </div>
               ) : (
-                <Link to="/login" className="p-2 rounded-full hover:bg-gray-100 transition-colors" aria-label="Account">
+                <Link to="/login" className="icon-button" aria-label="Account">
                   <FaRegUser className="text-gray-700" />
                 </Link>
               )}
               
-              <Link to="/cart" className="cart-icon p-2 rounded-full hover:bg-gray-100 transition-colors relative" aria-label="Shopping Bag">
+              <Link to="/cart" className="cart-icon icon-button relative" aria-label="Shopping Bag">
                 <FaShoppingBag className="text-gray-700" />
                 {cartCount > 0 && (
                   <span className="cart-count absolute -top-1 -right-1 bg-black text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
@@ -269,10 +237,8 @@ const Navbar = () => {
           </div>
         </div>
 
-        <div className={`nav-categories ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
-          <button className="mobile-close-button" onClick={toggleMobileMenu} aria-label="Close Menu">
-            <FaTimes />
-          </button>
+        {/* Desktop categories navigation */}
+        <div className="desktop-categories hidden md:flex">
           {categories.map((category, index) => (
             <div
               key={category.path}
@@ -282,18 +248,16 @@ const Navbar = () => {
             >
               <Link 
                 to={category.path}
-                className={category.isRed ? 'sale-link' : ''}
-                onClick={() => isMobileMenuOpen && toggleMobileMenu()}
+                className={`nav-link ${location.pathname === category.path ? 'active' : ''}`}
               >
-                {category.name} <FaChevronDown className="category-arrow" />
+                {category.name}
               </Link>
-              {activeDropdown === index && (
+              {activeDropdown === index && category.subcategories && category.subcategories.length > 0 && (
                 <div className="dropdown-menu">
                   {category.subcategories.map((sub) => (
                     <Link 
                       key={sub} 
                       to={`${category.path}/${sub.toLowerCase().replace(/\s+/g, '-')}`}
-                      onClick={() => isMobileMenuOpen && toggleMobileMenu()}
                     >
                       {sub}
                     </Link>
@@ -302,6 +266,99 @@ const Navbar = () => {
               )}
             </div>
           ))}
+        </div>
+        
+        {/* Mobile menu overlay */}
+        <div className={`mobile-menu-overlay ${isMobileMenuOpen ? 'open' : ''}`} onClick={toggleMobileMenu}></div>
+        
+        {/* Mobile navigation menu */}
+        <div className={`mobile-menu ${isMobileMenuOpen ? 'open' : ''}`}>
+          <div className="mobile-menu-header">
+            <Link to="/" className="mobile-logo" onClick={toggleMobileMenu}>
+              SINOSPLY
+            </Link>
+            <button className="mobile-close" onClick={toggleMobileMenu}>
+              <FaTimes />
+            </button>
+          </div>
+          
+          <div className="mobile-search">
+            <div className="search-form">
+              <input type="text" placeholder="Search for products..." />
+              <button type="submit">
+                <FaSearch />
+              </button>
+            </div>
+          </div>
+          
+          <div className="mobile-nav-items">
+            {categories.map((category, index) => (
+              <div key={category.path} className="mobile-nav-item">
+                <div className="mobile-nav-link-wrapper">
+                  <Link 
+                    to={category.path} 
+                    className="mobile-nav-link"
+                    onClick={toggleMobileMenu}
+                  >
+                    {category.name}
+                  </Link>
+                  {category.subcategories && category.subcategories.length > 0 && (
+                    <button 
+                      className={`mobile-dropdown-toggle ${expandedCategory === index ? 'expanded' : ''}`}
+                      onClick={() => toggleMobileCategory(index)}
+                    >
+                      <FaChevronDown />
+                    </button>
+                  )}
+                </div>
+                
+                {category.subcategories && category.subcategories.length > 0 && (
+                  <div className={`mobile-dropdown ${expandedCategory === index ? 'expanded' : ''}`}>
+                    {category.subcategories.map((sub) => (
+                      <Link 
+                        key={sub} 
+                        to={`${category.path}/${sub.toLowerCase().replace(/\s+/g, '-')}`}
+                        className="mobile-dropdown-link"
+                        onClick={toggleMobileMenu}
+                      >
+                        {sub}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <div className="mobile-menu-footer">
+            {user ? (
+              <div className="mobile-user-info">
+                <div className="mobile-user-avatar">
+                  {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                </div>
+                <div className="mobile-user-details">
+                  <p className="mobile-user-name">{`${user.firstName} ${user.lastName}`}</p>
+                  <p className="mobile-user-email">{user.email}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="mobile-auth-links">
+                <Link to="/login" className="mobile-login-link" onClick={toggleMobileMenu}>
+                  Sign In
+                </Link>
+                <Link to="/register" className="mobile-register-link" onClick={toggleMobileMenu}>
+                  Create Account
+                </Link>
+              </div>
+            )}
+            
+            {user && (
+              <button onClick={handleLogout} className="mobile-logout-button">
+                <RiLogoutBoxRLine className="logout-icon" />
+                <span>Logout</span>
+              </button>
+            )}
+          </div>
         </div>
       </nav>
     </>

@@ -144,7 +144,7 @@ const CartPage = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between py-2 border-b border-gray-200">
                     <span className="text-gray-600">Subtotal</span>
-                    <span className="font-medium">€{totalAmount.toFixed(2)}</span>
+                    <span className="font-medium">GH₵{totalAmount.toFixed(2)}</span>
                   </div>
                   
                   <div className="flex justify-between py-2 border-b border-gray-200">
@@ -154,7 +154,7 @@ const CartPage = () => {
                   
                   <div className="flex justify-between py-2 text-lg font-bold">
                     <span>Estimated Total</span>
-                    <span>€{totalAmount.toFixed(2)}</span>
+                    <span>GH₵{totalAmount.toFixed(2)}</span>
                   </div>
                   
                   <button
@@ -168,7 +168,7 @@ const CartPage = () => {
                   <div className="flex flex-col space-y-3 mt-6">
                     <div className="flex items-center text-sm text-gray-500">
                       <Truck className="w-4 h-4 mr-2" />
-                      <span>Free shipping on orders over €100</span>
+                      <span>Free shipping on orders over GH₵100</span>
                     </div>
                     <div className="flex items-center text-sm text-gray-500">
                       <RefreshCw className="w-4 h-4 mr-2" />

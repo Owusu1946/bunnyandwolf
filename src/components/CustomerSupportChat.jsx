@@ -14,6 +14,11 @@ import { useChatStore } from '../store/chatStore';
 
 // Define WebSocket URL based on environment
 const getWebSocketUrl = () => {
+  // For development use a standard endpoint - in production, this would be your actual WebSocket server
+  if (process.env.NODE_ENV === 'development') {
+    return 'wss://echo.websocket.events';
+  }
+  
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = process.env.REACT_APP_WS_HOST || window.location.host;
   return `${protocol}//${host}/ws/chat`;
@@ -87,11 +92,8 @@ const CustomerSupportChat = () => {
         return; // Already connected or connecting
       }
       
-      // Production WebSocket URL
-      const wsUrl = `${getWebSocketUrl()}/${sid}`;
-      
-      // For demo/development, use a fallback if needed
-      // const demoWsUrl = 'wss://echo.websocket.events';
+      const wsUrl = getWebSocketUrl();
+      console.log(`Connecting to WebSocket: ${wsUrl}`);
       
       const newSocket = new WebSocket(wsUrl);
       setSocket(newSocket);
@@ -113,6 +115,28 @@ const CustomerSupportChat = () => {
                 timestamp: new Date().toISOString()
               };
               newSocket.send(JSON.stringify(initMessage));
+              
+              // Send any pending messages from the store
+              const pendingMessages = sessions[sid]?.messages || [];
+              if (pendingMessages.length > 0) {
+                pendingMessages.forEach(msg => {
+                  if (msg.sender === 'user' && !msg.sent) {
+                    const msgToSend = {
+                      type: 'message',
+                      messageId: msg.id,
+                      sessionId: sid,
+                      content: msg.text,
+                      sender: 'customer',
+                      timestamp: msg.timestamp || new Date().toISOString()
+                    };
+                    try {
+                      newSocket.send(JSON.stringify(msgToSend));
+                    } catch (err) {
+                      console.error('Error sending pending message:', err);
+                    }
+                  }
+                });
+              }
             } else {
               console.log('WebSocket not ready for sending messages');
             }
@@ -132,6 +156,8 @@ const CustomerSupportChat = () => {
             console.log('Received non-JSON message:', event.data);
             return; // Skip processing for non-JSON messages
           }
+          
+          console.log('Received WebSocket message:', data);
           
           // Handle different message types
           switch(data.type) {
@@ -247,15 +273,61 @@ const CustomerSupportChat = () => {
       return;
     }
     
-    // Send message using the store's method
-    const success = sendMessage(sessionId, newMessage.trim());
+    // Generate a message ID
+    const messageId = `customer-msg-${Date.now()}`;
     
-    if (success) {
-      // Clear input field after sending
-    setNewMessage('');
-      // Send typing = false
-      sendTypingStatus(false);
+    // Create the message object
+    const messageObj = {
+      id: messageId, 
+      text: newMessage.trim(),
+      sender: 'user',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toISOString(),
+      sent: false // Will be updated when confirmed
+    };
+    
+    // Add message to store
+    addMessage(sessionId, messageObj);
+    
+    // Try to send via WebSocket
+    if (socket && socket.readyState === WebSocket.OPEN) {
+    const wsMessage = {
+      type: 'message',
+      messageId: messageId,
+      sessionId: sessionId,
+        content: newMessage.trim(),
+      sender: 'customer',
+      timestamp: new Date().toISOString()
+    };
+    
+    try {
+        socket.send(JSON.stringify(wsMessage));
+        
+        // Update sent status
+        useChatStore.setState(state => {
+          const updatedSessions = { ...state.sessions };
+          const updatedMessages = updatedSessions[sessionId].messages.map(msg => 
+            msg.id === messageId ? { ...msg, sent: true } : msg
+          );
+          
+          updatedSessions[sessionId] = {
+            ...updatedSessions[sessionId],
+            messages: updatedMessages
+          };
+          
+          return { sessions: updatedSessions };
+        });
+        
+      } catch (err) {
+        console.error('Error sending message:', err);
+      }
     }
+    
+    // Clear input field
+    setNewMessage('');
+    
+    // Send typing = false
+    sendTypingStatus(false);
   };
   
   const handleInputChange = (e) => {
@@ -285,10 +357,11 @@ const CustomerSupportChat = () => {
       try {
         const typingMessage = {
           type: 'typing',
-      sessionId: sessionId,
+          sessionId: sessionId,
           isTyping,
-      timestamp: new Date().toISOString()
-    };
+          userType: 'customer',
+          timestamp: new Date().toISOString()
+        };
         socket.send(JSON.stringify(typingMessage));
       } catch (err) {
         console.error('Error sending typing status:', err);
@@ -415,7 +488,7 @@ const CustomerSupportChat = () => {
                           <div className="text-sm">{message.text}</div>
                           <div className="text-xs mt-1 opacity-70 flex justify-end items-center">
                             {message.time}
-                            {message.sender === 'user' && <CheckCheck className="w-3 h-3 ml-1" />}
+                            {message.sender === 'user' && <CheckCheck className={`w-3 h-3 ml-1 ${message.sent ? 'text-blue-400' : 'text-gray-400'}`} />}
                           </div>
                         </motion.div>
                       </div>

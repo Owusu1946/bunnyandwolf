@@ -1,161 +1,276 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import { FaLock, FaEye, FaEyeSlash, FaArrowLeft } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 import axios from 'axios';
-import LoadingOverlay from '../components/LoadingOverlay';
+import apiConfig from '../config/apiConfig';
 
 const ResetPassword = () => {
+  const { token } = useParams();
+  const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const { resettoken } = useParams();
-  const navigate = useNavigate();
+  const [isTokenValid, setIsTokenValid] = useState(true);
 
-  const validatePassword = (password) => {
-    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    return regex.test(password);
-  };
+  useEffect(() => {
+    // We could verify token validity here if needed
+    if (!token) {
+      setIsTokenValid(false);
+      setError('Invalid or missing reset token');
+    }
+  }, [token]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     setError('');
 
-    // Validate passwords
+    // Basic validation
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      setLoading(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
-
-    if (!validatePassword(password)) {
-      setError(
-        'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character'
-      );
-      return;
-    }
-
-    setLoading(true);
 
     try {
-      await axios.put(`http://localhost:5000/api/v1/auth/resetpassword/${resettoken}`, {
+      console.log('🔄 Resetting password with token');
+      
+      await axios.put(`${apiConfig.baseURL}/auth/resetpassword/${token}`, {
         password
       });
-      setIsSuccess(true);
+      
+      console.log('✅ Password reset successful');
+      setSuccess(true);
+      
+      // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate('/login');
       }, 3000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong');
+      console.error('❌ Password reset error:', err);
+      
+      if (err.response?.status === 400) {
+        setIsTokenValid(false);
+        setError('Your password reset link has expired or is invalid. Please request a new one.');
+      } else {
+        setError(err.response?.data?.message || err.response?.data?.error || 'Failed to reset password. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return <LoadingOverlay message="Resetting your password..." />;
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-gray-800 bg-opacity-50 backdrop-blur-lg p-10 rounded-2xl shadow-2xl border border-gray-700">
-        <div>
-          <h1 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-cyan-300 to-blue-400 mb-2">
-            Reset Password
-          </h1>
-          <p className="text-center text-gray-400 text-sm">
-            Please enter your new password
-          </p>
-        </div>
-
-        {error && (
-          <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-4 py-3 rounded relative">
-            {error}
-          </div>
-        )}
-
-        {isSuccess ? (
-          <div className="bg-green-500 bg-opacity-10 border border-green-500 text-green-500 px-4 py-3 rounded relative text-center">
-            <p>Password reset successful!</p>
-            <p className="text-sm mt-2">Redirecting to login page...</p>
-          </div>
-        ) : (
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              {/* Password Field */}
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaLock className="h-5 w-5 text-gray-500" />
-                </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white placeholder-gray-400 hover:bg-opacity-70"
-                  placeholder="New password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-gray-400" />
-                  ) : (
-                    <FaEye className="h-5 w-5 text-gray-500 hover:text-gray-400" />
-                  )}
-                </button>
-              </div>
-
-              {/* Confirm Password Field */}
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaLock className="h-5 w-5 text-gray-500" />
-                </div>
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  required
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-200 bg-gray-700 bg-opacity-50 text-white placeholder-gray-400 hover:bg-opacity-70"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? (
-                    <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-gray-400" />
-                  ) : (
-                    <FaEye className="h-5 w-5 text-gray-500 hover:text-gray-400" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="text-xs text-gray-400 space-y-1">
-              <p>Password must contain:</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>At least 8 characters</li>
-                <li>One uppercase letter</li>
-                <li>One lowercase letter</li>
-                <li>One number</li>
-                <li>One special character (@$!%*?&)</li>
-              </ul>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-all duration-200"
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Left Panel */}
+      <div className="hidden lg:flex lg:w-1/2 bg-white p-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5"></div>
+        
+        <div className="relative z-10 flex flex-col justify-between h-full">
+          <div>
+            <motion.div
+              initial={{ x: -100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
             >
-              Reset Password
-            </button>
-          </form>
-        )}
+              <h1 className="text-5xl font-bold text-gray-900">
+                Sino<span className="text-black">sply</span>
+              </h1>
+              <p className="text-gray-600 mt-4 text-lg">Your global sourcing solution</p>
+            </motion.div>
+          </div>
+          
+          <motion.div 
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+            className="mt-auto"
+          >
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 shadow-sm">
+              <p className="text-gray-500 text-sm">
+                Choose a strong, secure password that you don't use for other accounts. A good password is at least 8 characters long and contains a mix of letters, numbers, and symbols.
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Right Panel - Form */}
+      <div className="w-full lg:w-1/2 bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-100">
+          <div>
+            <Link to="/login" className="flex items-center text-black hover:text-gray-700 transition-colors mb-6">
+              <FaArrowLeft className="mr-2" />
+              Back to Login
+            </Link>
+            <h2 className="mt-2 text-center text-3xl font-bold text-gray-900">
+              Reset Your Password
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-500">
+              Enter your new password below
+            </p>
+          </div>
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg relative"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          {success ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mt-8 space-y-6"
+            >
+              <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                <p className="text-green-700 text-center">
+                  Your password has been successfully reset!
+                </p>
+                <p className="text-gray-500 text-sm text-center mt-2">
+                  You will be redirected to the login page shortly...
+                </p>
+              </div>
+            </motion.div>
+          ) : isTokenValid ? (
+            <motion.form
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="mt-8 space-y-6"
+              onSubmit={handleSubmit}
+            >
+              <div className="space-y-4">
+                <div className="relative group">
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FaLock className="h-5 w-5 text-gray-400 group-focus-within:text-black transition-colors" />
+                    </div>
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      className="block w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 bg-white rounded-t-lg text-gray-900 placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-all duration-200"
+                      placeholder="New password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <FaEyeSlash className="h-5 w-5 text-gray-400 hover:text-black transition-colors" />
+                      ) : (
+                        <FaEye className="h-5 w-5 text-gray-400 hover:text-black transition-colors" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative group">
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FaLock className="h-5 w-5 text-gray-400 group-focus-within:text-black transition-colors" />
+                    </div>
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      required
+                      className="block w-full pl-10 pr-10 py-3 border-b-2 border-gray-200 bg-white rounded-t-lg text-gray-900 placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-all duration-200"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <FaEyeSlash className="h-5 w-5 text-gray-400 hover:text-black transition-colors" />
+                      ) : (
+                        <FaEye className="h-5 w-5 text-gray-400 hover:text-black transition-colors" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <motion.button
+                type="submit"
+                disabled={loading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="group relative w-full flex justify-center py-3 px-4 border border-black text-sm font-medium rounded-lg text-white bg-black hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              >
+                {loading ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Resetting...
+                  </span>
+                ) : (
+                  'Reset Password'
+                )}
+              </motion.button>
+            </motion.form>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mt-8 space-y-6"
+            >
+              <div className="bg-red-50 p-6 rounded-lg border border-red-200">
+                <p className="text-red-600 text-center">
+                  Invalid or expired password reset link.
+                </p>
+                <p className="text-gray-500 text-sm text-center mt-2">
+                  Please request a new password reset link.
+                </p>
+              </div>
+              <Link to="/forgot-password">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full flex justify-center py-3 px-4 border border-black text-sm font-medium rounded-lg text-black hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition-all duration-150"
+                >
+                  Request New Link
+                </motion.button>
+              </Link>
+            </motion.div>
+          )}
+        </div>
       </div>
     </div>
   );

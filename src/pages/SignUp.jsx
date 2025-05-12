@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaGoogle, FaFacebook, FaGithub, FaTwitter, FaApple, FaEnvelope, FaLock, FaPhone, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { FiShoppingCart, FiDollarSign } from 'react-icons/fi';
-import { GiCardboardBox } from 'react-icons/gi';
+import { FaGoogle, FaEnvelope, FaLock, FaPhone, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FiShoppingCart } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { register, socialAuth } from '../services/auth';
 
@@ -102,7 +101,7 @@ const SignUp = () => {
           >
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-600 mb-1">
                   First Name
                 </label>
                 <input
@@ -110,14 +109,14 @@ const SignUp = () => {
                   name="firstName"
                   type="text"
                   required
-                  className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white text-gray-900 placeholder-gray-400"
                   placeholder="John"
                   value={formData.firstName}
                   onChange={handleChange}
                 />
               </div>
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-600 mb-1">
                   Last Name
                 </label>
                 <input
@@ -125,7 +124,7 @@ const SignUp = () => {
                   name="lastName"
                   type="text"
                   required
-                  className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white text-gray-900 placeholder-gray-400"
                   placeholder="Doe"
                   value={formData.lastName}
                   onChange={handleChange}
@@ -133,19 +132,19 @@ const SignUp = () => {
               </div>
             </div>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-600 mb-1">
                 Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaEnvelope className="h-5 w-5 text-gray-500" />
+                  <FaEnvelope className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="email"
                   name="email"
                   type="email"
                   required
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white text-gray-900 placeholder-gray-400"
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={handleChange}
@@ -164,14 +163,14 @@ const SignUp = () => {
             className="space-y-5"
           >
             <div>
-              <label htmlFor="gender" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="gender" className="block text-sm font-medium text-gray-600 mb-1">
                 Gender
               </label>
               <select
                 id="gender"
                 name="gender"
                 required
-                className="block w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white text-gray-900"
                 value={formData.gender}
                 onChange={handleChange}
               >
@@ -183,19 +182,19 @@ const SignUp = () => {
               </select>
             </div>
             <div>
-              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-600 mb-1">
                 Phone Number
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaPhone className="h-5 w-5 text-gray-500" />
+                  <FaPhone className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="phoneNumber"
                   name="phoneNumber"
                   type="tel"
                   required
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white text-gray-900 placeholder-gray-400"
                   placeholder="(+233) 000-000-000"
                   value={formData.phoneNumber}
                   onChange={handleChange}
@@ -214,19 +213,19 @@ const SignUp = () => {
             className="space-y-5"
           >
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-600 mb-1">
                 Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaLock className="h-5 w-5 text-gray-500" />
+                  <FaLock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
-                  className="block w-full pl-10 pr-12 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
+                  className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white text-gray-900 placeholder-gray-400"
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleChange}
@@ -238,31 +237,31 @@ const SignUp = () => {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-gray-300 transition-colors" />
+                    <FaEyeSlash className="h-5 w-5 text-gray-400 hover:text-black transition-colors" />
                   ) : (
-                    <FaEye className="h-5 w-5 text-gray-500 hover:text-gray-300 transition-colors" />
+                    <FaEye className="h-5 w-5 text-gray-400 hover:text-black transition-colors" />
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 Must be at least 8 characters long with letters and numbers
               </p>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-600 mb-1">
                 Confirm Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaLock className="h-5 w-5 text-gray-500" />
+                  <FaLock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="confirmPassword"
                   name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   required
-                  className="block w-full pl-10 pr-12 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-all duration-200 bg-black/50 text-white placeholder-gray-400"
+                  className="block w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white text-gray-900 placeholder-gray-400"
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={handleChange}
@@ -274,9 +273,9 @@ const SignUp = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-gray-300 transition-colors" />
+                    <FaEyeSlash className="h-5 w-5 text-gray-400 hover:text-black transition-colors" />
                   ) : (
-                    <FaEye className="h-5 w-5 text-gray-500 hover:text-gray-300 transition-colors" />
+                    <FaEye className="h-5 w-5 text-gray-400 hover:text-black transition-colors" />
                   )}
                 </button>
               </div>
@@ -289,7 +288,7 @@ const SignUp = () => {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding Side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-50 to-gray-100 p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-white p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5"></div>
         
         {/* 3D Floating Elements */}
@@ -310,46 +309,6 @@ const SignUp = () => {
           >
             <div className="w-32 h-32 bg-white backdrop-blur-sm rounded-2xl transform rotate-12 border border-gray-200 shadow-xl">
               <FiShoppingCart className="w-12 h-12 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-            </div>
-          </motion.div>
-
-          {/* Dollar Sign - Middle Right */}
-          <motion.div
-            initial={{ x: -100, opacity: 0 }}
-            animate={{ 
-              x: [0, 20, 0],
-              opacity: 1,
-            }}
-            transition={{
-              duration: 5,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 1
-            }}
-            className="absolute top-1/2 right-40"
-          >
-            <div className="w-24 h-24 bg-white backdrop-blur-sm rounded-2xl transform rotate-45 border border-gray-200 shadow-xl">
-              <FiDollarSign className="w-10 h-10 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-            </div>
-          </motion.div>
-
-          {/* Box - Top Left */}
-          <motion.div
-            initial={{ x: 100, opacity: 0 }}
-            animate={{ 
-              x: [0, -20, 0],
-              opacity: 1,
-            }}
-            transition={{
-              duration: 4.5,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 1.5
-            }}
-            className="absolute top-32 left-40"
-          >
-            <div className="w-28 h-28 bg-white backdrop-blur-sm rounded-2xl transform -rotate-6 border border-gray-200 shadow-xl">
-              <GiCardboardBox className="w-11 h-11 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
           </motion.div>
         </div>
@@ -375,11 +334,11 @@ const SignUp = () => {
             transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
             className="space-y-6"
           >
-            <div className="bg-white shadow-xl p-8 rounded-xl border border-gray-200">
+            <div className="bg-white shadow-xl p-8 rounded-xl border border-gray-100">
               <div className="flex items-center space-x-4 mb-6">
                 <div className="flex -space-x-2">
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="w-8 h-8 rounded-full ring-2 ring-white bg-gradient-to-r from-cyan-600 to-blue-600" />
+                    <div key={i} className="w-8 h-8 rounded-full ring-2 ring-white bg-black" />
                   ))}
                 </div>
                 <div className="text-sm text-gray-600">Join 10,000+ businesses worldwide</div>
@@ -402,13 +361,13 @@ const SignUp = () => {
       </div>
 
       {/* Right Panel - Sign Up Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900">
-        <div className="max-w-md w-full space-y-8 bg-slate-800/50 backdrop-blur-lg p-10 rounded-xl shadow-2xl border border-slate-700">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
+        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-100">
           <div>
-            <h1 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-cyan-300 to-blue-500 mb-2">
+            <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">
               Create Account
             </h1>
-            <p className="text-center text-gray-400 text-sm">
+            <p className="text-center text-gray-500 text-sm">
               Sign up to get started
             </p>
           </div>
@@ -418,7 +377,7 @@ const SignUp = () => {
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-red-400/10 border border-red-400 text-red-400 px-4 py-3 rounded-lg relative"
+                className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg relative"
                 role="alert"
               >
                 <span className="block sm:inline">{error}</span>
@@ -434,7 +393,7 @@ const SignUp = () => {
                     className={`w-10 h-10 rounded-full flex items-center justify-center relative z-10 
                       ${step >= num 
                         ? 'bg-black text-white shadow-lg' 
-                        : 'bg-gray-700 text-gray-400'}`}
+                        : 'bg-gray-200 text-gray-500'}`}
                   >
                     {num}
                   </motion.div>
@@ -442,8 +401,8 @@ const SignUp = () => {
                     <div className="flex-1 mx-4">
                       <div className={`h-1 transition-all duration-300 ${
                         step > num 
-                          ? 'bg-white' 
-                          : 'bg-gray-700'
+                          ? 'bg-black' 
+                          : 'bg-gray-200'
                       }`} />
                     </div>
                   )}
@@ -462,7 +421,7 @@ const SignUp = () => {
                   onClick={prevStep}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+                  className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   Back
                 </motion.button>
@@ -473,7 +432,7 @@ const SignUp = () => {
                   onClick={nextStep}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="ml-auto px-6 py-2 text-sm text-black bg-white rounded-lg hover:bg-gray-200 transition-all duration-200 shadow-lg"
+                  className="ml-auto px-6 py-2 text-sm text-white bg-black rounded-lg hover:bg-gray-800 transition-all duration-200 shadow-lg"
                 >
                   Next
                 </motion.button>
@@ -483,8 +442,8 @@ const SignUp = () => {
                   disabled={loading}
                   whileHover={!loading ? { scale: 1.02 } : {}}
                   whileTap={!loading ? { scale: 0.98 } : {}}
-                  className={`w-full px-6 py-2 text-sm text-black bg-white rounded-lg 
-                    ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'} 
+                  className={`w-full px-6 py-2 text-sm text-white bg-black rounded-lg 
+                    ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'} 
                     transition-all duration-200 shadow-lg`}
                 >
                   {loading ? 'Creating Account...' : 'Create Account'}
@@ -495,39 +454,31 @@ const SignUp = () => {
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-600"></div>
+                  <div className="w-full border-t border-gray-200"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-slate-800 text-gray-400">Or continue with</span>
+                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-5 gap-4">
-                {[
-                  { icon: FaGoogle, provider: 'google' },
-                  { icon: FaFacebook, provider: 'facebook' },
-                  { icon: FaGithub, provider: 'github' },
-                  { icon: FaTwitter, provider: 'twitter' },
-                  { icon: FaApple, provider: 'apple' }
-                ].map((provider, index) => (
-                  <motion.button
-                    key={index}
-                    type="button"
-                    onClick={() => handleSocialSignup(provider.provider)}
-                    disabled={loading}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center justify-center p-2 border border-gray-600 rounded-lg shadow-sm text-gray-300 bg-black/50 hover:bg-gray-800/50 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <provider.icon className="h-5 w-5 text-white group-hover:text-gray-100" />
-                  </motion.button>
-                ))}
+              <div className="mt-6 flex justify-center">
+                <motion.button
+                  type="button"
+                  onClick={() => handleSocialSignup('google')}
+                  disabled={loading}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center justify-center py-2 px-6 border border-gray-300 rounded-lg shadow-sm bg-white hover:bg-gray-50 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FaGoogle className="h-5 w-5 text-red-500 mr-2" />
+                  <span className="text-gray-700">Sign up with Google</span>
+                </motion.button>
               </div>
             </div>
 
-            <p className="text-center text-sm text-gray-400">
+            <p className="text-center text-sm text-gray-500">
               Already have an account?{' '}
-              <Link to="/login" className="font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
+              <Link to="/login" className="font-medium text-black hover:text-gray-700 transition-colors">
                 Sign in
               </Link>
             </p>

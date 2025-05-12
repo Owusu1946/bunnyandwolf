@@ -105,20 +105,26 @@ const FashionShop = () => {
     <div className="max-w-[1200px] mx-auto px-4">
       <h1 className="text-center text-2xl font-bold my-6">NEW ARRIVALS</h1>
 
-      <div className="flex justify-center gap-4 mb-8">
-        {categories.map((category) => (
-          <button
-            key={category}
-            className={`px-4 py-1 text-sm ${
-              selectedCategory === category
-                ? 'bg-black text-white'
-                : 'border border-gray-300 hover:bg-gray-50'
-            }`}
-            onClick={() => setSelectedCategory(category)}
-          >
-            {category}
-          </button>
-        ))}
+      <div className="relative mb-8 overflow-hidden">
+        <div className="flex overflow-x-auto pb-2 hide-scrollbar snap-x scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="flex space-x-2 md:space-x-4 px-4 md:justify-center min-w-full">
+            {categories.map((category) => (
+              <button
+                key={category}
+                className={`whitespace-nowrap px-4 py-1 text-sm snap-start flex-shrink-0 ${
+                  selectedCategory === category
+                    ? 'bg-black text-white'
+                    : 'border border-gray-300 hover:bg-gray-50'
+                }`}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="absolute pointer-events-none inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent md:hidden"></div>
+        <div className="absolute pointer-events-none inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent md:hidden"></div>
       </div>
 
       <div className="relative">

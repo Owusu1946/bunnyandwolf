@@ -66,7 +66,7 @@ const Sidebar = () => {
     { id: 'collections', path: '/admin/collections', icon: FaShoppingBag, label: 'Collections' },
     { id: 'platforms', path: '/admin/platforms', icon: FaStore, label: 'Platforms' },
     { id: 'customers', path: '/admin/customers', icon: FaUsers, label: 'Customers' },
-    // { id: 'chats', path: '/admin/chats', icon: FaComments, label: 'Chats' },
+    { id: 'chats', path: '/admin/chats', icon: FaComments, label: 'Chats' },
     { id: 'campaigns', path: '/admin/campaigns', icon: FaBullhorn, label: 'Campaigns' },
     { id: 'coupons', path: '/admin/coupons', icon: FaTicketAlt, label: 'Coupons' },
     { id: 'users', path: '/admin/users', icon: FaUserPlus, label: 'Manage Users' }, // New menu item for user management

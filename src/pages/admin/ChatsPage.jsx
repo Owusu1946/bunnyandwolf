@@ -200,15 +200,23 @@ const ChatsPage = () => {
   
   const connectWebSocket = () => {
     try {
+      // Clean up existing socket if needed
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.close();
+      }
+      
       // Use secure WebSockets if on HTTPS
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/admin/chat`;
       
-      // For demo/development, use a public echo WebSocket server
-      // In production, replace with your actual WebSocket server URL
-      const demoWsUrl = 'wss://echo.websocket.events';
+      // Use the same WebSocket URL as the customer component for development
+      // In production, this would be your actual WebSocket server URL
+      const wsUrl = process.env.NODE_ENV === 'development' 
+        ? 'wss://echo.websocket.events'
+        : `${protocol}//${window.location.host}/ws/admin/chat`;
       
-      socketRef.current = new WebSocket(demoWsUrl);
+      console.log(`Admin connecting to WebSocket: ${wsUrl}`);
+      
+      socketRef.current = new WebSocket(wsUrl);
       
       socketRef.current.onopen = () => {
         console.log('Admin WebSocket connected');
@@ -228,10 +236,10 @@ const ChatsPage = () => {
               };
               socketRef.current.send(JSON.stringify(initMessage));
             } else {
-              console.log('WebSocket not ready for sending messages');
+              console.log('Admin WebSocket not ready for sending messages');
             }
           } catch (error) {
-            console.error('Error sending init message:', error);
+            console.error('Error sending admin init message:', error);
           }
         }, 500);
       };
@@ -247,34 +255,73 @@ const ChatsPage = () => {
             return; // Skip processing for non-JSON messages
           }
           
-          // Process messages from customers
-          if (data.type === 'message' && data.sender === 'customer') {
-            handleCustomerMessage(data);
-          } else if (data.type === 'init' && data.userType === 'customer') {
-            // Track active customers
-            activeCustomers.current.set(data.sessionId, {
-              lastSeen: new Date(),
-              online: true
-            });
-            
-            // Update the chat in the list if it exists
-            setChats(prevChats => {
-              const updatedChats = [...prevChats];
-              const chatIndex = updatedChats.findIndex(chat => chat._id === data.sessionId);
-              
-              if (chatIndex >= 0) {
-                updatedChats[chatIndex] = {
-                  ...updatedChats[chatIndex],
-                  user: {
-                    ...updatedChats[chatIndex].user,
-                    online: true,
-                    lastSeen: new Date()
-                  }
-                };
+          console.log('Admin received WebSocket message:', data);
+          
+          // Process different message types
+          switch(data.type) {
+            case 'message':
+              // Process messages from customers
+              if (data.sender === 'customer') {
+                handleCustomerMessage(data);
               }
-              
-              return updatedChats;
-            });
+              break;
+            case 'init':
+              if (data.userType === 'customer') {
+                // Track active customers
+                activeCustomers.current.set(data.sessionId, {
+                  lastSeen: new Date(),
+                  online: true
+                });
+                
+                // Update the chat in the list if it exists
+                setChats(prevChats => {
+                  const updatedChats = [...prevChats];
+                  const chatIndex = updatedChats.findIndex(chat => chat._id === data.sessionId);
+                  
+                  if (chatIndex >= 0) {
+                    updatedChats[chatIndex] = {
+                      ...updatedChats[chatIndex],
+                      user: {
+                        ...updatedChats[chatIndex].user,
+                        online: true,
+                        lastSeen: new Date()
+                      }
+                    };
+                  } else {
+                    // Create a new chat for this customer
+                    updatedChats.push({
+                      _id: data.sessionId,
+                      user: {
+                        _id: data.sessionId,
+                        firstName: 'Customer',
+                        lastName: `#${data.sessionId.slice(-5)}`,
+                        email: 'customer@example.com',
+                        avatar: 'https://randomuser.me/api/portraits/lego/1.jpg',
+                        online: true,
+                        lastSeen: new Date()
+                      },
+                      lastMessage: 'New customer connected',
+                      unread: false,
+                      priority: 'normal',
+                      updatedAt: new Date()
+                    });
+                  }
+                  
+                  return updatedChats;
+                });
+              }
+              break;
+            case 'typing':
+              // Handle typing indicator from customers
+              if (data.userType === 'customer') {
+                // If this is the currently selected chat, show typing indicator
+                if (selectedChat && selectedChat._id === data.sessionId) {
+                  setIsTyping(data.isTyping);
+                }
+              }
+              break;
+            default:
+              console.log('Unhandled message type:', data.type);
           }
         } catch (error) {
           console.error("Error processing WebSocket message:", error);
@@ -309,6 +356,8 @@ const ChatsPage = () => {
   const handleCustomerMessage = (messageData) => {
     const { sessionId, messageId, content, timestamp } = messageData;
     
+    console.log(`Processing customer message from ${sessionId}: ${content}`);
+    
     // Check if we already have a chat for this customer
     const existingChatIndex = chats.findIndex(
       chat => chat._id === sessionId
@@ -321,11 +370,11 @@ const ChatsPage = () => {
         ...updatedChats[existingChatIndex],
         lastMessage: content,
         updatedAt: new Date(timestamp) || new Date(),
-      unread: true,
-      user: {
+        unread: true,
+        user: {
           ...updatedChats[existingChatIndex].user,
-        online: true,
-        lastSeen: new Date()
+          online: true,
+          lastSeen: new Date()
         }
       };
       
@@ -342,7 +391,7 @@ const ChatsPage = () => {
         const newMessage = {
           _id: messageId,
           content: content,
-        sender: 'user',
+          sender: 'user',
           createdAt: new Date(timestamp),
           status: 'read'
         };
@@ -355,8 +404,9 @@ const ChatsPage = () => {
           {
             id: messageId,
             text: content,
-        sender: 'user',
-            time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            sender: 'user',
+            time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: timestamp
           }
         ]);
       } else {
@@ -367,8 +417,9 @@ const ChatsPage = () => {
           {
             id: messageId,
             text: content,
-        sender: 'user',
-            time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            sender: 'user',
+            time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: timestamp
           }
         ]);
       }
@@ -490,7 +541,7 @@ const ChatsPage = () => {
 
   // Send typing indicator to customer
   const sendTypingIndicator = (isTyping) => {
-    if (!selectedChat || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN || !selectedChat._id.startsWith('customer-')) {
+    if (!selectedChat || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
     
@@ -499,6 +550,7 @@ const ChatsPage = () => {
         type: 'typing',
         sessionId: selectedChat._id,
         isTyping: isTyping,
+        userType: 'admin',
         timestamp: new Date().toISOString()
       };
       
@@ -614,6 +666,8 @@ const ChatsPage = () => {
     if (!newMessage.trim() || !selectedChat || !connected) return;
     
     const messageId = `admin-msg-${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    
     const messageObj = {
       _id: messageId,
       content: newMessage,
@@ -638,8 +692,8 @@ const ChatsPage = () => {
       )
     );
     
-    // If this is a real customer chat, send via WebSocket
-    if (selectedChat._id.startsWith('customer-') && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+    // Send via WebSocket if connected
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       try {
         const adminMessage = {
           type: 'message',
@@ -647,7 +701,7 @@ const ChatsPage = () => {
           sessionId: selectedChat._id,
           content: newMessage,
           sender: 'admin',
-          timestamp: new Date().toISOString()
+          timestamp: timestamp
         };
         
         socketRef.current.send(JSON.stringify(adminMessage));
@@ -661,7 +715,8 @@ const ChatsPage = () => {
             text: newMessage,
             sender: 'support',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            status: 'delivered'
+            status: 'delivered',
+            timestamp: timestamp
           }
         ]);
         
@@ -677,68 +732,7 @@ const ChatsPage = () => {
         console.error("Error sending message via WebSocket:", error);
       }
     } else {
-      // For demo chats, simulate message status updates and responses
-    setTimeout(() => {
-      setMessages(prev => 
-        prev.map(msg => 
-          msg._id === messageObj._id ? { ...msg, status: 'delivered' } : msg
-        )
-      );
-      
-      // Simulate typing response after 1-3 seconds
-      if (Math.random() > 0.4) {
-        const typingDelay = Math.floor(Math.random() * 2000) + 1000;
-        setTimeout(() => {
-          setIsTyping(true);
-          
-          // Then simulate response after 2-4 seconds of typing
-          const responseDelay = Math.floor(Math.random() * 2000) + 2000;
-          setTimeout(() => {
-            setIsTyping(false);
-            
-            // Update read status
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.sender === 'admin' ? { ...msg, status: 'read' } : msg
-              )
-            );
-            
-            // Add automated response for demo
-            const responses = [
-              "Thanks for the information!",
-              "Let me check that for you.",
-              "Is there anything else you need help with?",
-              "Perfect, I'll get that updated right away.",
-              "Thank you for your patience."
-            ];
-            
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-            
-            const responseMsg = {
-              _id: `msg-${Date.now()}`,
-              content: randomResponse,
-              sender: 'user',
-              createdAt: new Date(),
-            };
-            
-            setMessages(prev => [...prev, responseMsg]);
-            
-            // Update last message
-            setChats(prevChats => 
-              prevChats.map(chat => 
-                chat._id === selectedChat._id 
-                  ? { 
-                      ...chat, 
-                      lastMessage: randomResponse,
-                      updatedAt: new Date()
-                    } 
-                  : chat
-              )
-            );
-          }, responseDelay);
-        }, typingDelay);
-      }
-    }, 1000);
+      console.warn("WebSocket not connected, message not sent");
     }
     
     // Clear input

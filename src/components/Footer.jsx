@@ -1,120 +1,191 @@
-import  { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaApple, FaGooglePlay, FaTiktok, FaFacebookF, FaInstagram, FaSnapchatGhost, FaYoutube, FaPinterestP } from 'react-icons/fa';
-import '../styles/Footer.css';
+import { FaApple, FaGooglePlay, FaTiktok, FaFacebookF, FaInstagram, FaSnapchatGhost, FaYoutube, FaPinterestP, FaTwitter, FaLinkedinIn, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { useSocialStore } from '../store/socialStore';
 
 const Footer = () => {
+  const { fetchSocialLinks, getActiveSocialLinks } = useSocialStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [expandedSection, setExpandedSection] = useState(null);
+  
+  useEffect(() => {
+    const loadSocialLinks = async () => {
+      setIsLoading(true);
+      try {
+        await fetchSocialLinks();
+      } catch (error) {
+        console.error('Error loading social links:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadSocialLinks();
+  }, [fetchSocialLinks]);
+  
+  const toggleSection = (section) => {
+    if (expandedSection === section) {
+      setExpandedSection(null);
+    } else {
+      setExpandedSection(section);
+    }
+  };
+
+  // Get active social links (with fallback to defaults if none exist)
+  const socialLinks = getActiveSocialLinks();
+  
+  // Map platform names to their corresponding icons
+  const getIconComponent = (platform) => {
+    const iconMap = {
+      'facebook': <FaFacebookF />,
+      'instagram': <FaInstagram />,
+      'tiktok': <FaTiktok />,
+      'snapchat': <FaSnapchatGhost />,
+      'youtube': <FaYoutube />,
+      'pinterest': <FaPinterestP />,
+      'twitter': <FaTwitter />,
+      'linkedin': <FaLinkedinIn />
+    };
+    
+    return iconMap[platform.toLowerCase()] || <FaInstagram />;
+  };
+  
+  const footerSections = [
+    {
+      id: 'customer-service',
+      title: 'CUSTOMER SERVICE',
+      links: [
+        { text: 'Track Order', path: '/track-order' },
+        { text: 'Shipping & Returns', path: '/shipping' },
+        { text: 'Contact Us', path: '/contact' },
+        { text: 'FAQ', path: '/faq' }
+      ]
+    },
+    {
+      id: 'about',
+      title: 'ABOUT SINOSPLY',
+      links: [
+        { text: 'Our Story', path: '/about-us' },
+        { text: 'Blog', path: '/blog' },
+        { text: 'Careers', path: '/careers' },
+        { text: 'Store Locator', path: '/store-locator' }
+      ]
+    },
+    {
+      id: 'policies',
+      title: 'POLICIES',
+      links: [
+        { text: 'Terms of Service', path: '/terms-of-use' },
+        { text: 'Privacy Policy', path: '/privacy-policy' },
+        { text: 'Returns Policy', path: '/returns' },
+        { text: 'Shipping Policy', path: '/shipping' }
+      ]
+    }
+  ];
+  
   return (
-    <footer className="footer">
-      <div className="footer-content">
-        <div className="footer-section">
-          <h3>HELP</h3>
-          <ul>
-            <li><Link to="/faq">FAQ</Link></li>
-            <li><Link to="/track-order">Track Order</Link></li>
-            <li><Link to="/shipping">Shipping</Link></li>
-            <li><Link to="/returns">Returns</Link></li>
-            <li><Link to="/sizing">Sizing</Link></li>
-            <li><Link to="/care-guide">Care Guide</Link></li>
-            <li><Link to="/afterpay">Afterpay</Link></li>
-            <li><Link to="/klarna">Klarna</Link></li>
-            <li><Link to="/shop-pay">Shop Pay</Link></li>
-          </ul>
+    <footer className="bg-white pt-10 pb-6 border-t border-gray-200">
+      <div className="container mx-auto px-4">
+        {/* Mobile Footer */}
+        <div className="md:hidden">
+          {footerSections.map((section) => (
+            <div key={section.id} className="border-b border-gray-200">
+              <button 
+                className="w-full py-4 flex justify-between items-center text-left"
+                onClick={() => toggleSection(section.id)}
+              >
+                <h3 className="font-medium text-sm">{section.title}</h3>
+                {expandedSection === section.id ? <FaChevronUp /> : <FaChevronDown />}
+              </button>
+              
+              {expandedSection === section.id && (
+                <ul className="pb-4 space-y-2">
+                  {section.links.map((link, index) => (
+                    <li key={index}>
+                      <Link to={link.path} className="text-gray-600 text-sm hover:text-black">
+                        {link.text}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+          
+          <div className="py-6">
+            <h3 className="font-medium text-sm mb-4">JOIN OUR NEWSLETTER</h3>
+            <div className="flex mb-4">
+              <input 
+                type="email" 
+                placeholder="Your email" 
+                className="flex-1 border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black"
+              />
+              <button className="bg-black text-white px-4 py-2 text-sm">
+                →
+              </button>
+            </div>
+          </div>
         </div>
-
-        <div className="footer-section">
-          <h3>MORE POLLY</h3>
-          <ul>
-            <li><Link to="/gift-cards">Gift Cards</Link></li>
-            <li><Link to="/rewards">Rewards</Link></li>
-            <li><Link to="/blog">Blog</Link></li>
-            <li><Link to="/give-get">Give $15, Get $15</Link></li>
-            <li><Link to="/promotions">Promotions</Link></li>
-            <li><Link to="/reviews">Reviews</Link></li>
-            <li><Link to="/about-us">About Us</Link></li>
-            <li><Link to="/careers">Careers</Link></li>
-          </ul>
+        
+        {/* Desktop Footer */}
+        <div className="hidden md:grid md:grid-cols-4 gap-8 mb-8">
+          {footerSections.map((section) => (
+            <div key={section.id}>
+              <h3 className="font-medium text-sm mb-4">{section.title}</h3>
+              <ul className="space-y-2">
+                {section.links.map((link, index) => (
+                  <li key={index}>
+                    <Link to={link.path} className="text-gray-600 text-sm hover:text-black">
+                      {link.text}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          
+          <div>
+            <h3 className="font-medium text-sm mb-4">JOIN OUR NEWSLETTER</h3>
+            <div className="flex mb-4">
+              <input 
+                type="email" 
+                placeholder="Your email" 
+                className="flex-1 border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black"
+              />
+              <button className="bg-black text-white px-4 py-2 text-sm">
+                →
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Sign up to get updates on new arrivals and special offers.
+            </p>
+          </div>
         </div>
-
-        <div className="footer-section">
-          <h3>LOWER IMPACT</h3>
-          <ul>
-            <li><Link to="/social-responsibility">Social Responsibility</Link></li>
-            <li><Link to="/ethical-sourcing">Ethical Sourcing</Link></li>
-            <li><Link to="/about-lower-impact">About Lower Impact</Link></li>
-            <li><Link to="/sustainability">Sustainability & Environment</Link></li>
-            <li><Link to="/equality">Equality & Community</Link></li>
-            <li><Link to="/transparency">California Transparency Act</Link></li>
-          </ul>
-        </div>
-
-        <div className="footer-section">
-          <h3>GET IN TOUCH</h3>
-          <ul>
-            <li><Link to="/contact">Contact Us</Link></li>
-            <li><Link to="/store-locator">Store Locator</Link></li>
-            <li><Link to="/collabs">Collabs</Link></li>
-            <li><Link to="/ambassador">College Ambassador</Link></li>
-            <li><Link to="/affiliate">Affiliate Program</Link></li>
-            <li><Link to="/accessibility">Accessibility</Link></li>
-            <li><Link to="/cookies">Cookies Settings</Link></li>
-          </ul>
-        </div>
-
-        <div className="footer-section">
-          <h3>DOWNLOAD OUR APP</h3>
-          <div className="app-buttons">
-            <a href="https://apps.apple.com/us/app" target="_blank" rel="noopener noreferrer" className="app-store-button">
-              <FaApple /> ON THE APP STORE
+        
+        {/* Social Links - Both Mobile & Desktop */}
+        <div className="flex justify-center space-x-4 py-6 border-t border-gray-200">
+          {socialLinks.map((link, index) => (
+            <a 
+              key={link._id || index}
+              href={link.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              title={link.displayName || link.platform}
+              className="text-gray-600 hover:text-black transition-colors"
+            >
+              {getIconComponent(link.platform)}
             </a>
-            <a href="https://play.google.com/store/apps" target="_blank" rel="noopener noreferrer" className="google-play-button">
-              <FaGooglePlay /> ON GOOGLE PLAY
-            </a>
+          ))}
+        </div>
+        
+        {/* Copyright & Legal - Both Mobile & Desktop */}
+        <div className="text-center text-xs text-gray-500 mt-4">
+          <p className="mb-2">©{new Date().getFullYear()} SINOSPLY. All Rights Reserved</p>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+            <Link to="/terms-of-use" className="hover:text-black">Terms of Use</Link>
+            <Link to="/privacy-policy" className="hover:text-black">Privacy Policy</Link>
+            <Link to="/sitemap" className="hover:text-black">Sitemap</Link>
           </div>
-          <div className="rating">
-            <div className="stars">☆☆☆☆☆</div>
-            <div className="rating-text">No rating available</div>
-          </div>
-        </div>
-
-        <div className="footer-section">
-          <h3>SIGN UP FOR 15% OFF</h3>
-          <div className="signup-form">
-            <input type="text" placeholder="ENTER PHONE NUMBER" />
-            <button type="submit">→</button>
-          </div>
-          <p className="terms">
-            By signing up via text you agree to receive recurring automated marketing messages and shopping cart reminders at the phone number provided. Consent is not a condition of purchase. Reply stop to unsubscribe. Help for help. MSG & Data Rates May Apply. View <Link to="/privacy">Privacy Policy</Link> and <Link to="/tos">TOS</Link>
-          </p>
-        </div>
-      </div>
-
-      <div className="footer-divider"></div>
-
-      <div className="footer-bottom">
-        <div className="social-links">
-          <a href="https://www.tiktok.com" target="_blank" rel="noopener noreferrer"><FaTiktok /></a>
-          <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer"><FaFacebookF /></a>
-          <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer"><FaInstagram /></a>
-          <a href="https://www.snapchat.com" target="_blank" rel="noopener noreferrer"><FaSnapchatGhost /></a>
-          <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer"><FaYoutube /></a>
-          <a href="https://www.pinterest.com" target="_blank" rel="noopener noreferrer"><FaPinterestP /></a>
-        </div>
-
-        <div className="store-selector">
-          <span className="flag-icon">🇺🇸</span> YOURE ON OUR USA STORE - CHANGE TO <a href="#">AUS HERE</a>
-        </div>
-
-        <div className="legal-links">
-          <span>©SINOSPLY WEBSITE USA</span>
-          <span className="separator">|</span>
-          <Link to="/terms-of-sale">TERMS OF SALE</Link>
-          <span className="separator">|</span>
-          <Link to="/terms-of-use">TERMS OF USE</Link>
-          <span className="separator">|</span>
-          <Link to="/privacy-policy">PRIVACY POLICY</Link>
-          <span className="separator">|</span>
-          <Link to="/sitemap">SITEMAP</Link>
         </div>
       </div>
     </footer>

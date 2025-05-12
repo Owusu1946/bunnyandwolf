@@ -13,6 +13,7 @@ const ProductsPage = () => {
   const [stockRefreshing, setStockRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -55,7 +56,7 @@ const ProductsPage = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [currentPage, categoryFilter]);
+  }, [currentPage, categoryFilter, showFeaturedOnly]);
 
   // Initialize products from store or fetch if empty
   useEffect(() => {
@@ -83,7 +84,8 @@ const ProductsPage = () => {
           page: currentPage,
           limit: 10,
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
-          search: searchTerm || undefined
+          search: searchTerm || undefined,
+          featured: showFeaturedOnly ? true : undefined
         },
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -154,6 +156,11 @@ const ProductsPage = () => {
 
   const handleCategoryChange = (e) => {
     setCategoryFilter(e.target.value);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+  
+  const toggleFeaturedFilter = () => {
+    setShowFeaturedOnly(!showFeaturedOnly);
     setCurrentPage(1); // Reset to first page when filter changes
   };
   
@@ -797,6 +804,17 @@ const ProductsPage = () => {
                   <FaSync className={`mr-2 ${stockRefreshing ? 'animate-spin' : ''}`} /> 
                   {stockRefreshing ? 'Refreshing...' : 'Refresh Stock'}
                 </button>
+                <button
+                  onClick={toggleFeaturedFilter}
+                  className={`flex items-center px-4 py-2 border rounded-lg ${
+                    showFeaturedOnly 
+                      ? 'text-yellow-600 border-yellow-300 bg-yellow-50' 
+                      : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <FaStar className="mr-2" /> 
+                  {showFeaturedOnly ? 'Show All Products' : 'Show Featured Only'}
+                </button>
               </div>
               <button
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
@@ -850,7 +868,14 @@ const ProductsPage = () => {
                             />
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                            <div className="text-sm font-medium text-gray-900 flex items-center">
+                              {product.name}
+                              {product.isFeatured && (
+                                <span title="Featured product" className="ml-2 text-yellow-500">
+                                  <FaStar size={14} />
+                                </span>
+                              )}
+                            </div>
                             <div className="text-sm text-gray-500">{product.sku || 'No SKU'}</div>
                           </div>
                         </div>

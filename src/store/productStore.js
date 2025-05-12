@@ -37,9 +37,11 @@ export const useProductStore = create(
             p._id === product._id ? product : p
           );
           set({ products: updatedProducts });
+          console.log(`📝 ProductStore: Updated product: ${product.name} (ID: ${product._id})`);
         } else {
           // Add new product
           set({ products: [product, ...products] });
+          console.log(`➕ ProductStore: Added new product: ${product.name} (ID: ${product._id})`);
         }
         
         // Update derived state
@@ -49,6 +51,13 @@ export const useProductStore = create(
           
         const featuredProducts = allProducts.filter(p => p.isFeatured);
         const categories = [...new Set(allProducts.map(p => p.category))];
+        
+        // Log featured product status
+        if (product.isFeatured) {
+          console.log(`⭐ ProductStore: Product "${product.name}" is marked as featured`);
+        }
+        
+        console.log(`✨ ProductStore: Total featured products: ${featuredProducts.length}`);
         
         set({ 
           featuredProducts,
@@ -77,9 +86,13 @@ export const useProductStore = create(
       // Filter products by category
       filterByCategory: (category) => {
         const products = get().products;
+        console.log(`🔍 ProductStore: Filtering ${products.length} products by category: "${category}"`);
+        
         const filtered = category === 'all' 
           ? products 
           : products.filter(p => p.category === category);
+        
+        console.log(`🔍 ProductStore: Found ${filtered.length} products in category "${category}"`);
         set({ filteredProducts: filtered });
         return filtered;
       },
@@ -194,25 +207,85 @@ export const useProductStore = create(
       
       // Fetch products from API
       fetchProductsFromAPI: async () => {
+        console.log('🔄 ProductStore: Fetching products from API');
         try {
-          const response = await fetch(`${apiConfig.baseURL}/products`);
+          const response = await fetch(`${apiConfig.baseURL}/products?limit=100`);
           const data = await response.json();
           
           if (data.success) {
+            console.log(`✅ ProductStore: Successfully fetched ${data.data.length} products from API`);
             set({ products: data.data });
             
             // Update derived state
             const featuredProducts = data.data.filter(p => p.isFeatured);
             const categories = [...new Set(data.data.map(p => p.category))];
             
+            console.log(`✨ ProductStore: Found ${featuredProducts.length} featured products`);
+            if (featuredProducts.length > 0) {
+              featuredProducts.forEach(p => {
+                console.log(`  - Featured: ${p.name} (ID: ${p._id})`);
+                console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
+              });
+            }
+            
+            console.log(`📊 ProductStore: Categories found: ${categories.join(', ')}`);
+            
             set({ 
               featuredProducts,
               categories,
               filteredProducts: data.data
             });
+          } else {
+            console.error('❌ ProductStore: API request failed', data);
           }
         } catch (error) {
-          console.error('Error fetching products:', error);
+          console.error('❌ ProductStore: Error fetching products:', error);
+        }
+      },
+      
+      // Get products by category without affecting state
+      getProductsByCategory: (category) => {
+        console.log(`🔍 ProductStore: Getting products by category: "${category}"`);
+        const products = get().products;
+        
+        if (category === 'all') {
+          console.log(`🔍 ProductStore: Returning all ${products.length} products`);
+          return products;
+        }
+        
+        const categoryProducts = products.filter(p => p.category === category);
+        console.log(`🔍 ProductStore: Found ${categoryProducts.length} products in category "${category}"`);
+        
+        return categoryProducts;
+      },
+      
+      // Fetch only featured products from API
+      fetchFeaturedProducts: async () => {
+        console.log('🌟 ProductStore: Fetching featured products from API');
+        try {
+          const response = await fetch(`${apiConfig.baseURL}/products?featured=true&limit=20`);
+          const data = await response.json();
+          
+          if (data.success) {
+            console.log(`✅ ProductStore: Successfully fetched ${data.data.length} featured products from API`);
+            
+            // Update featured products in store
+            set({ featuredProducts: data.data });
+            
+            // Log featured products
+            data.data.forEach(p => {
+              console.log(`  - Featured: ${p.name} (ID: ${p._id})`);
+              console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
+            });
+            
+            return data.data;
+          } else {
+            console.error('❌ ProductStore: API request for featured products failed', data);
+            return [];
+          }
+        } catch (error) {
+          console.error('❌ ProductStore: Error fetching featured products:', error);
+          return [];
         }
       }
     }),
