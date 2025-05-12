@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaCopy, FaStar } from 'react-icons/fa';
+import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaCopy, FaStar, FaSync } from 'react-icons/fa';
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
@@ -10,6 +10,7 @@ import apiConfig from '../../config/apiConfig';
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stockRefreshing, setStockRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,6 +104,46 @@ const ProductsPage = () => {
       console.error('Error fetching products:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add a function to refresh product stock data - using shimmer loading
+  const refreshProductStock = async () => {
+    try {
+      setStockRefreshing(true);
+      
+      // Fetch all products to get the latest stock values
+      const response = await axios.get(`${apiConfig.baseURL}/products`, {
+        params: {
+          showAll: true // Get all products for accurate stock count
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data.success) {
+        const fetchedProducts = response.data.data || [];
+        
+        // Update the product store with the latest data
+        fetchedProducts.forEach(product => {
+          productStore.addProduct(product);
+        });
+        
+        // Update the current page view
+        setProducts(currentPage === 1 
+          ? fetchedProducts.slice(0, 10) 
+          : fetchedProducts.slice((currentPage - 1) * 10, currentPage * 10)
+        );
+        
+        // Show success message
+        alert('Product stock data has been refreshed!');
+      }
+    } catch (error) {
+      console.error('Error refreshing product stock:', error);
+      alert('Failed to refresh product stock. Please try again.');
+    } finally {
+      setStockRefreshing(false);
     }
   };
 
@@ -672,6 +713,35 @@ const ProductsPage = () => {
     }
   };
 
+  // Add shimmer loading effect component
+  const ProductRowSkeleton = () => (
+    <div className="grid grid-cols-6 gap-4 px-6 py-4 animate-pulse">
+      <div className="col-span-2">
+        <div className="flex items-center">
+          <div className="h-10 w-10 bg-gray-200 rounded-lg"></div>
+          <div className="ml-4 space-y-2">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+            <div className="h-3 bg-gray-200 rounded w-16"></div>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center">
+        <div className="h-4 bg-gray-200 rounded w-20"></div>
+      </div>
+      <div className="flex items-center">
+        <div className="h-4 bg-gray-200 rounded w-16"></div>
+      </div>
+      <div className="flex items-center">
+        <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+      </div>
+      <div className="flex justify-center space-x-3 items-center">
+        <div className="h-4 w-4 bg-gray-200 rounded-full"></div>
+        <div className="h-4 w-4 bg-gray-200 rounded-full"></div>
+        <div className="h-4 w-4 bg-gray-200 rounded-full"></div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -717,6 +787,16 @@ const ProductsPage = () => {
                   <option value="BOTTOMS">BOTTOMS</option>
                   <option value="BACK IN STOCK">BACK IN STOCK</option>
                 </select>
+                <button
+                  onClick={refreshProductStock}
+                  disabled={stockRefreshing}
+                  className={`flex items-center px-4 py-2 border rounded-lg ${
+                    stockRefreshing ? 'text-gray-400 border-gray-300 bg-gray-50' : 'text-blue-600 border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  <FaSync className={`mr-2 ${stockRefreshing ? 'animate-spin' : ''}`} /> 
+                  {stockRefreshing ? 'Refreshing...' : 'Refresh Stock'}
+                </button>
               </div>
               <button
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
@@ -745,7 +825,14 @@ const ProductsPage = () => {
                 </div>
               </div>
               
-              {products.length > 0 ? (
+              {/* Show shimmer loading for products if stock is refreshing */}
+              {stockRefreshing ? (
+                <div className="bg-white divide-y divide-gray-200">
+                  {Array(products.length || 5).fill(0).map((_, index) => (
+                    <ProductRowSkeleton key={index} />
+                  ))}
+                </div>
+              ) : products.length > 0 ? (
                 <div className="bg-white divide-y divide-gray-200">
                   {products.map((product) => (
                     <div key={product._id} className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50">
@@ -776,9 +863,13 @@ const ProductsPage = () => {
                       </div>
                       <div className="text-sm self-center">
                         <span className={`px-2 py-1 rounded-full text-xs
-                          ${product.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+                          ${product.stock > 10 ? 'bg-green-100 text-green-800' : 
+                            product.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 
+                            'bg-red-100 text-red-800'}
                         `}>
-                          {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                          {product.stock > 0 
+                            ? <span><strong>{product.stock}</strong> in stock</span> 
+                            : 'Out of stock'}
                         </span>
                       </div>
                       <div className="flex justify-center space-x-3 self-center">
@@ -818,7 +909,7 @@ const ProductsPage = () => {
               )}
             </div>
             
-            {products.length > 0 && (
+            {products.length > 0 && !stockRefreshing && (
               <div className="px-6 py-4 flex items-center justify-between border-t">
                 <div>
                   <p className="text-sm text-gray-700">

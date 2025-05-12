@@ -19,17 +19,36 @@ import {
   FaTicketAlt,
   FaBullhorn,
   FaShoppingBag,
-  FaStore
+  FaStore,
+  FaUserPlus,
+  FaBars
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useSidebar } from '../../context/SidebarContext';
 import axios from 'axios';
 import apiConfig from '../../config/apiConfig';
 
+// Custom tooltip component
+const Tooltip = ({ children, label, visible }) => {
+  if (!visible) return children;
+  
+  return (
+    <div className="group relative">
+      {children}
+      <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 w-auto min-w-max opacity-0 
+                    group-hover:opacity-100 transition-opacity duration-200 px-2 py-1 
+                    text-sm font-medium text-white bg-gray-900 rounded-md shadow-sm pointer-events-none
+                    whitespace-nowrap z-50">
+        {label}
+      </div>
+    </div>
+  );
+};
+
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { collapsed, setCollapsed } = useSidebar();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -37,23 +56,59 @@ const Sidebar = () => {
   const [reportType, setReportType] = useState('sales');
   const [reportPeriod, setReportPeriod] = useState('month');
   const [reportFormat, setReportFormat] = useState('pdf');
+  const [mobileOpen, setMobileOpen] = useState(false);
   
-  const menuItems = [
-    { path: '/admin/dashboard', icon: FaHome, label: 'Dashboard' },
-    { path: '/admin/all-orders', icon: FaShoppingCart, label: 'All Orders' },
-    { path: '/admin/products', icon: FaBoxes, label: 'Products' },
-    { path: '/admin/collections', icon: FaShoppingBag, label: 'Collections' },
-    { path: '/admin/platforms', icon: FaStore, label: 'Platforms' },
-    { path: '/admin/customers', icon: FaUsers, label: 'Customers' },
-    // { path: '/admin/chats', icon: FaComments, label: 'Chats' },
-    { path: '/admin/campaigns', icon: FaBullhorn, label: 'Campaigns' },
-    { path: '/admin/coupons', icon: FaTicketAlt, label: 'Coupons' },
+  // Define all menu items with IDs
+  const allMenuItems = [
+    { id: 'dashboard', path: '/admin/dashboard', icon: FaHome, label: 'Dashboard' },
+    { id: 'orders', path: '/admin/all-orders', icon: FaShoppingCart, label: 'All Orders' },
+    { id: 'products', path: '/admin/products', icon: FaBoxes, label: 'Products' },
+    { id: 'collections', path: '/admin/collections', icon: FaShoppingBag, label: 'Collections' },
+    { id: 'platforms', path: '/admin/platforms', icon: FaStore, label: 'Platforms' },
+    { id: 'customers', path: '/admin/customers', icon: FaUsers, label: 'Customers' },
+    // { id: 'chats', path: '/admin/chats', icon: FaComments, label: 'Chats' },
+    { id: 'campaigns', path: '/admin/campaigns', icon: FaBullhorn, label: 'Campaigns' },
+    { id: 'coupons', path: '/admin/coupons', icon: FaTicketAlt, label: 'Coupons' },
+    { id: 'users', path: '/admin/users', icon: FaUserPlus, label: 'Manage Users' }, // New menu item for user management
   ];
 
   const bottomMenuItems = [
-    { path: '/admin/profile', icon: FaUser, label: 'Profile' },
-    { path: '/admin/settings', icon: FaCog, label: 'Settings' }
+    { id: 'profile', path: '/admin/profile', icon: FaUser, label: 'Profile' },
+    { id: 'settings', path: '/admin/settings', icon: FaCog, label: 'Settings' }
   ];
+
+  // Filter menu items based on user permissions
+  const getAuthorizedMenuItems = () => {
+    // Admin sees everything
+    if (user?.role === 'admin') {
+      return allMenuItems;
+    }
+
+    // Staff only sees items they have permission for
+    if (user?.role === 'staff' && Array.isArray(user?.permissions)) {
+      return allMenuItems.filter(item => user.permissions.includes(item.id));
+    }
+
+    // Default - only show dashboard
+    return allMenuItems.filter(item => item.id === 'dashboard');
+  };
+
+  // Get authorized bottom menu items
+  const getAuthorizedBottomMenuItems = () => {
+    // Everyone can see profile
+    const items = [bottomMenuItems[0]]; // Profile
+    
+    // Only admin can see settings by default
+    if (user?.role === 'admin' || (user?.role === 'staff' && user?.permissions?.includes('settings'))) {
+      items.push(bottomMenuItems[1]); // Settings
+    }
+    
+    return items;
+  };
+
+  // Get visible menu items based on permissions
+  const menuItems = getAuthorizedMenuItems();
+  const authorizedBottomMenuItems = getAuthorizedBottomMenuItems();
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -108,99 +163,177 @@ const Sidebar = () => {
     }
   };
 
+  // Toggle mobile sidebar
+  const toggleMobileMenu = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  // Close mobile menu when clicking a link
+  const handleLinkClick = () => {
+    if (window.innerWidth < 768) {
+      setMobileOpen(false);
+    }
+  };
+
   // Add event listener for window resize
   useEffect(() => {
     const handleResize = () => {
-      setCollapsed(window.innerWidth < 1024);
+      if (window.innerWidth < 1024) {
+        setCollapsed(true);
+      }
+      
+      // Auto-close mobile menu on larger screens
+      if (window.innerWidth >= 768) {
+        setMobileOpen(false);
+      }
     };
     
     window.addEventListener('resize', handleResize);
+    // Initial check
+    handleResize();
+    
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [setCollapsed]);
+
+  // Check if user can generate reports
+  const canGenerateReports = () => {
+    return user?.role === 'admin' || (user?.role === 'staff' && user?.permissions?.includes('reports'));
+  };
 
   return (
-    <div className={`fixed inset-y-0 left-0 bg-white border-r border-gray-200 transition-all duration-300 z-30 ${
-      collapsed ? 'w-20' : 'w-64'
-    }`}>
-      {/* Logo/Title */}
-      <div className="p-6 border-b">
-        <h1 className="text-xl font-semibold text-gray-800">Sinosply</h1>
-      </div>
-
-      {/* Main Navigation */}
-      <nav className="flex-1 px-4 mt-6">
-        <div className="space-y-2">
-        {menuItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-              className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-              location.pathname === item.path
-                ? 'bg-purple-100 text-purple-600'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <item.icon className={`w-5 h-5 ${
-              location.pathname === item.path
-                ? 'text-purple-600'
-                : 'text-gray-500'
-            }`} />
-            <span className="ml-3 font-medium">{item.label}</span>
-          </Link>
-        ))}
-        </div>
-      </nav>
-
-      {/* Bottom Navigation */}
-      <div className="px-4 py-4 border-t">
-        <div className="space-y-2">
-          {bottomMenuItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-                location.pathname === item.path
-                  ? 'bg-purple-100 text-purple-600'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <item.icon className={`w-5 h-5 ${
-                location.pathname === item.path
-                  ? 'text-purple-600'
-                  : 'text-gray-500'
-              }`} />
-              <span className="ml-3 font-medium">{item.label}</span>
-            </Link>
-          ))}
-          
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-100"
-          >
-            <FaSignOutAlt className="w-5 h-5 text-gray-500" />
-            <span className="ml-3 font-medium">Logout</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Generate Report Button */}
-      <div className="px-4 mb-6">
+    <>
+      {/* Mobile Menu Button */}
+      <div className="md:hidden fixed top-4 left-4 z-50">
         <button 
-          className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center"
-          onClick={handleGenerateReport}
+          onClick={toggleMobileMenu}
+          className="bg-white p-2 rounded-md shadow-md"
+          aria-label="Toggle menu"
         >
-          <FaFileAlt className="mr-2" />
-          Generate Report
+          <FaBars className="h-5 w-5 text-gray-700" />
+        </button>
+      </div>
+      
+      {/* Backdrop for mobile menu */}
+      {mobileOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={() => setMobileOpen(false)}
+        ></div>
+      )}
+      
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 bg-white border-r border-gray-200 transition-all duration-300 z-40
+                      ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} 
+                      md:translate-x-0 
+                      ${collapsed ? 'md:w-20' : 'md:w-64'}
+                      w-3/4 sm:w-64`}>
+        {/* Mobile close button */}
+        <button 
+          className="md:hidden absolute top-4 right-4 p-1 text-gray-500"
+          onClick={() => setMobileOpen(false)}
+        >
+          <FaTimes className="h-5 w-5" />
+        </button>
+        
+        {/* Logo/Title */}
+        <div className="p-4 md:p-6 border-b flex items-center">
+          <FaStore className="text-purple-600 text-xl mr-3" />
+          <h1 className={`text-xl font-semibold text-gray-800 ${collapsed && !mobileOpen ? 'md:hidden' : 'block'}`}>Sinosply</h1>
+        </div>
+
+        {/* Main Navigation */}
+        <nav className="flex-1 px-4 mt-6 overflow-y-auto">
+          <div className="space-y-2">
+          {menuItems.map((item) => (
+            <Tooltip key={item.path} label={item.label} visible={collapsed && !mobileOpen}>
+              <Link
+                to={item.path}
+                onClick={handleLinkClick}
+                className={`flex items-center ${collapsed && !mobileOpen ? 'md:justify-center' : ''} px-4 py-3 rounded-lg transition-colors ${
+                  location.pathname === item.path
+                    ? 'bg-purple-100 text-purple-600'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <item.icon className={`w-5 h-5 flex-shrink-0 ${
+                  location.pathname === item.path
+                    ? 'text-purple-600'
+                    : 'text-gray-500'
+                }`} />
+                <span className={`ml-3 font-medium ${collapsed && !mobileOpen ? 'md:hidden' : 'block'}`}>{item.label}</span>
+              </Link>
+            </Tooltip>
+          ))}
+          </div>
+        </nav>
+
+        {/* Bottom Navigation */}
+        <div className="px-4 py-4 border-t">
+          <div className="space-y-2">
+            {authorizedBottomMenuItems.map((item) => (
+              <Tooltip key={item.path} label={item.label} visible={collapsed && !mobileOpen}>
+                <Link
+                  to={item.path}
+                  onClick={handleLinkClick}
+                  className={`flex items-center ${collapsed && !mobileOpen ? 'md:justify-center' : ''} px-4 py-3 rounded-lg transition-colors ${
+                    location.pathname === item.path
+                      ? 'bg-purple-100 text-purple-600'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 flex-shrink-0 ${
+                    location.pathname === item.path
+                      ? 'text-purple-600'
+                      : 'text-gray-500'
+                  }`} />
+                  <span className={`ml-3 font-medium ${collapsed && !mobileOpen ? 'md:hidden' : 'block'}`}>{item.label}</span>
+                </Link>
+              </Tooltip>
+            ))}
+            
+            {/* Logout Button */}
+            <Tooltip label="Logout" visible={collapsed && !mobileOpen}>
+              <button
+                onClick={handleLogout}
+                className={`w-full flex items-center ${collapsed && !mobileOpen ? 'md:justify-center' : ''} px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-100`}
+              >
+                <FaSignOutAlt className="w-5 h-5 flex-shrink-0 text-gray-500" />
+                <span className={`ml-3 font-medium ${collapsed && !mobileOpen ? 'md:hidden' : 'block'}`}>Logout</span>
+              </button>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Generate Report Button - Only show for users with permission */}
+        {canGenerateReports() && (
+          <div className="px-4 mb-6">
+            <Tooltip label="Generate Report" visible={collapsed && !mobileOpen}>
+              <button 
+                className={`w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center ${collapsed && !mobileOpen ? 'md:justify-center' : ''}`}
+                onClick={handleGenerateReport}
+              >
+                <FaFileAlt className={collapsed && !mobileOpen ? '' : 'mr-2'} />
+                <span className={`${collapsed && !mobileOpen ? 'md:hidden' : 'block'}`}>Generate Report</span>
+              </button>
+            </Tooltip>
+          </div>
+        )}
+
+        {/* Desktop Collapse Button */}
+        <button
+          className="hidden md:block absolute -right-3 top-20 bg-white border border-gray-200 rounded-full p-1 shadow-md"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
         </button>
       </div>
 
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-4 md:p-6 w-full max-w-xs md:max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Confirm Logout</h3>
+              <h3 className="text-base md:text-lg font-medium text-gray-900">Confirm Logout</h3>
               <button 
                 onClick={() => setShowLogoutModal(false)}
                 className="text-gray-400 hover:text-gray-500"
@@ -209,18 +342,18 @@ const Sidebar = () => {
               </button>
             </div>
             <div className="mb-6">
-              <p className="text-gray-600">Are you sure you want to log out of your admin account?</p>
+              <p className="text-sm md:text-base text-gray-600">Are you sure you want to log out of your admin account?</p>
             </div>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowLogoutModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-3 py-1.5 md:px-4 md:py-2 border border-gray-300 rounded-lg text-sm md:text-base text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmLogout}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                className="px-3 py-1.5 md:px-4 md:py-2 bg-purple-600 text-white rounded-lg text-sm md:text-base hover:bg-purple-700"
               >
                 Yes, Logout
               </button>
@@ -231,10 +364,10 @@ const Sidebar = () => {
       
       {/* Report Generation Modal */}
       {showReportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-4 md:p-6 w-full max-w-xs md:max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Generate Report</h3>
+              <h3 className="text-base md:text-lg font-medium text-gray-900">Generate Report</h3>
               <button 
                 onClick={() => setShowReportModal(false)}
                 className="text-gray-400 hover:text-gray-500"
@@ -244,7 +377,7 @@ const Sidebar = () => {
               </button>
             </div>
             
-            <div className="space-y-4 mb-6">
+            <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Report Type
@@ -252,7 +385,7 @@ const Sidebar = () => {
                 <select
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                   disabled={generatingReport}
                 >
                   <option value="sales">Sales Report</option>
@@ -269,7 +402,7 @@ const Sidebar = () => {
                 <select
                   value={reportPeriod}
                   onChange={(e) => setReportPeriod(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                   disabled={generatingReport}
                 >
                   <option value="week">Last Week</option>
@@ -287,7 +420,7 @@ const Sidebar = () => {
                 <select
                   value={reportFormat}
                   onChange={(e) => setReportFormat(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                   disabled={generatingReport}
                 >
                   <option value="pdf">PDF Document</option>
@@ -300,14 +433,14 @@ const Sidebar = () => {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowReportModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-3 py-1.5 md:px-4 md:py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
                 disabled={generatingReport}
               >
                 Cancel
               </button>
               <button
                 onClick={downloadReport}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center"
+                className="px-3 py-1.5 md:px-4 md:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center text-sm"
                 disabled={generatingReport}
               >
                 {generatingReport ? (
@@ -327,17 +460,9 @@ const Sidebar = () => {
               </button>
             </div>
           </div>
-      </div>
+        </div>
       )}
-
-      {/* Collapse Button */}
-      <button
-        className="absolute -right-3 top-20 bg-white border border-gray-200 rounded-full p-1 shadow-md"
-        onClick={() => setCollapsed(!collapsed)}
-      >
-        {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
-      </button>
-    </div>
+    </>
   );
 };
 

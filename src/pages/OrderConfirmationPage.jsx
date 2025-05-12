@@ -33,6 +33,7 @@ import OrderDetailsModal from '../components/OrderDetailsModal';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useOrderStore } from '../store/orderStore';
+import { useProductStore } from '../store/productStore';
 
 const OrderConfirmationPage = () => {
   const location = useLocation();
@@ -51,6 +52,7 @@ const OrderConfirmationPage = () => {
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [apiError, setApiError] = useState(null);
   const orderStore = useOrderStore();
+  const productStore = useProductStore();
   
   // API URL - Fixed for Vite
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
@@ -170,7 +172,7 @@ const OrderConfirmationPage = () => {
       const apiOrderData = {
         orderNumber, // Include order number in the request
         items: orderData.items.map(item => ({
-          productId: item.id || 'unknown',
+          productId: item.id || item.productId || 'unknown',
           name: item.name,
           price: parseFloat(item.price) || 0,
           quantity: parseInt(item.quantity) || 1,
@@ -283,7 +285,15 @@ const OrderConfirmationPage = () => {
         orderStore.addOrder(storeOrder);
         console.log('Order saved to orderStore for Profile display:', storeOrder);
         
+        // Update product stock in frontend store to match backend changes
+        productStore.updateStockAfterOrder(apiOrderData.items);
+        
         setApiError(null);
+        
+        // If backend returned stock update status, log it
+        if (response.data.stockUpdateStatus) {
+          console.log('Backend stock update result:', response.data.stockUpdateStatus);
+        }
       }
     } catch (err) {
       console.error('Failed to save order to database:', err);
@@ -507,7 +517,7 @@ const OrderConfirmationPage = () => {
         items: mockItems
       });
     }
-  }, [location.state, clearCart, orderStore]);
+  }, [location.state, clearCart, orderStore, productStore]);
   
   const handleContinueShopping = () => {
     navigate('/');
@@ -633,10 +643,33 @@ const OrderConfirmationPage = () => {
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Thank you for your order!</h1>
             <p className="text-lg text-gray-600 mb-4">Your order has been placed successfully.</p>
-            <p className="text-gray-600">
-              A confirmation email has been sent to{' '}
-              <span className="font-medium">{orderDetails.customerInfo?.email || 'your email address'}</span>.
-            </p>
+            
+            {/* Email notifications info */}
+            <div className="bg-blue-50 p-4 rounded-lg mb-4">
+              <div className="flex items-start">
+                <Mail className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                <div className="text-left">
+                  <p className="text-gray-700">
+                    <span className="font-medium">Order confirmation details:</span>
+                  </p>
+                  <ul className="mt-1 text-sm text-gray-600 space-y-1">
+                    <li>• A confirmation email has been sent to <span className="font-medium">{orderDetails.customerInfo?.email || orderDetails.customer?.email || 'your email address'}</span></li>
+                    <li>• Our admin team has been notified about your order</li>
+                    <li>• Emails are sent from <span className="font-medium">onboarding@resend.dev</span> - please check your spam folder if needed</li>
+                  </ul>
+                  <p className="mt-2 text-xs text-gray-500">
+                    We use Resend for email delivery. If you don't see the email in your inbox within a few minutes, please check your spam folder or contact our support team.
+                  </p>
+                  {apiError && (
+                    <div className="mt-2 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                      <p className="text-xs text-yellow-700">
+                        <span className="font-medium">Note:</span> {apiError} A copy of your order details is shown below.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
             
             {/* New user message */}
             {orderDetails.isNewUser && (
@@ -645,7 +678,7 @@ const OrderConfirmationPage = () => {
                   Your account has been created!
                 </h3>
                 <p className="text-blue-700 text-sm mb-3">
-                  We've created an account for you using your name: {orderDetails.shippingAddress?.firstName} {orderDetails.shippingAddress?.lastName}
+                  We've created an account for you using your email: {orderDetails.customerInfo?.email || orderDetails.customer?.email}
                 </p>
                 <button
                   onClick={() => navigate('/login')}

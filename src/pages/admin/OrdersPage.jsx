@@ -10,8 +10,10 @@ import OrderStatsCards from '../../components/admin/orders/OrderStatsCards';
 import OrderBulkActions from '../../components/admin/orders/OrderBulkActions';
 import { generateDummyOrders } from '../../utils/dummyData';
 import apiConfig from '../../config/apiConfig';
+import { useSidebar } from '../../context/SidebarContext';
 
 const OrdersPage = () => {
+  const { collapsed } = useSidebar();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -351,182 +353,200 @@ const OrdersPage = () => {
   };
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  
+  // Dynamic content area margin based on sidebar state
+  const getContentMargin = () => {
+    // On mobile, no left margin
+    if (window.innerWidth < 768) {
+      return "ml-0";
+    }
+    // On medium screens with collapsed sidebar
+    if (collapsed) {
+      return "md:ml-20";
+    }
+    // On large screens with expanded sidebar
+    return "md:ml-20 lg:ml-64";
+  };
 
   return (
-    <div className="flex">
+    <div className="flex flex-col md:flex-row">
       <Sidebar />
-      <div className="flex-1 min-h-screen bg-gray-50 ml-64 p-6">
-        <div className="container mx-auto max-w-7xl">
-          <h1 className="text-2xl font-semibold text-gray-800 mb-4">Orders Management</h1>
+      <div className={`flex-1 min-h-screen bg-gray-50 p-2 sm:p-4 md:p-6 w-full transition-all duration-300 ${getContentMargin()}`}>
+        <div className="mx-auto w-full max-w-full sm:max-w-7xl">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-2 sm:mb-4">Orders Management</h1>
           
           {loading ? (
             <LoadingOverlay />
           ) : (
             <>
-              <OrderStatsCards stats={orderStats} />
-              <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
-                <div className="p-4 border-b flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center space-x-2 flex-grow">
-                    <div className="relative flex-grow max-w-md">
-                      <input
-                        type="text"
-                        placeholder="Search by order number, customer name or email..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        value={searchTerm}
-                        onChange={handleSearch}
-                      />
-                      <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    </div>
-                    
-                    <button
-                      className={`px-3 py-2 rounded-lg flex items-center transition-colors ${
-                        showFilters ? 'bg-purple-100 text-purple-700 border border-purple-300' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
-                      }`}
-                      onClick={() => setShowFilters(!showFilters)}
-                    >
-                      <FaFilter className="mr-2" />
-                      Filters
-                    </button>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <button
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center"
-                      onClick={fetchOrders}
-                    >
-                      <FaSyncAlt className="mr-2" />
-                      Refresh
-                    </button>
-                    
-                    <button
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center"
-                      onClick={() => {/* Export functionality would go here */}}
-                    >
-                      <FaDownload className="mr-2" />
-                      Export
-                    </button>
-                  </div>
-                </div>
-                
-                {showFilters && (
-                  <OrderFilterPanel 
-                    filters={filters} 
-                    onFilterChange={handleFilterChange} 
-                  />
-                )}
-                
-                {selectedOrders.length > 0 && (
-                  <OrderBulkActions 
-                    selectedCount={selectedOrders.length}
-                    onAction={handleBulkAction}
-                  />
-                )}
-                
-                <OrdersTable
-                  orders={getCurrentPageOrders()}
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  onViewOrder={handleViewOrder}
-                  selectedOrders={selectedOrders}
-                  onToggleOrderSelection={toggleOrderSelection}
-                  onToggleAllOrders={toggleAllOrders}
-                  onUpdateStatus={handleUpdateOrderStatus}
-                  itemsPerPage={itemsPerPage}
-                  allSelected={getCurrentPageOrders().length > 0 && 
-                    getCurrentPageOrders().every(order => 
-                      selectedOrders.includes(order.orderNumber)
-                    )}
-                />
-                
-                <div className="px-4 py-3 border-t border-gray-200 bg-white sm:px-6 flex flex-wrap items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <label className="text-sm text-gray-600">Show:</label>
-                    <select
-                      className="border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
-                      value={itemsPerPage}
-                      onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                    >
-                      <option value={10}>10</option>
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                    </select>
-                    <span className="text-sm text-gray-600">
-                      Showing {filteredOrders.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {
-                        Math.min(currentPage * itemsPerPage, filteredOrders.length)
-                      } of {filteredOrders.length} orders
-                    </span>
-                  </div>
-                  
-                  <nav className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <button
-                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                        className={`px-3 py-1 rounded-md border ${
-                          currentPage === 1
-                            ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Previous
-                      </button>
-                      
-                      <div className="hidden sm:flex mx-2">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = currentPage - 2 + i;
-                          }
-                          
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => handlePageChange(pageNum)}
-                              className={`px-3 py-1 mx-1 rounded-md ${
-                                currentPage === pageNum
-                                  ? 'bg-purple-600 text-white'
-                                  : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              {pageNum}
-                            </button>
-                          );
-                        })}
-                        
-                        {totalPages > 5 && currentPage < totalPages - 2 && (
-                          <>
-                            <span className="mx-1 text-gray-500">...</span>
-                            <button
-                              onClick={() => handlePageChange(totalPages)}
-                              className="px-3 py-1 mx-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-                            >
-                              {totalPages}
-                            </button>
-                          </>
-                        )}
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                <OrderStatsCards stats={orderStats} />
+                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center w-full sm:space-x-2 space-y-2 sm:space-y-0">
+                      <div className="relative w-full sm:max-w-md">
+                        <input
+                          type="text"
+                          placeholder="Search orders..."
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                          value={searchTerm}
+                          onChange={handleSearch}
+                        />
+                        <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                       </div>
                       
                       <button
-                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages || totalPages === 0}
-                        className={`px-3 py-1 rounded-md border ${
-                          currentPage === totalPages || totalPages === 0
-                            ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        className={`px-3 py-2 rounded-lg flex items-center transition-colors w-full sm:w-auto justify-center sm:justify-start ${
+                          showFilters ? 'bg-purple-100 text-purple-700 border border-purple-300' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
                         }`}
+                        onClick={() => setShowFilters(!showFilters)}
                       >
-                        Next
+                        <FaFilter className="mr-2" />
+                        Filters
                       </button>
                     </div>
-                  </nav>
+                    
+                    <div className="flex items-center space-x-2 w-full sm:w-auto">
+                      <button
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center w-1/2 sm:w-auto justify-center"
+                        onClick={fetchOrders}
+                      >
+                        <FaSyncAlt className="mr-2" />
+                        <span className="hidden sm:inline">Refresh</span>
+                      </button>
+                      
+                      <button
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center w-1/2 sm:w-auto justify-center"
+                        onClick={() => {/* Export functionality would go here */}}
+                      >
+                        <FaDownload className="mr-2" />
+                        <span className="hidden sm:inline">Export</span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {showFilters && (
+                    <OrderFilterPanel 
+                      filters={filters} 
+                      onFilterChange={handleFilterChange} 
+                    />
+                  )}
+                  
+                  {selectedOrders.length > 0 && (
+                    <OrderBulkActions 
+                      selectedCount={selectedOrders.length}
+                      onAction={handleBulkAction}
+                    />
+                  )}
+                  
+                  <div className="overflow-x-auto w-full">
+                    <OrdersTable
+                      orders={getCurrentPageOrders()}
+                      sortField={sortField}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      onViewOrder={handleViewOrder}
+                      selectedOrders={selectedOrders}
+                      onToggleOrderSelection={toggleOrderSelection}
+                      onToggleAllOrders={toggleAllOrders}
+                      onUpdateStatus={handleUpdateOrderStatus}
+                      itemsPerPage={itemsPerPage}
+                      allSelected={getCurrentPageOrders().length > 0 && 
+                        getCurrentPageOrders().every(order => 
+                          selectedOrders.includes(order.orderNumber)
+                        )}
+                    />
+                  </div>
+                  
+                  <div className="px-3 py-3 sm:px-4 border-t border-gray-200 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                      <label className="text-xs sm:text-sm text-gray-600">Show:</label>
+                      <select
+                        className="border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-xs sm:text-sm"
+                        value={itemsPerPage}
+                        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                      <span className="text-xs sm:text-sm text-gray-600 hidden sm:inline">
+                        Showing {filteredOrders.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {
+                          Math.min(currentPage * itemsPerPage, filteredOrders.length)
+                        } of {filteredOrders.length} orders
+                      </span>
+                    </div>
+                    
+                    <nav className="flex items-center justify-between w-full sm:w-auto">
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <button
+                          onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-md border ${
+                            currentPage === 1
+                              ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          Prev
+                        </button>
+                        
+                        <div className="flex mx-1 sm:mx-2">
+                          {Array.from({ length: Math.min(window.innerWidth < 640 ? 3 : 5, totalPages) }, (_, i) => {
+                            let pageNum;
+                            if (totalPages <= (window.innerWidth < 640 ? 3 : 5)) {
+                              pageNum = i + 1;
+                            } else if (currentPage <= (window.innerWidth < 640 ? 2 : 3)) {
+                              pageNum = i + 1;
+                            } else if (currentPage >= totalPages - (window.innerWidth < 640 ? 1 : 2)) {
+                              pageNum = totalPages - (window.innerWidth < 640 ? 2 : 4) + i;
+                            } else {
+                              pageNum = currentPage - (window.innerWidth < 640 ? 1 : 2) + i;
+                            }
+                            
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => handlePageChange(pageNum)}
+                                className={`px-2 sm:px-3 py-1 mx-0.5 sm:mx-1 text-xs sm:text-sm rounded-md ${
+                                  currentPage === pageNum
+                                    ? 'bg-purple-600 text-white'
+                                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          })}
+                          
+                          {totalPages > (window.innerWidth < 640 ? 3 : 5) && currentPage < totalPages - (window.innerWidth < 640 ? 1 : 2) && (
+                            <>
+                              <span className="mx-0.5 sm:mx-1 text-gray-500 text-xs sm:text-sm self-center">...</span>
+                              <button
+                                onClick={() => handlePageChange(totalPages)}
+                                className="px-2 sm:px-3 py-1 mx-0.5 sm:mx-1 text-xs sm:text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                {totalPages}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages || totalPages === 0}
+                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-md border ${
+                            currentPage === totalPages || totalPages === 0
+                              ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </nav>
+                  </div>
                 </div>
               </div>
             </>
@@ -539,14 +559,6 @@ const OrdersPage = () => {
           order={selectedOrder}
           onClose={handleCloseModal}
           onUpdateStatus={handleUpdateOrderStatus}
-        />
-      )}
-      
-      {showFilters && (
-        <OrderFilterPanel 
-          filters={filters} 
-          onFilterChange={handleFilterChange} 
-          onClose={() => setShowFilters(false)} 
         />
       )}
     </div>

@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
 import { useSidebar } from '../../context/SidebarContext';
 import EmailPreview from '../../components/admin/EmailPreview';
+import { useCampaignStore } from '../../store/campaignStore';
+import { useCustomersStore } from '../../store/customersStore';
+import { useAuthStore } from '../../store/authStore';
+import { toast } from 'react-hot-toast';
 import { 
   FaPlus, 
   FaSearch, 
@@ -25,12 +29,43 @@ import {
   FaPause,
   FaMobileAlt,
   FaDesktop,
-  FaCode
+  FaCode,
+  FaSpinner
 } from 'react-icons/fa';
 
 const CampaignsPage = () => {
+  // Use the campaign store
+  const {
+    campaigns,
+    totalCampaigns,
+    currentPage,
+    totalPages,
+    isLoading,
+    error,
+    fetchCampaigns,
+    createCampaign,
+    updateCampaign,
+    deleteCampaign,
+    sendCampaign,
+    getCampaignStats
+  } = useCampaignStore();
+
+  // Use the customers store to get recipients
+  const {
+    customers,
+    isLoading: customersLoading,
+    error: customersError,
+    fetchCustomers,
+    totalCustomers
+  } = useCustomersStore();
+
+  // Use the auth store
+  const {
+    user,
+    loadUser
+  } = useAuthStore();
+
   // State for campaigns, filters, and modals
-  const [campaigns, setCampaigns] = useState([]);
   const [filteredCampaigns, setFilteredCampaigns] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -41,7 +76,7 @@ const CampaignsPage = () => {
     type: 'email',
     subject: '',
     content: '',
-    recipients: 'all',
+    recipientType: 'all',
     scheduledDate: '',
     template: 'default'
   });
@@ -49,91 +84,55 @@ const CampaignsPage = () => {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const { collapsed } = useSidebar();
   const [previewMode, setPreviewMode] = useState('desktop');
+  const [campaignStats, setCampaignStats] = useState({
+    totalCampaigns: 0,
+    sentCampaigns: 0,
+    totalRecipients: 0,
+    totalOpens: 0, 
+    totalClicks: 0,
+    avgOpenRate: 0,
+    avgClickRate: 0
+  });
+  const [isSending, setIsSending] = useState(false);
+  const [sendingSuccess, setSendingSuccess] = useState(false);
 
-  // Mock campaign data for UI demonstration
-  const mockCampaigns = [
-    {
-      id: 1,
-      title: 'Summer Collection Launch',
-      type: 'email',
-      status: 'scheduled',
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-      recipients: 2347,
-      scheduledDate: '2023-07-15T10:00:00',
-      subject: 'Introducing Our Summer Collection!',
-      content: '<p>Check out our latest summer products...</p>',
-    },
-    {
-      id: 2,
-      title: 'Flash Sale: 24 Hours Only',
-      type: 'email',
-      status: 'sent',
-      sent: 3150,
-      opened: 1890,
-      clicked: 945,
-      recipients: 3150,
-      scheduledDate: '2023-06-30T08:00:00',
-      subject: '⚡ 24-Hour Flash Sale: 50% Off Everything!',
-      content: '<p>Our biggest sale of the season is here...</p>',
-    },
-    {
-      id: 3,
-      title: 'New Arrivals Notification',
-      type: 'notification',
-      status: 'draft',
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-      recipients: 0,
-      scheduledDate: null,
-      subject: 'New Products Just Arrived',
-      content: '<p>Be the first to check out our new arrivals...</p>',
-    },
-    {
-      id: 4,
-      title: 'Customer Loyalty Rewards',
-      type: 'email',
-      status: 'sent',
-      sent: 1250,
-      opened: 980,
-      clicked: 540,
-      recipients: 1250,
-      scheduledDate: '2023-06-20T14:30:00',
-      subject: 'Your Loyalty Rewards Are Here!',
-      content: '<p>Thank you for being a valued customer...</p>',
-    },
-    {
-      id: 5,
-      title: 'Abandoned Cart Reminder',
-      type: 'email',
-      status: 'active',
-      sent: 450,
-      opened: 320,
-      clicked: 175,
-      recipients: 1000,
-      scheduledDate: 'automated',
-      subject: 'You left something in your cart!',
-      content: '<p>We noticed you didn\'t complete your purchase...</p>',
-    }
-  ];
-
-  // Load mock data on component mount
+  // Add useEffect to load user data
   useEffect(() => {
-    setCampaigns(mockCampaigns);
-    setFilteredCampaigns(mockCampaigns);
-  }, []);
+    if (!user) {
+      loadUser();
+    }
+  }, [loadUser, user]);
+
+  // Fetch campaigns and customers on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchCampaigns();
+      await fetchCustomers(1, 1000); // Fetch a good number of customers for campaigns
+      
+      try {
+        const stats = await getCampaignStats();
+        if (stats) {
+          setCampaignStats(stats);
+        }
+      } catch (err) {
+        console.error('Error fetching campaign stats:', err);
+      }
+    };
+    
+    loadData();
+  }, [fetchCampaigns, fetchCustomers, getCampaignStats]);
 
   // Filter campaigns based on search and filter settings
   useEffect(() => {
-    let results = campaigns;
+    if (!campaigns) return;
+    
+    let results = [...campaigns];
     
     // Filter by search term
     if (searchTerm) {
       results = results.filter(
-        campaign => campaign.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                   campaign.subject.toLowerCase().includes(searchTerm.toLowerCase())
+        campaign => (campaign.title && campaign.title.toLowerCase().includes(searchTerm.toLowerCase())) || 
+                   (campaign.subject && campaign.subject.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     
@@ -159,23 +158,82 @@ const CampaignsPage = () => {
     }));
   };
 
+  // Handle rich text editor content change
+  const handleEditorChange = (content) => {
+    setCampaignFormData(prev => ({
+      ...prev,
+      content
+    }));
+  };
+
   // Handle campaign creation
-  const handleCreateCampaign = (e) => {
+  const handleCreateCampaign = async (e) => {
     e.preventDefault();
-    // Would normally send to API here
-    const newCampaign = {
-      id: campaigns.length + 1,
-      ...campaignFormData,
-      status: 'draft',
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-      recipients: campaignFormData.recipients === 'all' ? 3500 : 1500,
-    };
     
-    setCampaigns([newCampaign, ...campaigns]);
+    try {
+      // Prepare campaign data
+      const campaignData = {
+      ...campaignFormData,
+        createdBy: user?.id || user?._id,
+      status: 'draft',
+      };
+      
+      // Create campaign via the store
+      const newCampaign = await createCampaign(campaignData);
+      
+      // Show success message
+      toast.success('Campaign created successfully!');
+      
+      // Close modal and reset form
     setShowNewCampaignModal(false);
     resetForm();
+      
+      // Refresh campaigns list
+      fetchCampaigns();
+    } catch (err) {
+      console.error('Error creating campaign:', err);
+      toast.error(err.response?.data?.message || 'Failed to create campaign. Please try again.');
+    }
+  };
+
+  // Send campaign to recipients
+  const handleSendCampaign = async (campaign) => {
+    if (!campaign || !campaign._id) {
+      toast.error('Invalid campaign');
+      return;
+    }
+    
+    // Confirm before sending
+    if (!window.confirm(`Are you sure you want to send "${campaign.title}" to all recipients?`)) {
+      return;
+    }
+    
+    setIsSending(true);
+    setSendingSuccess(false);
+    
+    try {
+      // Send campaign via the store
+      const result = await sendCampaign(campaign._id, campaign.recipientType || 'all');
+      
+      // Update campaign status
+      setSelectedCampaign({
+        ...campaign,
+        status: 'sent',
+        sentAt: new Date().toISOString(),
+        recipientCount: result.recipientCount || 0
+      });
+      
+      setSendingSuccess(true);
+      toast.success(`Campaign sent successfully to ${result.recipientCount} recipients!`);
+      
+      // Refresh campaigns list
+      fetchCampaigns();
+    } catch (err) {
+      console.error('Error sending campaign:', err);
+      toast.error(err.response?.data?.message || 'Failed to send campaign. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   // Reset form fields
@@ -185,7 +243,7 @@ const CampaignsPage = () => {
       type: 'email',
       subject: '',
       content: '',
-      recipients: 'all',
+      recipientType: 'all',
       scheduledDate: '',
       template: 'default'
     });
@@ -199,18 +257,25 @@ const CampaignsPage = () => {
 
   // Calculate campaign statistics
   const getOpenRate = (campaign) => {
-    if (campaign.sent === 0) return 0;
+    if (!campaign || campaign.sent === 0) return 0;
     return ((campaign.opened / campaign.sent) * 100).toFixed(1);
   };
 
   const getClickRate = (campaign) => {
-    if (campaign.opened === 0) return 0;
+    if (!campaign || campaign.opened === 0) return 0;
     return ((campaign.clicked / campaign.opened) * 100).toFixed(1);
+  };
+
+  // Get recipient count
+  const getRecipientCount = (campaign) => {
+    if (!campaign) return 0;
+    return campaign.recipientCount || 0;
   };
 
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString || dateString === 'automated') return 'Automated';
+    try {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
@@ -219,6 +284,10 @@ const CampaignsPage = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+    } catch (error) {
+      console.error('Invalid date:', dateString);
+      return 'Invalid date';
+    }
   };
 
   // Get status badge color
@@ -278,7 +347,13 @@ const CampaignsPage = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-gray-500 text-sm">Total Campaigns</h3>
-                <p className="text-2xl font-semibold">{campaigns.length}</p>
+                <p className="text-2xl font-semibold">
+                  {isLoading ? (
+                    <FaSpinner className="animate-spin inline" />
+                  ) : (
+                    campaignStats.totalCampaigns || 0
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -291,7 +366,11 @@ const CampaignsPage = () => {
               <div className="ml-4">
                 <h3 className="text-gray-500 text-sm">Total Recipients</h3>
                 <p className="text-2xl font-semibold">
-                  {campaigns.reduce((sum, campaign) => sum + campaign.recipients, 0).toLocaleString()}
+                  {isLoading ? (
+                    <FaSpinner className="animate-spin inline" />
+                  ) : (
+                    (campaignStats.totalRecipients || 0).toLocaleString()
+                  )}
                 </p>
               </div>
             </div>
@@ -303,9 +382,13 @@ const CampaignsPage = () => {
                 <FaRegCalendarAlt className="text-yellow-500" />
               </div>
               <div className="ml-4">
-                <h3 className="text-gray-500 text-sm">Scheduled</h3>
+                <h3 className="text-gray-500 text-sm">Scheduled/Sent</h3>
                 <p className="text-2xl font-semibold">
-                  {campaigns.filter(c => c.status === 'scheduled').length}
+                  {isLoading ? (
+                    <FaSpinner className="animate-spin inline" />
+                  ) : (
+                    `${campaigns?.filter(c => c.status === 'scheduled').length || 0}/${campaignStats.sentCampaigns || 0}`
+                  )}
                 </p>
               </div>
             </div>
@@ -319,17 +402,24 @@ const CampaignsPage = () => {
               <div className="ml-4">
                 <h3 className="text-gray-500 text-sm">Avg. Open Rate</h3>
                 <p className="text-2xl font-semibold">
-                  {campaigns.filter(c => c.sent > 0).length > 0 
-                    ? (campaigns
-                        .filter(c => c.sent > 0)
-                        .reduce((sum, c) => sum + (c.opened / c.sent), 0) / 
-                       campaigns.filter(c => c.sent > 0).length * 100).toFixed(1)
-                    : '0'}%
+                  {isLoading ? (
+                    <FaSpinner className="animate-spin inline" />
+                  ) : (
+                    `${(campaignStats.avgOpenRate || 0).toFixed(1)}%`
+                  )}
                 </p>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Display error message if any */}
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
+            <p className="font-medium">Error loading campaigns</p>
+            <p>{error}</p>
+          </div>
+        )}
 
         {/* Search & Filter */}
         <div className="bg-white rounded-lg shadow mb-6">
@@ -386,6 +476,12 @@ const CampaignsPage = () => {
 
         {/* Campaigns List */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
+          {isLoading ? (
+            <div className="py-20 text-center">
+              <FaSpinner className="animate-spin inline-block text-4xl text-purple-600 mb-4" />
+              <p className="text-gray-500">Loading campaigns...</p>
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead className="bg-gray-50 border-b">
@@ -403,7 +499,7 @@ const CampaignsPage = () => {
               <tbody className="divide-y divide-gray-200">
                 {filteredCampaigns.map(campaign => (
                   <tr 
-                    key={campaign.id}
+                      key={campaign._id}
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => viewCampaignDetails(campaign)}
                   >
@@ -424,8 +520,8 @@ const CampaignsPage = () => {
                         {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm">{formatDate(campaign.scheduledDate)}</td>
-                    <td className="py-3 px-4 text-sm">{campaign.recipients.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-sm">{formatDate(campaign.scheduledDate || campaign.sentAt)}</td>
+                      <td className="py-3 px-4 text-sm">{getRecipientCount(campaign).toLocaleString()}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center">
                         <div className="w-24 bg-gray-200 rounded-full h-2.5">
@@ -449,28 +545,70 @@ const CampaignsPage = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">
+                        {campaign.status !== 'sent' && (
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Add duplicate functionality
-                        }}
+                              handleSendCampaign(campaign);
+                            }}
+                            title="Send Campaign"
+                            className="text-blue-500 hover:text-blue-700 mr-3"
+                          >
+                            <FaPaperPlane />
+                          </button>
+                        )}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Duplicate campaign
+                            const duplicateData = {
+                              title: `Copy of ${campaign.title}`,
+                              type: campaign.type,
+                              subject: campaign.subject,
+                              content: campaign.content,
+                              recipientType: campaign.recipientType,
+                              template: campaign.template
+                            };
+                            
+                            createCampaign(duplicateData)
+                              .then(() => {
+                                toast.success('Campaign duplicated successfully!');
+                                fetchCampaigns();
+                              })
+                              .catch(err => {
+                                toast.error('Failed to duplicate campaign');
+                              });
+                          }}
+                          title="Duplicate Campaign"
                         className="text-gray-500 hover:text-gray-700 mr-3"
                       >
                         <FaCopy />
                       </button>
+                        {campaign.status !== 'sent' && (
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Add more options functionality
-                        }}
-                        className="text-gray-500 hover:text-gray-700"
-                      >
-                        <FaEllipsisV />
+                              if (window.confirm('Are you sure you want to delete this campaign?')) {
+                                deleteCampaign(campaign._id)
+                                  .then(() => {
+                                    toast.success('Campaign deleted successfully!');
+                                    fetchCampaigns();
+                                  })
+                                  .catch(err => {
+                                    toast.error('Failed to delete campaign');
+                                  });
+                              }
+                            }}
+                            title="Delete Campaign"
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <FaTrash />
                       </button>
+                        )}
                     </td>
                   </tr>
                 ))}
-                {filteredCampaigns.length === 0 && (
+                  {!isLoading && filteredCampaigns.length === 0 && (
                   <tr>
                     <td colSpan="8" className="py-6 px-4 text-center text-gray-500">
                       No campaigns found matching your search criteria.
@@ -480,6 +618,7 @@ const CampaignsPage = () => {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
 
@@ -500,34 +639,35 @@ const CampaignsPage = () => {
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Campaign Form */}
               <div>
-                <form onSubmit={handleCreateCampaign}>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form onSubmit={handleCreateCampaign} className="space-y-6">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
                           Campaign Title
                         </label>
                         <input
                           type="text"
+                      id="title"
                           name="title"
                           value={campaignFormData.title}
                           onChange={handleFormChange}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm p-2 border"
+                      placeholder="e.g. Summer Sale Announcement"
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                         />
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
                           Campaign Type
                         </label>
                         <select
+                      id="type"
                           name="type"
                           value={campaignFormData.type}
                           onChange={handleFormChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm p-2 border"
+                      required
                         >
                           <option value="email">Email</option>
                           <option value="notification">Notification</option>
@@ -535,143 +675,187 @@ const CampaignsPage = () => {
                           <option value="discount">Discount</option>
                           <option value="event">Event</option>
                         </select>
-                      </div>
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Subject Line
+                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Subject
                       </label>
                       <input
                         type="text"
+                      id="subject"
                         name="subject"
                         value={campaignFormData.subject}
                         onChange={handleFormChange}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm p-2 border"
+                      placeholder="e.g. Don't Miss Our Summer Sale!"
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="recipientType" className="block text-sm font-medium text-gray-700 mb-1">
                         Recipients
                       </label>
                       <select
-                        name="recipients"
-                        value={campaignFormData.recipients}
+                      id="recipientType"
+                      name="recipientType"
+                      value={campaignFormData.recipientType}
                         onChange={handleFormChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        <option value="all">All Customers</option>
-                        <option value="active">Active Customers</option>
-                        <option value="recent">Recent Shoppers</option>
-                        <option value="dormant">Dormant Customers</option>
-                        <option value="segment">Custom Segment</option>
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm p-2 border"
+                    >
+                      <option value="all">All Customers ({customersLoading ? '...' : totalCustomers || 0})</option>
+                      <option value="active">Active Customers (Last 30 days)</option>
+                      <option value="recent">New Customers (Last 14 days)</option>
+                      <option value="dormant">Dormant Customers (90+ days inactive)</option>
                       </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {campaignFormData.recipientType === 'all' 
+                        ? 'This will send to all active customers.' 
+                        : campaignFormData.recipientType === 'active'
+                          ? 'This will send to customers who have been active in the last 30 days.'
+                          : campaignFormData.recipientType === 'recent'
+                            ? 'This will send to customers who signed up in the last 14 days.'
+                            : 'This will send to customers who have not been active for 90+ days.'}
+                    </p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="template" className="block text-sm font-medium text-gray-700 mb-1">
                           Email Template
                         </label>
                         <select
+                      id="template"
                           name="template"
                           value={campaignFormData.template}
                           onChange={handleFormChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                        >
-                          {campaignTemplates.map(template => (
-                            <option key={template.id} value={template.id}>{template.name}</option>
-                          ))}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm p-2 border"
+                    >
+                      <option value="default">Default Template</option>
+                      <option value="promotional">Promotional</option>
+                      <option value="newsletter">Newsletter</option>
+                      <option value="announcement">Announcement</option>
                         </select>
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Schedule
-                        </label>
-                        <input
-                          type="datetime-local"
-                          name="scheduledDate"
-                          value={campaignFormData.scheduledDate}
-                          onChange={handleFormChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Campaign Content
+                    <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Content
                       </label>
                       <textarea
+                      id="content"
                         name="content"
                         value={campaignFormData.content}
                         onChange={handleFormChange}
                         required
                         rows="8"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                        placeholder="Write your campaign content here or use the template above..."
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm p-2 border"
+                      placeholder="Enter your email content here..."
                       ></textarea>
-                      <div className="mt-2 text-right text-xs text-gray-500">
-                        <span>*Use HTML tags for formatting. Example: &lt;p&gt;Your text&lt;/p&gt; for paragraphs.</span>
+                    <p className="mt-1 text-xs text-gray-500">
+                      You can use HTML to format your email content.
+                    </p>
                       </div>
+
+                  <div>
+                    <label htmlFor="scheduledDate" className="block text-sm font-medium text-gray-700 mb-1">
+                      Schedule (Optional)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="scheduledDate"
+                      name="scheduledDate"
+                      value={campaignFormData.scheduledDate}
+                      onChange={handleFormChange}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm p-2 border"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Leave empty to save as draft. You can send it later.
+                    </p>
                     </div>
                     
-                    <div className="mt-6 flex justify-end space-x-3">
+                  <div className="flex justify-end space-x-3 pt-4">
                       <button
                         type="button"
                         onClick={() => setShowNewCampaignModal(false)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                      className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                       >
                         Create Campaign
                       </button>
-                    </div>
                   </div>
                 </form>
               </div>
               
-              {/* Email Preview */}
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div>
+                <div className="border rounded-lg p-4 bg-gray-50 h-full">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-medium text-gray-800">Email Preview</h3>
+                    <h4 className="text-sm font-medium text-gray-700">Email Preview</h4>
                   <div className="flex space-x-2">
                     <button 
                       onClick={() => setPreviewMode('desktop')}
-                      className={`p-2 rounded ${previewMode === 'desktop' ? 'bg-purple-100 text-purple-600' : 'text-gray-500 hover:bg-gray-200'}`}
-                      title="Desktop Preview"
+                        className={`p-1 rounded ${previewMode === 'desktop' ? 'bg-gray-200' : ''}`}
+                        title="Desktop preview"
                     >
-                      <FaDesktop />
+                        <FaDesktop className="text-gray-600" />
                     </button>
                     <button 
                       onClick={() => setPreviewMode('mobile')}
-                      className={`p-2 rounded ${previewMode === 'mobile' ? 'bg-purple-100 text-purple-600' : 'text-gray-500 hover:bg-gray-200'}`}
-                      title="Mobile Preview"
-                    >
-                      <FaMobileAlt />
-                    </button>
-                    <button 
-                      className="p-2 rounded text-gray-500 hover:bg-gray-200"
-                      title="View HTML"
-                      onClick={() => alert('HTML view would be displayed here')}
-                    >
-                      <FaCode />
+                        className={`p-1 rounded ${previewMode === 'mobile' ? 'bg-gray-200' : ''}`}
+                        title="Mobile preview"
+                      >
+                        <FaMobileAlt className="text-gray-600" />
                     </button>
                   </div>
                 </div>
+
+                  <div className={`border rounded-lg overflow-hidden bg-white ${
+                    previewMode === 'mobile' ? 'max-w-xs mx-auto' : 'w-full'
+                  }`}>
+                    <div className="border-b px-4 py-2 bg-gray-50">
+                      <div className="text-sm font-medium">From: Sinosply Store</div>
+                      <div className="text-sm">To: [Customer]</div>
+                      <div className="text-sm font-medium">
+                        Subject: {campaignFormData.subject || 'Email Subject'}
+                      </div>
+                    </div>
+                    <div className="p-4">
                 <EmailPreview 
-                  template={campaignFormData.template}
-                  subject={campaignFormData.subject}
-                  content={campaignFormData.content}
-                  previewMode={previewMode}
-                />
+                        content={campaignFormData.content || '<p>Your email content will appear here...</p>'} 
+                        template={campaignFormData.template || 'default'}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Recipient Summary</h4>
+                    <div className="bg-white rounded-lg border p-3">
+                      <div className="flex items-center text-sm">
+                        <FaUserFriends className="text-gray-400 mr-2" />
+                        <span>
+                          {customersLoading ? (
+                            <span className="flex items-center">
+                              <FaSpinner className="animate-spin mr-1" /> Loading customer data...
+                            </span>
+                          ) : campaignFormData.recipientType === 'all' ? (
+                            `All customers (${totalCustomers || 0})`
+                          ) : campaignFormData.recipientType === 'active' ? (
+                            `Active customers (approximately ${Math.round((totalCustomers || 0) * 0.6)})`
+                          ) : campaignFormData.recipientType === 'recent' ? (
+                            `New customers (approximately ${Math.round((totalCustomers || 0) * 0.2)})`
+                          ) : (
+                            `Dormant customers (approximately ${Math.round((totalCustomers || 0) * 0.3)})`
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -681,7 +865,7 @@ const CampaignsPage = () => {
       {/* Campaign Detail Modal */}
       {showCampaignDetailModal && selectedCampaign && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">Campaign Details</h3>
               <button 
@@ -694,102 +878,188 @@ const CampaignsPage = () => {
               </button>
             </div>
 
-            <div className="mb-6">
-              <div className="flex items-center mb-4">
-                <h2 className="text-xl font-semibold">{selectedCampaign.title}</h2>
-                <span className={`ml-3 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedCampaign.status)}`}>
-                  {selectedCampaign.status.charAt(0).toUpperCase() + selectedCampaign.status.slice(1)}
-                </span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-1 space-y-4">
+                <div>
+                  <h4 className="font-medium text-gray-700">Details</h4>
+                  <div className="mt-2 space-y-3">
+                    <div>
+                      <span className="text-sm text-gray-500">Title:</span>
+                      <p>{selectedCampaign.title}</p>
               </div>
-              
-              <div className="flex flex-wrap gap-y-2">
-                <div className="w-full md:w-1/2">
-                  <span className="text-gray-500">Type:</span> 
+                    <div>
+                      <span className="text-sm text-gray-500">Subject:</span>
+                      <p>{selectedCampaign.subject}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-500">Type:</span>
+                      <p className="flex items-center">
+                        {getCampaignTypeIcon(selectedCampaign.type)}
                   <span className="ml-2 capitalize">{selectedCampaign.type}</span>
+                      </p>
                 </div>
-                <div className="w-full md:w-1/2">
-                  <span className="text-gray-500">Schedule:</span> 
-                  <span className="ml-2">{formatDate(selectedCampaign.scheduledDate)}</span>
+                    <div>
+                      <span className="text-sm text-gray-500">Status:</span>
+                      <p>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedCampaign.status)}`}>
+                          {selectedCampaign.status.charAt(0).toUpperCase() + selectedCampaign.status.slice(1)}
+                        </span>
+                      </p>
                 </div>
-                <div className="w-full md:w-1/2">
-                  <span className="text-gray-500">Subject:</span> 
-                  <span className="ml-2">{selectedCampaign.subject}</span>
+                    <div>
+                      <span className="text-sm text-gray-500">Recipients:</span>
+                      <p>{getRecipientCount(selectedCampaign).toLocaleString()}</p>
                 </div>
-                <div className="w-full md:w-1/2">
-                  <span className="text-gray-500">Recipients:</span> 
-                  <span className="ml-2">{selectedCampaign.recipients.toLocaleString()}</span>
+                    <div>
+                      <span className="text-sm text-gray-500">Schedule:</span>
+                      <p>{formatDate(selectedCampaign.scheduledDate || selectedCampaign.sentAt)}</p>
                 </div>
               </div>
             </div>
 
-            {/* Campaign Stats Cards */}
-            {selectedCampaign.status === 'sent' || selectedCampaign.status === 'active' ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-sm text-gray-500">Sent</div>
-                  <div className="font-semibold text-xl">{selectedCampaign.sent.toLocaleString()}</div>
+                {selectedCampaign.status === 'sent' && (
+                  <div>
+                    <h4 className="font-medium text-gray-700">Performance</h4>
+                    <div className="mt-2 space-y-4">
+                      <div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Sent</span>
+                          <span className="font-medium">{selectedCampaign.sent || 0}</span>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-sm text-gray-500">Opened</div>
-                  <div className="font-semibold text-xl">{selectedCampaign.opened.toLocaleString()}</div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-sm text-gray-500">Open Rate</div>
-                  <div className="font-semibold text-xl">{getOpenRate(selectedCampaign)}%</div>
+                      <div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Opened</span>
+                          <span className="font-medium">{selectedCampaign.opened || 0}</span>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-sm text-gray-500">Click Rate</div>
-                  <div className="font-semibold text-xl">{getClickRate(selectedCampaign)}%</div>
+                        <div className="mt-1 w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-green-600 h-2.5 rounded-full" 
+                            style={{ width: `${getOpenRate(selectedCampaign)}%` }}
+                          ></div>
                 </div>
+                        <div className="text-right text-xs text-gray-500 mt-1">{getOpenRate(selectedCampaign)}%</div>
               </div>
-            ) : null}
-
-            {/* Preview of Content */}
-            <div className="border rounded-lg p-4 mb-6">
-              <h4 className="font-medium mb-2">Content Preview</h4>
-              <div 
-                className="bg-gray-50 p-4 rounded min-h-[200px]"
-                dangerouslySetInnerHTML={{ __html: selectedCampaign.content }}
+                      <div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Clicked</span>
+                          <span className="font-medium">{selectedCampaign.clicked || 0}</span>
+                        </div>
+                        <div className="mt-1 w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full" 
+                            style={{ width: `${getClickRate(selectedCampaign)}%` }}
               ></div>
             </div>
-            
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 justify-end">
-              {selectedCampaign.status === 'draft' && (
-                <>
-                  <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                    <FaEdit className="mr-2" /> Edit
-                  </button>
-                  <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                    <FaCheck className="mr-2" /> Schedule
-                  </button>
-                </>
-              )}
-              
-              {selectedCampaign.status === 'scheduled' && (
-                <>
-                  <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                    <FaEdit className="mr-2" /> Edit
-                  </button>
-                  <button className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-                    <FaPaperPlane className="mr-2" /> Send Now
-                  </button>
-                </>
-              )}
-              
-              {selectedCampaign.status === 'active' && (
-                <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                  <FaPause className="mr-2" /> Pause
+                        <div className="text-right text-xs text-gray-500 mt-1">{getClickRate(selectedCampaign)}%</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="pt-4 space-y-2">
+                  {selectedCampaign.status !== 'sent' ? (
+                    <button
+                      onClick={() => handleSendCampaign(selectedCampaign)}
+                      disabled={isSending}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center justify-center"
+                    >
+                      {isSending ? (
+                        <>
+                          <FaSpinner className="animate-spin mr-2" /> Sending...
+                        </>
+                      ) : (
+                        <>
+                          <FaPaperPlane className="mr-2" /> Send Campaign
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex items-center justify-center py-2 px-4 bg-green-100 text-green-800 rounded">
+                      <FaCheck className="mr-2" /> Campaign Sent
+                    </div>
+                  )}
+                  
+                  {selectedCampaign.status !== 'sent' && (
+                    <button
+                      onClick={() => {
+                        // Edit functionality - for now just close the modal
+                        setShowCampaignDetailModal(false);
+                        setCampaignFormData({
+                          ...selectedCampaign,
+                          id: undefined, // Remove ID to create a new campaign
+                          title: selectedCampaign.title
+                        });
+                        setShowNewCampaignModal(true);
+                      }}
+                      className="w-full border border-gray-300 text-gray-700 py-2 px-4 rounded flex items-center justify-center"
+                    >
+                      <FaEdit className="mr-2" /> Edit Campaign
                 </button>
               )}
               
-              <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                <FaCopy className="mr-2" /> Duplicate
+                  {selectedCampaign.status !== 'sent' && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to delete this campaign?')) {
+                          deleteCampaign(selectedCampaign._id)
+                            .then(() => {
+                              toast.success('Campaign deleted successfully!');
+                              setShowCampaignDetailModal(false);
+                              fetchCampaigns();
+                            })
+                            .catch(err => {
+                              toast.error('Failed to delete campaign');
+                            });
+                        }
+                      }}
+                      className="w-full border border-red-300 text-red-700 py-2 px-4 rounded flex items-center justify-center"
+                    >
+                      <FaTrash className="mr-2" /> Delete Campaign
               </button>
+                  )}
+                </div>
+              </div>
               
-              <button className="flex items-center px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50">
-                <FaTrash className="mr-2" /> Delete
+              <div className="md:col-span-2">
+                <div className="bg-gray-100 p-4 rounded-lg mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-medium text-gray-700">Email Preview</h4>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setPreviewMode('desktop')}
+                        className={`p-1 rounded ${previewMode === 'desktop' ? 'bg-gray-200' : ''}`}
+                        title="Desktop preview"
+                      >
+                        <FaDesktop className="text-gray-600" />
+                      </button>
+                      <button
+                        onClick={() => setPreviewMode('mobile')}
+                        className={`p-1 rounded ${previewMode === 'mobile' ? 'bg-gray-200' : ''}`}
+                        title="Mobile preview"
+                      >
+                        <FaMobileAlt className="text-gray-600" />
               </button>
+                    </div>
+                  </div>
+                  
+                  <div className={`border rounded-lg overflow-hidden bg-white ${
+                    previewMode === 'mobile' ? 'max-w-xs mx-auto' : 'w-full'
+                  }`}>
+                    <div className="border-b px-4 py-2 bg-gray-50">
+                      <div className="text-sm font-medium">From: Sinosply Store</div>
+                      <div className="text-sm">To: [Customer]</div>
+                      <div className="text-sm font-medium">Subject: {selectedCampaign.subject}</div>
+                    </div>
+                    <div className="p-4">
+                      <EmailPreview 
+                        content={selectedCampaign.content} 
+                        template={selectedCampaign.template || 'default'}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

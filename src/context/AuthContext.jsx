@@ -30,17 +30,22 @@ export const AuthProvider = ({ children }) => {
         // Verify token with backend
         const response = await axios.get(`${API_URL}/auth/verify`);
         if (response.data.valid) {
+          console.log('✅ [AuthContext] Token verified successfully');
           const storedUser = localStorage.getItem('user');
           if (storedUser) {
             setUser(JSON.parse(storedUser));
           }
         } else {
           // If token is invalid, logout
+          console.warn('⚠️ [AuthContext] Token is invalid, logging out');
           logout();
         }
       } catch (error) {
-        console.error('Token validation error:', error);
-        logout();
+        console.error('❌ [AuthContext] Token validation error:', error);
+        // Only logout on 401 Unauthorized
+        if (error.response?.status === 401) {
+          logout();
+        }
       } finally {
         setLoading(false);
       }
@@ -67,6 +72,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = () => {
+    console.log('🔄 [AuthContext] User logging out');
+    
     // Remove token from axios headers
     delete axios.defaults.headers.common['Authorization'];
     
@@ -77,6 +84,8 @@ export const AuthProvider = ({ children }) => {
     
     // Reset user state
     setUser(null);
+    
+    console.log('✅ [AuthContext] User logged out successfully');
   };
 
   // Provide the context value
@@ -84,7 +93,8 @@ export const AuthProvider = ({ children }) => {
     user,
     setUser,
     logout,
-    loading
+    loading,
+    isAuthenticated: !!user
   };
 
   if (loading) {

@@ -23,13 +23,34 @@ import Footer from '../components/Footer';
 import { register } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { useOrderStore } from '../store/orderStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { useCouponStore } from '../store/couponStore';
 import axios from 'axios';
+import { CURRENCY_SYMBOL } from '../config/constants';
 
 const CheckoutPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const orderStore = useOrderStore();
+  const { 
+    shippingMethods: storeShippingMethods, 
+    defaultTaxRate, 
+    fetchShippingMethods, 
+    getTaxRateForCountry, 
+    loading: settingsLoading,
+    fetchTaxRates
+  } = useSettingsStore();
+  
+  // Coupon store integration
+  const {
+    validateCoupon,
+    applyCoupon,
+    activeCoupon,
+    clearActiveCoupon,
+    loading: couponLoading,
+    error: couponStoreError,
+  } = useCouponStore();
   
   // Check if coming from cart or product page
   const isFromCart = location.state?.fromCart || false;
@@ -95,18 +116,29 @@ const CheckoutPage = () => {
   const [couponSuccess, setCouponSuccess] = useState('');
   const [isCouponLoading, setIsCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [taxRate, setTaxRate] = useState(0.15); // 15% tax rate
+  const [taxRate, setTaxRate] = useState(defaultTaxRate); // Use default tax rate from settings
   const [subtotal, setSubtotal] = useState(0);
   const [total, setTotal] = useState(0);
   const [formError, setFormError] = useState('');
   
-  // Available shipping methods
-  const shippingMethods = [
+  // Fetch shipping methods from settings
+  useEffect(() => {
+    // Fetch shipping methods on component mount
+    fetchShippingMethods();
+    
+    // Fetch tax rates on component mount
+    fetchTaxRates();
+  }, [fetchShippingMethods, fetchTaxRates]);
+  
+  // Use shipping methods from store or fallback to defaults
+  const availableShippingMethods = storeShippingMethods.length > 0 
+    ? storeShippingMethods 
+    : [
     {
       id: 'standard',
       name: 'Standard Shipping',
       description: '3-5 business days',
-      price: 1,
+      price: 5.99,
       carrier: 'DHL',
       estimatedDelivery: '3-5 business days'
     },
@@ -114,7 +146,7 @@ const CheckoutPage = () => {
       id: 'express',
       name: 'Express Shipping',
       description: '1-2 business days',
-      price: 1,
+      price: 14.99,
       carrier: 'FedEx',
       estimatedDelivery: '1-2 business days'
     },
@@ -122,7 +154,7 @@ const CheckoutPage = () => {
       id: 'sameday',
       name: 'Same Day Delivery',
       description: 'Delivered today (order before 2pm)',
-      price: 1,
+      price: 24.99,
       carrier: 'Local Courier',
       estimatedDelivery: 'Today'
     },
@@ -138,6 +170,18 @@ const CheckoutPage = () => {
     { code: 'UK', name: 'United Kingdom' },
     { code: 'US', name: 'United States' }
   ];
+  
+  // Update tax rate when country changes
+  useEffect(() => {
+    if (addressInfo.country) {
+      const countryCode = countries.find(c => c.name === addressInfo.country)?.code;
+      if (countryCode) {
+        const newTaxRate = getTaxRateForCountry(countryCode);
+        setTaxRate(newTaxRate);
+        console.log(`Tax rate updated for ${addressInfo.country} (${countryCode}): ${newTaxRate * 100}%`);
+      }
+    }
+  }, [addressInfo.country, getTaxRateForCountry, countries]);
   
   // Calculate pricing
   useEffect(() => {
@@ -165,7 +209,7 @@ const CheckoutPage = () => {
     
     setSubtotal(calculatedSubtotal);
     
-    // Calculate tax
+    // Calculate tax using the current tax rate (from settings)
     const calculatedTax = calculatedSubtotal * taxRate;
     
     // Make sure discount is a number
@@ -176,16 +220,17 @@ const CheckoutPage = () => {
     setTotal(calculatedTotal);
   }, [productInfo, shippingCost, discount, taxRate, isFromCart, location.state, cartItems]);
   
-  // Handle shipping method selection
+  // Handle shipping method selection with better store integration
   const handleShippingMethodSelect = (methodId) => {
     setShippingMethod(methodId);
     
-    // Find the selected shipping method
-    const method = shippingMethods.find(m => m.id === methodId);
+    // Find the selected shipping method from the store's shipping methods
+    const method = availableShippingMethods.find(m => m.id === methodId);
     
     if (method) {
       setShippingCost(method.price);
       setEstimatedDelivery(method.estimatedDelivery);
+      console.log(`Selected shipping method: ${method.name}, price: ${method.price}`);
     }
   };
   
@@ -287,89 +332,11 @@ const CheckoutPage = () => {
       setCouponError('');
       setCouponSuccess('');
       
-      // Get coupons from localStorage or use default sample coupons if none exist
-      const storedCouponsJson = localStorage.getItem('sinosply_coupons');
-      const availableCoupons = storedCouponsJson ? 
-        JSON.parse(storedCouponsJson) : 
-        [
-          {
-            code: 'WELCOME10',
-            discountType: 'percentage',
-            discountValue: 10,
-            minPurchaseAmount: 0,
-            maxDiscountAmount: null,
-            startDate: '2023-01-01',
-            endDate: '2023-12-31',
-            isActive: true
-          },
-          {
-            code: 'FREESHIP',
-            discountType: 'fixed',
-            discountValue: 15,
-            minPurchaseAmount: 75,
-            maxDiscountAmount: 15,
-            startDate: '2025-05-09',
-            endDate: '2025-05-15',
-            isActive: true
-          },
-          {
-            code: 'DISCOUNT10',
-            discountType: 'percentage', 
-            discountValue: 10,
-            minPurchaseAmount: 0,
-            isActive: true
-          }
-        ];
+      const result = await validateCoupon(couponCode.trim(), subtotal);
       
-      // Find the coupon in our available coupons
-      const enteredCode = couponCode.trim().toUpperCase();
-      const coupon = availableCoupons.find(c => c.code.toUpperCase() === enteredCode);
-      
-      if (!coupon) {
-        setCouponError('Invalid coupon code');
-        return;
-      }
-      
-      if (!coupon.isActive) {
-        setCouponError('This coupon is no longer active');
-        return;
-      }
-      
-      // Check if current date is within coupon validity
-      const now = new Date();
-      if (coupon.startDate && new Date(coupon.startDate) > now) {
-        setCouponError('This coupon is not active yet');
-        return;
-      }
-      
-      if (coupon.endDate && new Date(coupon.endDate) < now) {
-        setCouponError('This coupon has expired');
-        return;
-      }
-      
-      // Check minimum purchase amount
-      if (coupon.minPurchaseAmount > subtotal) {
-        setCouponError(`This coupon requires a minimum purchase of GH₵${coupon.minPurchaseAmount.toFixed(2)}`);
-        return;
-      }
-      
-      // Calculate discount based on coupon type
-      let calculatedDiscount = 0;
-      
-      if (coupon.discountType === 'percentage') {
-        calculatedDiscount = (subtotal * (parseFloat(coupon.discountValue) / 100));
-        
-        // Check if there's a maximum discount cap
-        if (coupon.maxDiscountAmount && calculatedDiscount > parseFloat(coupon.maxDiscountAmount)) {
-          calculatedDiscount = parseFloat(coupon.maxDiscountAmount);
-        }
-        
-      } else if (coupon.discountType === 'fixed') {
-        calculatedDiscount = parseFloat(coupon.discountValue);
-      }
-      
-      // Ensure discount is a number
-      calculatedDiscount = isNaN(calculatedDiscount) ? 0 : Number(calculatedDiscount);
+      if (result.success) {
+        const coupon = result.data.coupon;
+        const calculatedDiscount = result.discount;
       
       // Update state with discount
       setDiscount(calculatedDiscount);
@@ -377,16 +344,19 @@ const CheckoutPage = () => {
       setAppliedCoupon(coupon);
       setCouponSuccess(`Coupon applied! ${coupon.discountType === 'percentage' ? 
         `${coupon.discountValue}% off` : 
-        `GH₵${Number(coupon.discountValue).toFixed(2)} off`}`);
+          `${CURRENCY_SYMBOL}${Number(coupon.discountValue).toFixed(2)} off`}`);
       
       if (coupon.code === 'FREESHIP') {
         setShippingCost(0);
         setCouponSuccess('Free shipping coupon applied successfully!');
       }
-      
+      } else {
+        // Error handling for failed validation
+        setCouponError(result.error || 'Invalid coupon code');
+      }
     } catch (err) {
       console.error('Error validating coupon:', err);
-      setCouponError('Error validating coupon. Please try again.');
+      setCouponError(couponStoreError || 'Error validating coupon. Please try again.');
     } finally {
       setIsCouponLoading(false);
     }
@@ -462,7 +432,7 @@ const CheckoutPage = () => {
   };
   
   // Function to navigate to the payment page
-  const navigateToPayment = () => {
+  const navigateToPayment = async () => {
     try {
       setFormError('');
       
@@ -515,25 +485,48 @@ const CheckoutPage = () => {
           }, 0)
         : parseFloat(typeof productInfo.price === 'string' ? productInfo.price.replace(/[€GH₵\s]/g, '') : productInfo.price) * (productInfo.quantity || 1);
 
-      // Calculate shipping cost based on method
-      const shippingCost = shippingMethod === 'standard' ? 5.99 : shippingMethod === 'express' ? 15.99 : 24.99;
+      // Get the selected shipping method object from the store
+      const selectedShippingMethod = availableShippingMethods.find(method => method.id === shippingMethod);
       
-      // Calculate tax (15% for example)
-      const tax = subtotalCalc * taxRate;
+      // If no shipping method is selected or not found, show error
+      if (!selectedShippingMethod) {
+        setFormError('Please select a shipping method');
+        return;
+      }
+      
+      // Calculate tax using country-specific rate
+      const countryCode = addressInfo.country ? countries.find(c => c.name === addressInfo.country)?.code : null;
+      const appliedTaxRate = countryCode ? getTaxRateForCountry(countryCode) : defaultTaxRate;
+      const taxCalc = subtotalCalc * appliedTaxRate;
       
       // Apply discount if any
-      const discountAmount = discount || 0; // Placeholder for discount logic
+      const discountAmount = discount || 0;
       
       // Calculate total
-      const totalCalc = subtotalCalc + shippingCost + tax - discountAmount;
+      const totalCalc = subtotalCalc + selectedShippingMethod.price + taxCalc - discountAmount;
+      
+      // Track coupon usage if a coupon was applied
+      if (appliedCoupon && appliedCoupon._id) {
+        try {
+          // Increment the usage counter for this coupon
+          await applyCoupon(appliedCoupon._id);
+          console.log('Coupon usage recorded:', appliedCoupon.code);
+        } catch (error) {
+          console.error('Error recording coupon usage:', error);
+          // Continue with checkout even if coupon tracking fails
+        }
+      }
 
       console.log('Order details:', {
         products: orderProducts,
         subtotal: subtotalCalc,
-        shippingCost,
-        tax,
+        shippingCost: selectedShippingMethod.price,
+        shippingMethod: selectedShippingMethod.name,
+        tax: taxCalc,
+        taxRate: appliedTaxRate,
         discount: discountAmount,
-        total: totalCalc
+        total: totalCalc,
+        appliedCoupon: appliedCoupon ? appliedCoupon.code : 'None'
       });
 
       // Construct order info
@@ -573,13 +566,21 @@ const CheckoutPage = () => {
           zip: addressInfo.zipCode,
           country: addressInfo.country
         },
-        shippingMethod: shippingMethod,
-        shippingMethodName: shippingMethods.find(m => m.id === shippingMethod)?.name || '',
+        shippingMethod: selectedShippingMethod.id,
+        shippingMethodName: selectedShippingMethod.name,
+        shippingCarrier: selectedShippingMethod.carrier || 'Standard',
         subtotal: subtotalCalc,
-        shipping: shippingCost,
-        tax: tax,
+        shipping: selectedShippingMethod.price,
+        tax: taxCalc,
+        taxRate: appliedTaxRate,
         discount: discountAmount,
         total: totalCalc,
+        coupon: appliedCoupon ? {
+          code: appliedCoupon.code,
+          discountType: appliedCoupon.discountType,
+          discountValue: appliedCoupon.discountValue,
+          id: appliedCoupon._id
+        } : null,
         customerInfo: {
           firstName: addressInfo.firstName,
           lastName: addressInfo.lastName,
@@ -601,9 +602,11 @@ const CheckoutPage = () => {
         items: orderProducts,
         totalAmount: totalCalc,
         subtotal: subtotalCalc,
-        shipping: shippingCost,
-        tax: tax,
+        shipping: selectedShippingMethod.price,
+        tax: taxCalc,
+        taxRate: appliedTaxRate,
         discount: discountAmount,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
         shippingAddress: {
           name: `${addressInfo.firstName} ${addressInfo.lastName}`,
           street: addressInfo.address1,
@@ -624,7 +627,8 @@ const CheckoutPage = () => {
         },
         customerName: `${addressInfo.firstName} ${addressInfo.lastName}`,
         customerEmail: contactInfo.email,
-        shippingMethod: shippingMethod,
+        shippingMethod: selectedShippingMethod.name,
+        shippingCarrier: selectedShippingMethod.carrier || 'Standard',
         createdAt: new Date().toISOString()
       };
       
@@ -635,11 +639,15 @@ const CheckoutPage = () => {
       // but ensures it shows in Profile even if user abandons checkout
       orderStore.addOrder(draftOrder);
       
+      // Clear the active coupon from the store after it's been used
+      clearActiveCoupon();
+      
       // Navigate to payment page (no need to pass orderInfo in state)
       navigate('/payment', { 
         state: { 
           isFromCart,
-          clearCartOnSuccess: isFromCart
+          clearCartOnSuccess: isFromCart,
+          isNewUser: isNewUser  // Pass the isNewUser flag to payment page
         } 
       });
     } catch (error) {
@@ -918,14 +926,235 @@ const CheckoutPage = () => {
       case 2:
         return renderAddressStep();
       case 3:
-        // Shipping method
-        // ... existing code ...  
+        return renderDeliveryStep();
       case 4:
-        // Review
-        // ... existing code ...
+        return renderReviewStep();
       default:
         return null;
     }
+  };
+
+  // Update the renderDeliveryStep function to make better use of store data
+  const renderDeliveryStep = () => {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h3 className="text-lg font-medium">Shipping Method</h3>
+          <p className="text-gray-500 text-sm mt-1">Select a shipping method for this order</p>
+        </div>
+        
+        {settingsLoading ? (
+          <div className="p-4 text-center">
+            <Loader className="inline w-6 h-6 text-blue-500 animate-spin" />
+            <p className="mt-2 text-sm text-gray-500">Loading shipping methods...</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {availableShippingMethods.map((method) => (
+              <div 
+                key={method.id}
+                onClick={() => handleShippingMethodSelect(method.id)}
+                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                  shippingMethod === method.id 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start">
+                  <div className={`w-5 h-5 rounded-full border flex-shrink-0 mr-3 mt-0.5 flex items-center justify-center ${
+                    shippingMethod === method.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                  }`}>
+                    {shippingMethod === method.id && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium">{method.name}</h4>
+                        <p className="text-sm text-gray-500 mt-1">{method.description}</p>
+                        {method.carrier && (
+                          <p className="text-xs text-gray-400 mt-1">via {method.carrier}</p>
+                        )}
+                      </div>
+                      <span className="font-medium">GH₵{method.price.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Update the Review display to show dynamic tax rate
+  const renderReviewStep = () => {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h3 className="text-lg font-medium">Review Your Order</h3>
+          <p className="text-gray-500 text-sm mt-1">Please review your order details before proceeding to payment</p>
+        </div>
+        
+        {/* Order Items */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b">
+            <h4 className="font-medium">Order Items</h4>
+          </div>
+          <div className="p-4 space-y-4">
+            {isFromCart ? (
+              // Render cart items
+              cartItems.map((item, index) => (
+                <div key={index} className="flex items-center space-x-4">
+                  <div className="w-16 h-16 border rounded-md overflow-hidden flex-shrink-0">
+                    <img 
+                      src={item.image} 
+                      alt={item.name} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/100';
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h5 className="font-medium">{item.name}</h5>
+                    <div className="text-sm text-gray-500">
+                      <span>Size: {item.size}</span>
+                      {item.colorName && <span> • Color: {item.colorName}</span>}
+                      <span> • Qty: {item.quantity}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              // Render single product
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 border rounded-md overflow-hidden flex-shrink-0">
+                  <img 
+                    src={productInfo.image} 
+                    alt={productInfo.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://via.placeholder.com/100';
+                    }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <h5 className="font-medium">{productInfo.name}</h5>
+                  <div className="text-sm text-gray-500">
+                    <span>Size: {productInfo.size}</span>
+                    {productInfo.colorName && <span> • Color: {productInfo.colorName}</span>}
+                    <span> • Qty: {productInfo.quantity || 1}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Customer Info */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b">
+            <h4 className="font-medium">Customer Information</h4>
+          </div>
+          <div className="p-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between">
+              <div className="mb-4 sm:mb-0">
+                <h5 className="text-sm font-medium text-gray-500">Contact Information</h5>
+                <p className="mt-1">{contactInfo.email}</p>
+                <p>{contactInfo.phone}</p>
+              </div>
+              <div>
+                <h5 className="text-sm font-medium text-gray-500">Shipping Address</h5>
+                <p className="mt-1">{addressInfo.firstName} {addressInfo.lastName}</p>
+                <p>{addressInfo.address1}</p>
+                {addressInfo.address2 && <p>{addressInfo.address2}</p>}
+                <p>{addressInfo.city}, {addressInfo.state} {addressInfo.zipCode}</p>
+                <p>{addressInfo.country}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Shipping Method */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b">
+            <h4 className="font-medium">Delivery Method</h4>
+          </div>
+          <div className="p-4">
+            {shippingMethod ? (
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium">{availableShippingMethods.find(m => m.id === shippingMethod)?.name}</p>
+                  <p className="text-sm text-gray-500">{availableShippingMethods.find(m => m.id === shippingMethod)?.description}</p>
+                  {availableShippingMethods.find(m => m.id === shippingMethod)?.carrier && (
+                    <p className="text-xs text-gray-400">via {availableShippingMethods.find(m => m.id === shippingMethod)?.carrier}</p>
+                  )}
+                </div>
+                <p className="font-medium">GH₵{shippingCost.toFixed(2)}</p>
+              </div>
+            ) : (
+              <p className="text-gray-500">No shipping method selected</p>
+            )}
+          </div>
+        </div>
+        
+        {/* Order Summary */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b">
+            <h4 className="font-medium">Order Summary</h4>
+          </div>
+          <div className="p-4">
+            <div className="space-y-4">
+              <div className="flex justify-between py-2 border-b border-gray-200">
+                <span className="text-gray-600">Subtotal</span>
+                <span className="font-medium">GH₵{subtotal.toFixed(2)}</span>
+              </div>
+              
+              <div className="flex justify-between py-2 border-b border-gray-200">
+                <span className="text-gray-600">Shipping</span>
+                <span className="font-medium">
+                  {settingsLoading ? (
+                    <Loader className="inline w-3 h-3 text-gray-400 animate-spin" />
+                  ) : (
+                    `GH₵${shippingCost.toFixed(2)}`
+                  )}
+                </span>
+              </div>
+              
+              <div className="flex justify-between py-2 border-b border-gray-200">
+                <div className="flex items-center">
+                  <span className="text-gray-600">Tax ({(taxRate * 100).toFixed(1)}%)</span>
+                  {addressInfo.country && (
+                    <div className="relative ml-1 group">
+                      <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                        Tax rate for {addressInfo.country}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <span className="font-medium">GH₵{(subtotal * taxRate).toFixed(2)}</span>
+              </div>
+              
+              {discount > 0 && (
+                <div className="flex justify-between py-2 border-b border-gray-200 text-green-600">
+                  <span>Discount</span>
+                  <span className="font-medium">-GH₵{parseFloat(discount).toFixed(2)}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between py-2 text-lg font-bold">
+                <span>Total</span>
+                <span>GH₵{parseFloat(total).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -1046,59 +1275,7 @@ const CheckoutPage = () => {
                     {formError}
                   </div>
                 )}
-                <p className="text-sm text-gray-600 mb-4">Select your preferred shipping method</p>
-                
-                <div className="space-y-4">
-                  {shippingMethods.map(method => (
-                    <div
-                      key={method.id}
-                      className={`p-4 border rounded-lg cursor-pointer flex items-center ${
-                        shippingMethod === method.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-blue-200'
-                      }`}
-                      onClick={() => handleShippingMethodSelect(method.id)}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center">
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                            shippingMethod === method.id ? 'border-blue-500' : 'border-gray-300'
-                          }`}>
-                            {shippingMethod === method.id && (
-                              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                            )}
-                          </div>
-                          <div className="ml-3">
-                            <span className="font-medium">{method.name}</span>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Clock className="w-4 h-4 mr-1" />
-                              <span>{method.description}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-medium">GH₵{method.price.toFixed(2)}</div>
-                        <div className="text-sm text-gray-500">{method.carrier}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
-                  <div className="flex items-start">
-                    <Info className="w-5 h-5 text-blue-500 mt-0.5" />
-                    <div className="ml-3">
-                      <h4 className="font-medium text-blue-800">Delivery Information</h4>
-                      <p className="text-sm text-blue-600 mt-1">
-                        Shipping times are estimated based on your location in {addressInfo.city || 'your city'}, {addressInfo.country}.
-                        {shippingMethod && (
-                          <> Your order will be delivered by {shippingMethods.find(m => m.id === shippingMethod)?.carrier} in {estimatedDelivery}.</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                {renderDeliveryStep()}
               </div>
             )}
             
@@ -1113,134 +1290,7 @@ const CheckoutPage = () => {
                   </div>
                 )}
                 
-                <div className="space-y-4">
-                  {/* Contact Info Review */}
-                  <div className="p-4 border border-gray-200 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-medium text-gray-900">Contact Information</h3>
-                      <button 
-                        type="button" 
-                        className="text-blue-600 text-sm hover:text-blue-800"
-                        onClick={() => setStep(1)}
-                      >
-                        Edit
-                      </button>
-                    </div>
-                    <p className="text-gray-600">{contactInfo.email}</p>
-                    <p className="text-gray-600">{contactInfo.phone}</p>
-                  </div>
-                  
-                  {/* Address Review */}
-                  <div className="p-4 border border-gray-200 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-medium text-gray-900">Shipping Address</h3>
-                      <button 
-                        type="button" 
-                        className="text-blue-600 text-sm hover:text-blue-800"
-                        onClick={() => setStep(2)}
-                      >
-                        Edit
-                      </button>
-                    </div>
-                    <p className="text-gray-600">{addressInfo.firstName} {addressInfo.lastName}</p>
-                    <p className="text-gray-600">{addressInfo.address1}</p>
-                    {addressInfo.address2 && <p className="text-gray-600">{addressInfo.address2}</p>}
-                    <p className="text-gray-600">
-                      {addressInfo.city}{addressInfo.state ? `, ${addressInfo.state}` : ''} {addressInfo.zipCode}
-                    </p>
-                    <p className="text-gray-600">{addressInfo.country}</p>
-                  </div>
-                  
-                  {/* Delivery Method Review */}
-                  <div className="p-4 border border-gray-200 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-medium text-gray-900">Delivery Method</h3>
-                      <button 
-                        type="button" 
-                        className="text-blue-600 text-sm hover:text-blue-800"
-                        onClick={() => setStep(3)}
-                      >
-                        Edit
-                      </button>
-                    </div>
-                    {shippingMethod && (
-                      <div className="flex justify-between">
-                        <div>
-                          <p className="text-gray-900 font-medium">
-                            {shippingMethods.find(m => m.id === shippingMethod)?.name}
-                          </p>
-                          <p className="text-gray-600 text-sm">
-                            {shippingMethods.find(m => m.id === shippingMethod)?.carrier} - {estimatedDelivery}
-                          </p>
-                        </div>
-                        <p className="font-medium">GH₵{shippingCost.toFixed(2)}</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Product Review */}
-                  <div className="p-4 border border-gray-200 rounded-lg">
-                    <h3 className="font-medium text-gray-900 mb-3">Order Items</h3>
-                    
-                    {isFromCart ? (
-                      // Display all cart items
-                      <div className="divide-y divide-gray-200">
-                        {cartItems.length === 0 ? (
-                          <p className="text-gray-500 py-2">No items in cart</p>
-                        ) : (
-                          cartItems.map((item, index) => (
-                            <div key={`${item.id}-${item.size}-${item.color}-${index}`} className="flex items-center py-3">
-                              <div className="h-20 w-16 flex-shrink-0 overflow-hidden rounded-md">
-                                <img
-                                  src={item.image}
-                                  alt={item.name}
-                                  className="h-full w-full object-cover object-center"
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = 'https://via.placeholder.com/150?text=No+Image';
-                                  }}
-                                />
-                              </div>
-                              <div className="ml-4 flex-1">
-                                <div className="flex justify-between">
-                                  <h4 className="font-medium text-gray-900">{item.name}</h4>
-                                  <p className="font-medium text-gray-900">{item.price}</p>
-                                </div>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Color: {item.colorName} | Size: {item.size} | Qty: {item.quantity}
-                                </p>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    ) : (
-                      // Display single product
-                      <div className="flex items-center py-3 border-b border-gray-200">
-                        <div className="h-20 w-16 flex-shrink-0 overflow-hidden rounded-md">
-                          <img
-                            src={productInfo.image}
-                            alt={productInfo.name}
-                            className="h-full w-full object-cover object-center"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = 'https://via.placeholder.com/150?text=No+Image';
-                            }}
-                          />
-                        </div>
-                        <div className="ml-4 flex-1">
-                          <div className="flex justify-between">
-                            <h4 className="font-medium text-gray-900">{productInfo.name}</h4>
-                            <p className="font-medium text-gray-900">{productInfo.price}</p>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Color: {productInfo.colorName || 'Default'} | Size: {productInfo.size || 'One Size'} | Qty: {productInfo.quantity || 1}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {renderReviewStep()}
               </div>
             )}
             
@@ -1315,7 +1365,7 @@ const CheckoutPage = () => {
                     <div className="ml-3 flex-1">
                       <p className="text-sm font-medium text-gray-900 truncate">{productInfo.name}</p>
                       <p className="text-xs text-gray-500">
-                        {productInfo.colorName || 'Default'} | {productInfo.size || 'One Size'} | Qty: {productInfo.quantity || 1}
+                        Color: {productInfo.colorName || 'Default'} | Size: {productInfo.size || 'One Size'} | Qty: {productInfo.quantity || 1}
                       </p>
                     </div>
                     <p className="text-sm font-medium text-gray-900">{productInfo.price}</p>
@@ -1331,11 +1381,27 @@ const CheckoutPage = () => {
                 
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Shipping</span>
-                  <span className="font-medium">GH₵{shippingCost.toFixed(2)}</span>
+                  <span className="font-medium">
+                    {settingsLoading ? (
+                      <Loader className="inline w-3 h-3 text-gray-400 animate-spin" />
+                    ) : (
+                      `GH₵${shippingCost.toFixed(2)}`
+                    )}
+                  </span>
                 </div>
                 
                 <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Tax (15%)</span>
+                  <div className="flex items-center">
+                    <span className="text-gray-600">Tax ({(taxRate * 100).toFixed(1)}%)</span>
+                    {addressInfo.country && (
+                      <div className="relative ml-1 group">
+                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                          Tax rate for {addressInfo.country}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <span className="font-medium">GH₵{(subtotal * taxRate).toFixed(2)}</span>
                 </div>
                 
@@ -1378,7 +1444,7 @@ const CheckoutPage = () => {
                         'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
                     >
-                      {isCouponLoading ? (
+                      {isCouponLoading || couponLoading ? (
                         <Loader className="w-4 h-4 animate-spin" />
                       ) : appliedCoupon ? (
                         <Check className="w-4 h-4" />
@@ -1401,7 +1467,7 @@ const CheckoutPage = () => {
                   
                   {appliedCoupon ? (
                     <div className="mt-2 flex justify-between items-center">
-                      <span className="text-xs text-gray-500">Coupon applied</span>
+                      <span className="text-xs text-gray-500">Coupon applied: {appliedCoupon.code}</span>
                       <button 
                         type="button"
                         onClick={() => {
@@ -1409,9 +1475,10 @@ const CheckoutPage = () => {
                           setCouponCode('');
                           setAppliedCoupon(null);
                           setCouponSuccess('');
+                          clearActiveCoupon();
                           if (appliedCoupon.code === 'FREESHIP') {
                             // Reset shipping cost based on selected method
-                            const method = shippingMethods.find(m => m.id === shippingMethod);
+                            const method = availableShippingMethods.find(m => m.id === shippingMethod);
                             if (method) {
                               setShippingCost(method.price);
                             }
@@ -1424,7 +1491,7 @@ const CheckoutPage = () => {
                     </div>
                   ) : (
                     <p className="mt-1 text-xs text-gray-500">
-                      Enter a coupon code to get discounts (try "SUMMER25", "WELCOME10", or "FREESHIP")
+                      Enter a valid coupon code to get discounts on your order
                     </p>
                   )}
                 </div>

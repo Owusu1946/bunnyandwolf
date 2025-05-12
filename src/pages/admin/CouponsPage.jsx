@@ -4,13 +4,22 @@ import Sidebar from '../../components/admin/Sidebar';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ToastManager';
+import { useCouponStore } from '../../store/couponStore';
 
 const CouponsPage = () => {
   const { user } = useAuth();
-  const { success, error, info } = useToast();
-  const [coupons, setCoupons] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState(null);
+  const { success, error: toastError, info } = useToast();
+  const { 
+    coupons, 
+    loading, 
+    error: storeError, 
+    fetchCoupons, 
+    createCoupon, 
+    updateCoupon, 
+    deleteCoupon,
+    toggleCouponStatus
+  } = useCouponStore();
+  
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [search, setSearch] = useState('');
@@ -35,132 +44,10 @@ const CouponsPage = () => {
     excludedProducts: []
   });
 
-  const fetchCoupons = async () => {
-    try {
-      setLoading(true);
-      // First try to load from localStorage
-      const storedCoupons = localStorage.getItem('sinosply_coupons');
-      if (storedCoupons) {
-        setCoupons(JSON.parse(storedCoupons));
-        setLoading(false);
-        return;
-      }
-      
-      // If no stored coupons, try API
-      // In a real app, replace with your actual API endpoint
-      const response = await axios.get('https://sinosply-backend.onrender.com/api/v1/admin/coupons', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      const fetchedCoupons = response.data.data || [];
-      setCoupons(fetchedCoupons);
-      
-      // Store in localStorage
-      localStorage.setItem('sinosply_coupons', JSON.stringify(fetchedCoupons));
-    } catch (err) {
-      console.error('Error fetching coupons:', err);
-      setErrorMessage('Failed to load coupons. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initialize with sample data for demo purposes
   useEffect(() => {
-    // Check if we already have coupons in localStorage
-    const storedCoupons = localStorage.getItem('sinosply_coupons');
-    
-    if (storedCoupons) {
-      setCoupons(JSON.parse(storedCoupons));
-      setLoading(false);
-    } else {
-      // Sample coupons for demo
-      const sampleCoupons = [
-        {
-          _id: '1',
-          code: 'SUMMER25',
-          discountType: 'percentage',
-          discountValue: 25,
-          minPurchaseAmount: 100,
-          maxDiscountAmount: 50,
-          startDate: '2023-06-01',
-          endDate: '2023-12-31',
-          isActive: true,
-          usageLimit: 1000,
-          usageCount: 423,
-          description: 'Summer sale discount',
-          applicableProducts: []
-        },
-        {
-          _id: '2',
-          code: 'WELCOME10',
-          discountType: 'percentage',
-          discountValue: 10,
-          minPurchaseAmount: 0,
-          maxDiscountAmount: null,
-          startDate: '2023-01-01',
-          endDate: '2023-12-31',
-          isActive: true,
-          usageLimit: null,
-          usageCount: 1245,
-          description: 'New customer welcome discount',
-          applicableProducts: []
-        },
-        {
-          _id: '3',
-          code: 'FREESHIP',
-          discountType: 'fixed',
-          discountValue: 15,
-          minPurchaseAmount: 75,
-          maxDiscountAmount: 15,
-          startDate: '2023-05-15',
-          endDate: '2023-12-31',
-          isActive: true,
-          usageLimit: null,
-          usageCount: 892,
-          description: 'Free shipping on orders over $75',
-          applicableProducts: []
-        },
-        {
-          _id: '4',
-          code: 'FLASH50',
-          discountType: 'percentage',
-          discountValue: 50,
-          minPurchaseAmount: 200,
-          maxDiscountAmount: 100,
-          startDate: '2023-07-01',
-          endDate: '2023-07-03',
-          isActive: false,
-          usageLimit: 500,
-          usageCount: 500,
-          description: 'Flash sale - 50% off',
-          applicableProducts: []
-        },
-        {
-          _id: '5',
-          code: 'LOYALTY20',
-          discountType: 'percentage',
-          discountValue: 20,
-          minPurchaseAmount: 50,
-          maxDiscountAmount: null,
-          startDate: '2023-01-01',
-          endDate: '2023-12-31',
-          isActive: true,
-          usageLimit: null,
-          usageCount: 327,
-          description: 'Loyalty program discount',
-          applicableProducts: []
-        }
-      ];
-      
-      setCoupons(sampleCoupons);
-      // Store in localStorage for persistence
-      localStorage.setItem('sinosply_coupons', JSON.stringify(sampleCoupons));
-      setLoading(false);
-    }
-
-    // When ready to connect to real API, uncomment this
-    // fetchCoupons();
-  }, []);
+    // Fetch coupons from API via the store
+    fetchCoupons();
+  }, [fetchCoupons]);
 
   const resetForm = () => {
     setFormData({
@@ -215,47 +102,34 @@ const CouponsPage = () => {
     e.preventDefault();
 
     try {
-      let response;
-      let updatedCoupons;
+      let result;
       
       if (modalMode === 'add') {
-        // Create a new coupon with unique ID
-        const newCoupon = { 
-          ...formData, 
-          _id: `coupon-${Date.now()}`, 
-          usageCount: 0 
-        };
+        // Create new coupon via store
+        result = await createCoupon(formData);
         
-        // In a real app, you would send to API
-        // response = await axios.post('https://sinosply-backend.onrender.com/api/v1/admin/coupons', formData);
-        
-        // Update local state
-        updatedCoupons = [...coupons, newCoupon];
-        setCoupons(updatedCoupons);
-        
-        // Store in localStorage for persistence and checkout access
-        localStorage.setItem('sinosply_coupons', JSON.stringify(updatedCoupons));
-        
-        success('Coupon created successfully!');
+        if (result.success) {
+          success('Coupon created successfully!');
+          setShowModal(false);
+          resetForm();
+        } else {
+          toastError(result.error || 'Failed to create coupon');
+        }
       } else {
-        // In a real app, you would update via API
-        // response = await axios.put(`/api/admin/coupons/${formData._id}`, formData);
+        // Update existing coupon via store
+        result = await updateCoupon(formData._id, formData);
         
-        // Update local state 
-        updatedCoupons = coupons.map(c => c._id === formData._id ? { ...formData, usageCount: c.usageCount } : c);
-        setCoupons(updatedCoupons);
-        
-        // Update in localStorage
-        localStorage.setItem('sinosply_coupons', JSON.stringify(updatedCoupons));
-        
-        success('Coupon updated successfully!');
+        if (result.success) {
+          success('Coupon updated successfully!');
+          setShowModal(false);
+          resetForm();
+        } else {
+          toastError(result.error || 'Failed to update coupon');
+        }
       }
-      
-      setShowModal(false);
-      resetForm();
     } catch (err) {
       console.error('Error saving coupon:', err);
-      error(err.response?.data?.message || 'Error saving coupon. Please try again.');
+      toastError(err.response?.data?.message || 'Error saving coupon. Please try again.');
     }
   };
 
@@ -263,39 +137,31 @@ const CouponsPage = () => {
     if (!window.confirm('Are you sure you want to delete this coupon?')) return;
     
     try {
-      // In a real app, you would delete via API
-      // await axios.delete(`https://sinosply-backend.onrender.com/api/v1/admin/coupons/${id}`);
+      const result = await deleteCoupon(id);
       
-      // Update local state
-      const updatedCoupons = coupons.filter(c => c._id !== id);
-      setCoupons(updatedCoupons);
-      
-      // Update localStorage
-      localStorage.setItem('sinosply_coupons', JSON.stringify(updatedCoupons));
-      
-      success('Coupon deleted successfully!');
+      if (result.success) {
+        success('Coupon deleted successfully!');
+      } else {
+        toastError(result.error || 'Failed to delete coupon');
+      }
     } catch (err) {
       console.error('Error deleting coupon:', err);
-      error(err.response?.data?.message || 'Error deleting coupon. Please try again.');
+      toastError(err.response?.data?.message || 'Error deleting coupon. Please try again.');
     }
   };
 
   const toggleActivation = async (id, currentStatus) => {
     try {
-      // In a real app, you would update via API
-      // await axios.patch(`https://sinosply-backend.onrender.com/api/v1/admin/coupons/${id}/toggle-status`);
+      const result = await toggleCouponStatus(id);
       
-      // Update local state
-      const updatedCoupons = coupons.map(c => c._id === id ? { ...c, isActive: !c.isActive } : c);
-      setCoupons(updatedCoupons);
-      
-      // Update localStorage
-      localStorage.setItem('sinosply_coupons', JSON.stringify(updatedCoupons));
-      
-      success(`Coupon ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
+      if (result.success) {
+        success(`Coupon ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
+      } else {
+        toastError(result.error || 'Failed to update coupon status');
+      }
     } catch (err) {
       console.error('Error updating coupon status:', err);
-      error(err.response?.data?.message || 'Error updating coupon status. Please try again.');
+      toastError(err.response?.data?.message || 'Error updating coupon status. Please try again.');
     }
   };
 
@@ -326,7 +192,7 @@ const CouponsPage = () => {
   // Filter coupons based on search and filters
   const filteredCoupons = coupons.filter(coupon => {
     const matchesSearch = coupon.code.toLowerCase().includes(search.toLowerCase()) || 
-                         coupon.description.toLowerCase().includes(search.toLowerCase());
+                         (coupon.description && coupon.description.toLowerCase().includes(search.toLowerCase()));
     
     const matchesActiveFilter = filterActive === 'all' || 
                               (filterActive === 'active' && coupon.isActive) || 
@@ -362,6 +228,21 @@ const CouponsPage = () => {
     return `GH₵${parseFloat(amount).toFixed(2)}`;
   };
 
+  // Get additional statistics for coupon performance
+  const getCouponStats = () => {
+    const totalCoupons = coupons.length;
+    const activeCoupons = coupons.filter(c => c.isActive).length;
+    const expiredCoupons = coupons.filter(c => new Date(c.endDate) < new Date()).length;
+    const totalUsage = coupons.reduce((sum, c) => sum + (c.usageCount || 0), 0);
+    
+    return {
+      totalCoupons,
+      activeCoupons,
+      expiredCoupons,
+      totalUsage
+    };
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -375,6 +256,35 @@ const CouponsPage = () => {
             <FaPlus className="mr-2" /> Add New Coupon
           </button>
         </div>
+
+        {/* Coupon Stats */}
+        {!loading && !storeError && (
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            {(() => {
+              const stats = getCouponStats();
+              return (
+                <>
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <div className="text-sm text-gray-500">Total Coupons</div>
+                    <div className="text-2xl font-semibold mt-1">{stats.totalCoupons}</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <div className="text-sm text-gray-500">Active Coupons</div>
+                    <div className="text-2xl font-semibold mt-1 text-green-600">{stats.activeCoupons}</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <div className="text-sm text-gray-500">Expired Coupons</div>
+                    <div className="text-2xl font-semibold mt-1 text-orange-500">{stats.expiredCoupons}</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <div className="text-sm text-gray-500">Total Usages</div>
+                    <div className="text-2xl font-semibold mt-1 text-blue-600">{stats.totalUsage}</div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Filter and search */}
         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
@@ -440,9 +350,9 @@ const CouponsPage = () => {
             <div className="spinner"></div>
             <p className="mt-2 text-gray-600">Loading coupons...</p>
           </div>
-        ) : errorMessage ? (
+        ) : storeError ? (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded mb-4">
-            {errorMessage}
+            {storeError}
           </div>
         ) : (
           <>
@@ -519,6 +429,20 @@ const CouponsPage = () => {
                                 <span className="text-xs text-gray-500"> / {coupon.usageLimit}</span>
                               )}
                             </div>
+                            {coupon.usageLimit && (
+                              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                                <div 
+                                  className={`h-1.5 rounded-full ${
+                                    (coupon.usageCount / coupon.usageLimit) > 0.8 
+                                      ? 'bg-red-500' 
+                                      : (coupon.usageCount / coupon.usageLimit) > 0.5 
+                                        ? 'bg-yellow-500' 
+                                        : 'bg-green-500'
+                                  }`}
+                                  style={{ width: `${Math.min((coupon.usageCount / coupon.usageLimit) * 100, 100)}%` }}
+                                ></div>
+                              </div>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <div className="flex justify-center space-x-2">
@@ -860,8 +784,12 @@ const CouponsPage = () => {
                 <button
                   type="submit"
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                  disabled={loading}
                 >
-                  {modalMode === 'add' ? 'Create Coupon' : 'Update Coupon'}
+                  {loading ? 
+                    'Saving...' : 
+                    (modalMode === 'add' ? 'Create Coupon' : 'Update Coupon')
+                  }
                 </button>
               </div>
             </form>

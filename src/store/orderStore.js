@@ -24,20 +24,48 @@ export const useOrderStore = create(
           
           console.log('Fetching all orders from API...');
           
-          // Make API request with apiConfig baseURL
-          const response = await axios.get(`${apiConfig.baseURL}/orders`, {
+          // First, get the total count to determine how many pages we need
+          const countResponse = await axios.get(`${apiConfig.baseURL}/orders`, {
+            params: { page: 1, limit: 1 }, // Just fetch one record to get the total count
             headers: {
               Authorization: `Bearer ${token}`
             }
           });
           
-          console.log(`Fetched ${response.data.data.length} orders from API`);
-          console.log('Orders:', response.data.data);
+          if (!countResponse.data.success) {
+            throw new Error('Failed to get order count');
+          }
           
-          // Update store with fetched orders
-          set({ orders: response.data.data || [] });
+          const totalOrders = countResponse.data.total || 0;
+          const limit = 20; // Match backend limit
+          const totalPages = Math.ceil(totalOrders / limit);
           
-          return { success: true, data: response.data.data };
+          console.log(`Found ${totalOrders} total orders, fetching all pages (${totalPages} pages)...`);
+          
+          // Track all orders
+          let allOrders = [];
+          
+          // Fetch all pages
+          for (let page = 1; page <= totalPages; page++) {
+            const response = await axios.get(`${apiConfig.baseURL}/orders`, {
+              params: { page, limit },
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
+            
+            if (response.data.success && response.data.data) {
+              allOrders = [...allOrders, ...response.data.data];
+              console.log(`Fetched page ${page}/${totalPages} with ${response.data.data.length} orders`);
+            }
+          }
+          
+          console.log(`Successfully fetched all ${allOrders.length} orders`);
+          
+          // Update store with all fetched orders
+          set({ orders: allOrders });
+          
+          return { success: true, data: allOrders };
         } catch (error) {
           console.error('Error fetching orders:', error);
           return { success: false, error: error.message };

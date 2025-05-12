@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useProductStore } from '../../store/productStore';
 
 /**
  * EmailPreview component - Renders a preview of an email campaign with customizable templates
@@ -11,6 +12,77 @@ import React from 'react';
  * @returns {JSX.Element} Email preview component
  */
 const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) => {
+  // Get products from the product store
+  const { products, fetchProductsFromAPI } = useProductStore();
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  
+  // Helper function to get the best product image
+  const getProductImage = (product) => {
+    if (!product) return 'https://via.placeholder.com/400x400?text=Product';
+    
+    let productImage;
+    
+    if (product.image) {
+      // Direct product image if available
+      productImage = product.image;
+    } else if (product.variants && product.variants.length > 0) {
+      // First variant's image
+      if (product.variants[0].image) {
+        productImage = product.variants[0].image;
+      } 
+      // Then check first variant's additional images
+      else if (product.variants[0].additionalImages && product.variants[0].additionalImages.length > 0) {
+        productImage = product.variants[0].additionalImages[0];
+      }
+    }
+    
+    // If no image found, use placeholder with product name
+    if (!productImage) {
+      productImage = `https://via.placeholder.com/400x400?text=${encodeURIComponent(product.name || 'Product')}`;
+    }
+    
+    return productImage;
+  };
+  
+  // Format price for display
+  const formatPrice = (price) => {
+    if (typeof price === 'number') {
+      return `GH₵ ${price.toFixed(2)}`;
+    }
+    return price?.toString() || 'GH₵ 0.00';
+  };
+  
+  // Fetch products if needed and select featured ones for the email
+  useEffect(() => {
+    if (products.length === 0) {
+      fetchProductsFromAPI();
+    } else {
+      // Select featured or highest priced products
+      const featured = products
+        .filter(p => p.isFeatured || p.stock > 0) // Only in-stock or featured products
+        .sort((a, b) => {
+          // First prioritize featured products
+          if (a.isFeatured && !b.isFeatured) return -1;
+          if (!a.isFeatured && b.isFeatured) return 1;
+          
+          // Then sort by price (highest first)
+          const priceA = typeof a.basePrice === 'number' ? a.basePrice : 0;
+          const priceB = typeof b.basePrice === 'number' ? b.basePrice : 0;
+          return priceB - priceA;
+        })
+        .slice(0, 3) // Take top 3
+        .map(product => ({
+          name: product.name,
+          price: formatPrice(product.basePrice),
+          discount: product.salePrice ? formatPrice(product.basePrice) : null,
+          image: getProductImage(product),
+          badge: product.isFeatured ? 'Featured' : (product.isNew ? 'New Arrival' : null)
+        }));
+      
+      setFeaturedProducts(featured);
+    }
+  }, [products, fetchProductsFromAPI]);
+
   // Date for the email header
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -18,30 +90,6 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
     month: 'short',
     day: 'numeric'
   });
-
-  // Sample product data for showcase
-  const sampleProducts = [
-    {
-      name: 'Premium Cotton T-Shirt',
-      price: 'GH₵ 149.99',
-      discount: 'GH₵ 199.99',
-      image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=500&auto=format',
-      badge: 'New Arrival'
-    },
-    {
-      name: 'Slim Fit Denim Jeans',
-      price: 'GH₵ 299.99',
-      discount: 'GH₵ 350.00',
-      image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=500&auto=format',
-      badge: '15% Off'
-    },
-    {
-      name: 'Classic Leather Bag',
-      price: 'GH₵ 499.99',
-      image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=500&auto=format',
-      badge: 'Trending'
-    }
-  ];
   
   // Enhanced template styles
   const templateStyles = {
@@ -106,8 +154,68 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
   // Get the styles based on selected template
   const currentStyle = templateStyles[template] || templateStyles.default;
 
-  // Product Showcase Component
+  // Product Showcase Component - Now uses real products
   const ProductShowcase = () => {
+    // If we have no products yet, show loading state
+    if (featuredProducts.length === 0) {
+      return (
+        <div>
+          <h4 style={{
+            fontSize: '16px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            margin: '30px 0 20px',
+            color: currentStyle.textColor
+          }}>
+            Featured Products
+          </h4>
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            gap: '15px'
+          }}>
+            {[1, 2, 3].slice(0, previewMode === 'mobile' ? 1 : 3).map((_, index) => (
+              <div key={index} style={{
+                width: previewMode === 'mobile' ? '100%' : 'calc(33.33% - 10px)',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                border: '1px solid #f0f0f0'
+              }}>
+                <div style={{
+                  height: '160px',
+                  backgroundColor: '#f3f4f6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#9ca3af',
+                  fontSize: '12px'
+                }}>
+                  Loading products...
+                </div>
+                <div style={{padding: '12px'}}>
+                  <div style={{
+                    height: '14px',
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: '4px',
+                    marginBottom: '10px'
+                  }}></div>
+                  <div style={{
+                    height: '10px',
+                    width: '60%',
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: '4px'
+                  }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div>
         <h4 style={{
@@ -125,7 +233,7 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
           justifyContent: 'space-between',
           gap: '15px'
         }}>
-          {sampleProducts.slice(0, previewMode === 'mobile' ? 1 : 3).map((product, index) => (
+          {featuredProducts.slice(0, previewMode === 'mobile' ? 1 : 3).map((product, index) => (
             <div key={index} style={{
               width: previewMode === 'mobile' ? '100%' : 'calc(33.33% - 10px)',
               backgroundColor: 'white',
@@ -163,6 +271,10 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover'
+                  }}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `https://via.placeholder.com/400x400?text=${encodeURIComponent(product.name || 'Product')}`;
                   }}
                 />
               </div>

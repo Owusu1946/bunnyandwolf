@@ -4,7 +4,7 @@ import Slider from 'react-slick';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import Navbar from '../components/Navbar';
-import { FaShippingFast, FaUndo, FaHeadset, FaShieldAlt } from 'react-icons/fa';
+import { FaShippingFast, FaUndo, FaHeadset, FaShieldAlt, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import Footer from '../components/Footer';
 import FashionShop from './FashionShop';
 import ShopCategory from './ShopCategory';
@@ -12,14 +12,53 @@ import CustomerSupportChat from '../components/CustomerSupportChat';
 import { useProductStore } from '../store/productStore';
 import { useCollectionsStore } from '../store/collectionsStore';
 import { usePlatformsStore } from '../store/platformsStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { Link } from 'react-router-dom';
+import './heroSlider.css';
 
+// Custom arrow components for the carousel
+const NextArrow = (props) => {
+  const { className, style, onClick } = props;
+  return (
+    <div
+      className="absolute right-4 top-1/2 -translate-y-1/2 z-10 cursor-pointer bg-white bg-opacity-50 hover:bg-opacity-80 p-3 rounded-full transition-all duration-300"
+      onClick={onClick}
+    >
+      <FaArrowRight className="text-black text-xl" />
+    </div>
+  );
+};
+
+const PrevArrow = (props) => {
+  const { className, style, onClick } = props;
+  return (
+    <div
+      className="absolute left-4 top-1/2 -translate-y-1/2 z-10 cursor-pointer bg-white bg-opacity-50 hover:bg-opacity-80 p-3 rounded-full transition-all duration-300"
+      onClick={onClick}
+    >
+      <FaArrowLeft className="text-black text-xl" />
+    </div>
+  );
+};
+
+// Custom dot indicator component
+const CustomDot = ({ onClick, active }) => {
+  return (
+    <button
+      onClick={onClick}
+      className={`mx-1 h-2 w-10 rounded-full transition-all duration-300 ${
+        active ? 'bg-black' : 'bg-gray-400'
+      }`}
+    />
+  );
+};
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState('New Arrivals');
   const { fetchProductsFromAPI, products, featuredProducts } = useProductStore();
   const { fetchCollectionsFromAPI, featuredCollections } = useCollectionsStore();
   const { fetchPlatformsFromAPI, activePlatforms, loading: platformsLoading } = usePlatformsStore();
+  const { fetchBanners, banners, getBannerByType } = useSettingsStore();
   
   // Fetch products when component mounts
   useEffect(() => {
@@ -37,6 +76,57 @@ const Home = () => {
   useEffect(() => {
     fetchPlatformsFromAPI();
   }, [fetchPlatformsFromAPI]);
+  
+  // Fetch banners when component mounts
+  useEffect(() => {
+    fetchBanners();
+  }, [fetchBanners]);
+
+  // Get active banners
+  const activeBanners = banners.filter(banner => banner.isActive) || [];
+  
+  // Get specific banner types
+  const topBanner = activeBanners.find(banner => banner.type === 'topBanner') || {
+    imageUrl: 'https://us.princesspolly.com/cdn/shop/files/UpTo70_OffShoes-Feb25-S_NH-HP-Strip-Banner_2_1599x.progressive.jpg?v=1740695249',
+    alt: 'Sale Banner',
+    linkUrl: '#'
+  };
+  
+  // Get all hero banners
+  const heroBanners = activeBanners
+    .filter(banner => banner.type === 'heroBanner')
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+  
+  // Add default hero banner if none exist
+  if (heroBanners.length === 0) {
+    heroBanners.push({
+      imageUrl: 'https://us.princesspolly.com/cdn/shop/files/Group_3312_6cf6ba2e-a5b6-4f66-94c7-70210e935b86_1599x.progressive.jpg?v=1740713873',
+      alt: 'Hero Image',
+      linkUrl: '#',
+      type: 'heroBanner',
+      isActive: true
+    });
+  }
+  
+  // Get promotional banners (if any)
+  const promoBanners = activeBanners.filter(banner => banner.type === 'promoBanner');
+
+  const heroSliderSettings = {
+    dots: true,
+    infinite: true,
+    speed: 500,
+    slidesToShow: 1,
+    slidesToScroll: 1,
+    autoplay: true,
+    autoplaySpeed: 5000,
+    fade: true,
+    cssEase: 'cubic-bezier(0.7, 0, 0.3, 1)',
+    pauseOnHover: true,
+    nextArrow: <NextArrow />,
+    prevArrow: <PrevArrow />,
+    customPaging: i => <CustomDot active={i === 0} />,
+    responsive: []
+  };
 
   const sliderSettings = {
     dots: true,
@@ -71,19 +161,6 @@ const Home = () => {
     ]
   };
 
-  const heroSliderSettings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 3000,
-    arrows: false,
-    fade: true,
-    responsive: []
-  };
-
   // Fallback platforms data if no platforms are available from the store
   const fallbackPlatforms = [
     {
@@ -97,8 +174,8 @@ const Home = () => {
       name: 'BEACH DRESSES',
       logoUrl: 'https://us.princesspolly.com/cdn/shop/files/1-modelinfo-nika-us2_14a23d51-fcbc-4fdf-8aca-051bae50e83f_450x610_crop_center.jpg?v=1728428305',
       domain: '#'
-    },
-    {
+      },
+      {
       _id: '3',
       name: 'THE SPRING SHOP',
       logoUrl: 'https://www.princesspolly.com.au/cdn/shop/files/1-modelinfo-nat-us2_4fe34236-40a0-47e5-89b1-1315a0b2076f_450x610_crop_center.jpg?v=1739307217',
@@ -115,28 +192,50 @@ const Home = () => {
   // Display active platforms or fallback if none available
   const platformsToDisplay = activePlatforms.length > 0 ? activePlatforms : fallbackPlatforms;
 
-  // We'll use product store data instead of hardcoded data
-  // The components will handle their own data fetching from the store
-
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* New Hero Section */}
+      {/* Hero Section with Carousel */}
       <div className="w-full">
+        {topBanner && topBanner.isActive && (
         <div className="relative w-full h-[25vh]">
+            <a href={topBanner.linkUrl || '#'}>
           <img 
-            src="https://us.princesspolly.com/cdn/shop/files/UpTo70_OffShoes-Feb25-S_NH-HP-Strip-Banner_2_1599x.progressive.jpg?v=1740695249"
-            alt="Sale Banner"
+                src={topBanner.imageUrl}
+                alt={topBanner.alt || "Sale Banner"}
             className="w-full h-full object-cover"
           />
+            </a>
         </div>
+        )}
+        
         <div className="relative w-full h-[90vh]">
+          <Slider {...heroSliderSettings} className="h-full hero-slider">
+            {heroBanners.map((banner, index) => (
+              <div key={index} className="h-[90vh] relative">
+                <a href={banner.linkUrl || '#'}>
           <img 
-            src="https://us.princesspolly.com/cdn/shop/files/Group_3312_6cf6ba2e-a5b6-4f66-94c7-70210e935b86_1599x.progressive.jpg?v=1740713873"
-            alt="Hero Image"
+                    src={banner.imageUrl}
+                    alt={banner.alt || "Hero Image"}
             className="w-full h-full object-cover"
-          />
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "https://via.placeholder.com/1920x1080?text=Banner+Image+Not+Found";
+                    }}
+                  />
+                  {banner.caption && (
+                    <div className="banner-caption">
+                      <h2 className="text-white text-4xl font-bold">{banner.caption}</h2>
+                      {banner.subcaption && (
+                        <p className="text-white text-xl mt-2">{banner.subcaption}</p>
+                      )}
+                    </div>
+                  )}
+                </a>
+              </div>
+            ))}
+          </Slider>
         </div>
       </div>
 
@@ -145,6 +244,31 @@ const Home = () => {
       <div className="flex justify-center items-center mt-12">
         <button className="bg-white text-black px-8 py-3 font-medium hover:bg-black hover:text-white transition-colors border-2 border-black hover:underline"> SHOP NEW ARRIVALS {'>>'} </button>
       </div>
+
+      {/* Promotional Banners Section - Only displayed if promo banners exist */}
+      {promoBanners.length > 0 && (
+        <section className="py-12">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {promoBanners.map((banner, index) => (
+                <div key={index} className="relative rounded-lg overflow-hidden">
+                  <a href={banner.linkUrl || '#'}>
+                    <img 
+                      src={banner.imageUrl}
+                      alt={banner.alt || "Promotional Banner"}
+                      className="w-full h-80 object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "https://via.placeholder.com/800x400?text=Banner+Image+Not+Found";
+                      }}
+                    />
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Featured Images Section */}
       <section className="py-12">

@@ -140,20 +140,20 @@ const Navbar = () => {
     <>
       {isLoggingOut && <LoadingOverlay message="Signing out..." />}
       <nav className="navbar">
-        <div className="announcement-bar">
+        {/* <div className="announcement-bar">
           <div className="announcement-item">STUDENT DISCOUNT</div>
           <div className="announcement-item">FREE SHIPPING ORDERS $50+</div>
           <div className="announcement-item">BUY NOW, PAY LATER <img src="/afterpay.png" alt="Afterpay" className="afterpay-logo" /></div>
-        </div>
+        </div> */}
 
         <div className="main-nav">
           <div className="nav-left">
-            <div className="currency-selector">
+            {/* <div className="currency-selector">
               {currency} <FaChevronDown className="dropdown-arrow" />
             </div>
             <div className="rewards-link">
               REWARDS <BsStar className="star-icon" />
-            </div>
+            </div> */}
             <div className="discover-link">
               DISCOVER <BiHomeAlt className="discover-icon" /> <RiArrowRightSLine className="arrow-icon" />
             </div>

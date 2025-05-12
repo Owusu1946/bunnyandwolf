@@ -7,6 +7,27 @@ import apiConfig from '../../config/apiConfig';
 import { useCollectionsStore } from '../../store/collectionsStore';
 import { useProductStore } from '../../store/productStore';
 
+// Helper function to validate image URLs
+const isValidImageUrl = (url) => {
+  if (!url) return false;
+  
+  // Basic URL format validation
+  try {
+    new URL(url);
+  } catch (e) {
+    return false;
+  }
+  
+  // Check if URL ends with common image extensions
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+  const lowercaseUrl = url.toLowerCase();
+  return imageExtensions.some(ext => lowercaseUrl.endsWith(ext)) || 
+         // Also allow URLs containing image service patterns
+         lowercaseUrl.includes('cloudinary.com') || 
+         lowercaseUrl.includes('imgur.com') ||
+         lowercaseUrl.includes('unsplash.com');
+};
+
 const CollectionsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +41,7 @@ const CollectionsPage = () => {
   const [viewingCollectionProducts, setViewingCollectionProducts] = useState(false);
   const [currentCollection, setCurrentCollection] = useState(null);
   const [collectionProducts, setCollectionProducts] = useState([]);
+  const [selectedVariants, setSelectedVariants] = useState({});
   
   // Get collections from store - Make sure these are actual functions
   const collectionsStore = useCollectionsStore();
@@ -50,22 +72,43 @@ const CollectionsPage = () => {
     fetchCollections();
   }, [currentPage, searchTerm]);
 
-  // Initialize collections from store or fetch if needed
+  // Initialize collections and products
   useEffect(() => {
-    console.log('Initializing collections page with store:', collectionsStore);
+    console.log('Initializing collections and products...');
     
-    if (collections.length === 0) {
-      fetchCollectionsFromAPI().then(() => {
-        setLoading(false);
-      });
-    } else {
-      // Collections already in store, just update pagination
-      setTotalPages(Math.ceil(collections.length / 10));
+    const initializeData = async () => {
+      setLoading(true);
+      
+      // Fetch products first to ensure we have them for display
+      if (allProducts.length === 0) {
+        try {
+          await fetchProductsFromAPI();
+          console.log('Products loaded from API');
+        } catch (error) {
+          console.error('Error loading products:', error);
+        }
+      } else {
+        console.log(`Using ${allProducts.length} products from store`);
+      }
+      
+      // Then fetch collections
+      if (collections.length === 0) {
+        try {
+          await fetchCollectionsFromAPI();
+          console.log('Collections loaded from API');
+        } catch (error) {
+          console.error('Error loading collections:', error);
+        }
+      } else {
+        // Collections already in store, just update pagination
+        setTotalPages(Math.ceil(collections.length / 10));
+        console.log(`Using ${collections.length} collections from store`);
+      }
+      
       setLoading(false);
-    }
+    };
     
-    // Also fetch products for product selection
-    fetchProductsFromAPI();
+    initializeData();
   }, []);
 
   const fetchCollections = async () => {
@@ -86,6 +129,16 @@ const CollectionsPage = () => {
       
       // Update total pages
       if (response.data.success) {
+        // Process collection images
+        const processedCollections = response.data.data.map(collection => ({
+          ...collection,
+          // Ensure image URL is valid or set a placeholder
+          image: collection.image || `https://via.placeholder.com/400x200?text=${encodeURIComponent(collection.name || 'Collection')}`
+        }));
+        
+        // Update collections in store
+        collectionsStore.setCollections(processedCollections);
+        
         setTotalPages(Math.ceil(response.data.total / 10) || 1);
       }
       
@@ -100,8 +153,9 @@ const CollectionsPage = () => {
   const fetchCollectionProducts = async (collectionId) => {
     try {
       setLoading(true);
+      console.log(`[Fetch Collection] Starting to fetch collection: ${collectionId}`);
       
-      // Get the collection with populated products
+      // Get the collection details from the API
       const response = await axios.get(`${apiConfig.baseURL}/collections/${collectionId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -111,27 +165,54 @@ const CollectionsPage = () => {
       if (response.data.success) {
         const collection = response.data.data;
         setCurrentCollection(collection);
+        console.log(`[Fetch Collection] Collection details:`, {
+          name: collection.name,
+          productCount: collection.products?.length || 0
+        });
         
-        // Get product details for each product ID
-        let products = [];
-        if (collection.products && collection.products.length > 0) {
-          // If products are already populated objects
-          if (typeof collection.products[0] === 'object') {
-            products = collection.products;
-          } else {
-            // If products are just IDs, look them up from the store
-            products = collection.products.map(productId => 
-              allProducts.find(p => p._id === productId)
-            ).filter(Boolean); // Remove undefined products
-          }
+        // Extract product IDs from the collection
+        const productIds = collection.products?.map(item => 
+          typeof item === 'object' ? item._id : item
+        ) || [];
+        
+        console.log(`[Fetch Collection] Product IDs in collection:`, productIds);
+        console.log(`[Fetch Collection] Available products in store:`, allProducts.length);
+        
+        // Get products directly from the productStore
+        if (productIds.length > 0) {
+          const products = allProducts.filter(product => productIds.includes(product._id));
+          
+          // Initialize selected variants
+          const initialVariants = {};
+          products.forEach(product => {
+            initialVariants[product._id] = 0;
+          });
+          setSelectedVariants(initialVariants);
+          
+          // Log product image paths for each product
+          products.forEach(product => {
+            console.log(`[Fetch Collection] Product ${product.name} images:`, {
+              productId: product._id,
+              mainImage: product.image,
+              hasVariants: !!product.variants?.length,
+              variantImage: product.variants?.[0]?.image,
+              variantAdditionalImage: product.variants?.[0]?.additionalImages?.[0]
+            });
+          });
+          
+          console.log(`[Fetch Collection] Found ${products.length} products for collection "${collection.name}"`);
+          setCollectionProducts(products);
+        } else {
+          setCollectionProducts([]);
+          console.log(`[Fetch Collection] Collection "${collection.name}" has no products`);
         }
-        
-        setCollectionProducts(products);
+      } else {
+        console.error(`[Fetch Collection] API call failed:`, response.data.error);
       }
       
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching collection products:', error);
+      console.error('[Fetch Collection] Error:', error);
       setLoading(false);
     }
   };
@@ -254,6 +335,7 @@ const CollectionsPage = () => {
 
   // Group products by category
   const getProductsByCategory = () => {
+    // Just use the filtered products directly, no need for extra processing
     const filtered = getFilteredProducts();
     const groupedProducts = {};
     
@@ -288,9 +370,24 @@ const CollectionsPage = () => {
         return;
       }
       
+      // Validate image URL if provided
+      let collectionData = {...newCollection};
+      
+      if (collectionData.image && !isValidImageUrl(collectionData.image)) {
+        console.warn(`⚠️ [CollectionsPage] Potentially invalid image URL: ${collectionData.image}`);
+        // You can decide to either warn the user or use a fallback:
+        // Option 1: Alert the user (uncomment this if you want to block submission)
+        // alert('The image URL may not be valid. Please check the URL and try again.');
+        // setLoading(false);
+        // return;
+        
+        // Option 2: Use a fallback image or clear it
+        collectionData.image = `https://via.placeholder.com/400x200?text=${encodeURIComponent(collectionData.name || 'Collection')}`;
+      }
+      
       const response = await axios.post(
         `${apiConfig.baseURL}/collections`,
-        newCollection,
+        collectionData,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -300,8 +397,14 @@ const CollectionsPage = () => {
       );
       
       if (response.data.success) {
+        // Ensure image is properly set in the returned data
+        const returnedCollection = response.data.data;
+        if (!returnedCollection.image) {
+          returnedCollection.image = `https://via.placeholder.com/400x200?text=${encodeURIComponent(returnedCollection.name || 'Collection')}`;
+        }
+        
         // Add to store
-        storeAddCollection(response.data.data);
+        storeAddCollection(returnedCollection);
         
         // Show success message
         alert('Collection added successfully!');
@@ -367,9 +470,24 @@ const CollectionsPage = () => {
         return;
       }
       
+      // Validate image URL if provided
+      let collectionData = {...newCollection};
+      
+      if (collectionData.image && !isValidImageUrl(collectionData.image)) {
+        console.warn(`⚠️ [CollectionsPage] Potentially invalid image URL: ${collectionData.image}`);
+        // You can decide to either warn the user or use a fallback:
+        // Option 1: Alert the user (uncomment this if you want to block submission)
+        // alert('The image URL may not be valid. Please check the URL and try again.');
+        // setLoading(false);
+        // return;
+        
+        // Option 2: Use a fallback image or clear it
+        collectionData.image = `https://via.placeholder.com/400x200?text=${encodeURIComponent(collectionData.name || 'Collection')}`;
+      }
+      
       const response = await axios.put(
         `${apiConfig.baseURL}/collections/${editingCollection._id}`,
-        newCollection,
+        collectionData,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -379,8 +497,14 @@ const CollectionsPage = () => {
       );
       
       if (response.data.success) {
+        // Ensure image is properly set in the returned data
+        const returnedCollection = response.data.data;
+        if (!returnedCollection.image) {
+          returnedCollection.image = `https://via.placeholder.com/400x200?text=${encodeURIComponent(returnedCollection.name || 'Collection')}`;
+        }
+        
         // Update in store
-        storeAddCollection(response.data.data);
+        storeAddCollection(returnedCollection);
         
         // Show success message
         alert('Collection updated successfully!');
@@ -487,6 +611,27 @@ const CollectionsPage = () => {
     currentPage * 10
   );
 
+  // Add variant selection function similar to ShopCategory/FashionShop
+  const handleColorSelect = (productId, variantIndex) => {
+    setSelectedVariants(prev => ({
+      ...prev,
+      [productId]: variantIndex
+    }));
+  };
+  
+  // Function to get image from variant similar to other pages
+  const getImageFromVariant = (variant, product) => {
+    return variant?.additionalImages?.[0] || "https://via.placeholder.com/400x500?text=" + encodeURIComponent(product.name);
+  };
+  
+  // Handle product click for possible navigation or other actions
+  const handleProductClick = (product) => {
+    // Get the currently selected variant index for this product
+    const variantIndex = selectedVariants[product._id] || 0;
+    console.log(`Clicked on product: ${product.name}, variant: ${variantIndex}`);
+    // You can add navigation here if needed in the admin context
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -518,7 +663,7 @@ const CollectionsPage = () => {
           
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             {viewingCollectionProducts ? (
-              // View for collection products
+              // Redesigned collection products view to match ShopCategory/FashionShop
               <>
                 <div className="flex justify-between items-center p-4 border-b">
                   <div className="flex items-center">
@@ -535,71 +680,88 @@ const CollectionsPage = () => {
                 </div>
 
                 {collectionProducts.length > 0 ? (
-                  <div className="min-w-full divide-y divide-gray-200">
-                    <div className="bg-gray-50 grid grid-cols-6 gap-4 px-6 py-3">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">
-                        Product
-                      </div>
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Category
-                      </div>
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Price
-                      </div>
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Stock
-                      </div>
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
-                        Actions
-                      </div>
-                    </div>
-                    <div className="bg-white divide-y divide-gray-200">
-                      {collectionProducts.map((product) => (
-                        <div key={product._id} className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50">
-                          <div className="col-span-2">
-                            <div className="flex items-center">
-                              <div className="h-10 w-10 flex-shrink-0">
-                                <img 
-                                  className="h-10 w-10 rounded-lg object-cover" 
-                                  src={product.variants?.[0]?.additionalImages?.[0] || product.image} 
-                                  alt={product.name}
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = 'https://via.placeholder.com/50?text=No+Image';
+                  // New grid layout for products
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
+                    {collectionProducts.map((product) => {
+                      const variantIndex = selectedVariants[product._id] || 0;
+                      const variants = product.variants || [];
+                      const selectedVariant = variants[variantIndex];
+                      
+                      // Determine image to display with proper fallbacks
+                      const mainImage = product.image;
+                      const variantImage = selectedVariant?.image;
+                      const variantAdditionalImage = selectedVariant?.additionalImages?.[0];
+                      const imageToUse = variantAdditionalImage || variantImage || mainImage || 
+                        `https://via.placeholder.com/400x500?text=${encodeURIComponent(product.name || 'Product')}`;
+                      
+                      return (
+                        <div 
+                          key={product._id} 
+                          className="border rounded-lg overflow-hidden hover:shadow-md cursor-pointer"
+                          onClick={() => handleProductClick(product)}
+                        >
+                          <div className="relative">
+                            <div className="aspect-[3/4] overflow-hidden">
+                              <img
+                                src={imageToUse}
+                                alt={product.name}
+                                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                onError={(e) => {
+                                  console.log(`[Image Error] Failed to load image for ${product.name}, using placeholder`);
+                                  e.target.onerror = null;
+                                  e.target.src = `https://via.placeholder.com/400x500?text=${encodeURIComponent(product.name || 'Product')}`;
+                                }}
+                              />
+                            </div>
+                            <div className="p-3">
+                              <h3 className="text-sm font-medium text-gray-900 truncate">{product.name}</h3>
+                              <p className="mt-1 text-sm text-gray-500">
+                                {product.salePrice > 0 ? (
+                                  <>
+                                    <span className="line-through mr-2">GH₵{product.basePrice.toFixed(2)}</span>
+                                    <span className="text-red-600">GH₵{product.salePrice.toFixed(2)}</span>
+                                  </>
+                                ) : (
+                                  `GH₵${product.basePrice?.toFixed(2) || '0.00'}`
+                                )}
+                              </p>
+                              
+                              {/* Variant color selection */}
+                              {variants.length > 0 && (
+                                <div className="mt-2 flex gap-1">
+                                  {variants.map((variant, index) => (
+                                    <button
+                                      key={index}
+                                      className={`w-4 h-4 rounded-full border border-gray-300 ${
+                                        variantIndex === index ? 'ring-1 ring-black ring-offset-1' : ''
+                                      }`}
+                                      style={{ backgroundColor: variant.color || "#000000" }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleColorSelect(product._id, index);
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Remove from collection button */}
+                              <div className="mt-3 flex justify-end">
+                                <button 
+                                  className="text-xs text-red-600 hover:text-red-900 flex items-center"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveProductFromCollection(product._id);
                                   }}
-                                />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                <div className="text-sm text-gray-500">{product.sku || 'No SKU'}</div>
+                                >
+                                  <FaTrash className="mr-1" /> Remove
+                                </button>
                               </div>
                             </div>
                           </div>
-                          <div className="text-sm text-gray-500 self-center">
-                            {product.category}
-                          </div>
-                          <div className="text-sm text-gray-500 self-center">
-                            GH₵ {product.basePrice?.toFixed(2) || "0.00"}
-                          </div>
-                          <div className="text-sm self-center">
-                            <span className={`px-2 py-1 rounded-full text-xs
-                              ${product.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
-                            `}>
-                              {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-                            </span>
-                          </div>
-                          <div className="flex justify-center space-x-3 self-center">
-                            <button 
-                              className="text-red-600 hover:text-red-900"
-                              onClick={() => handleRemoveProductFromCollection(product._id)}
-                              title="Remove from collection"
-                            >
-                              <FaTrash />
-                            </button>
-                          </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-20">
@@ -628,14 +790,15 @@ const CollectionsPage = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
                     {paginatedCollections.map((collection) => (
                       <div key={collection._id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                        <div className="relative h-40 bg-gray-100">
+                        <div className="relative h-40 bg-gray-100 overflow-hidden">
                           <img 
                             src={collection.image} 
                             alt={collection.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                             onError={(e) => {
                               e.target.onerror = null;
-                              e.target.src = `https://via.placeholder.com/400x200?text=${encodeURIComponent(collection.name)}`;
+                              // Set placeholder with collection name
+                              e.target.src = `https://via.placeholder.com/400x200?text=${encodeURIComponent(collection.name || 'Collection')}`;
                             }}
                           />
                           {collection.featured && (
@@ -799,9 +962,15 @@ const CollectionsPage = () => {
                           className="h-32 w-full object-cover rounded-md"
                           onError={(e) => {
                             e.target.onerror = null;
-                            e.target.src = 'https://via.placeholder.com/400x200?text=Invalid+Image+URL';
+                            e.target.src = `https://via.placeholder.com/400x200?text=${encodeURIComponent(newCollection.name || 'Invalid Image URL')}`;
+                            console.log(`⚠️ [CollectionsPage] Preview image failed to load: ${newCollection.image}`);
                           }}
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                          {isValidImageUrl(newCollection.image) ? 
+                            '✓ Valid image URL' : 
+                            '⚠️ This might not be a valid image URL. Make sure it points directly to an image file.'}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -848,32 +1017,58 @@ const CollectionsPage = () => {
                           
                           {expandedCategories.includes(category) && (
                             <div className="pl-4 pb-2">
-                              {products.map(product => (
-                                <div 
-                                  key={product._id} 
-                                  className={`flex items-center p-2 cursor-pointer hover:bg-gray-50 border-l-2 ${isProductSelected(product._id) ? 'border-purple-500' : 'border-transparent'}`}
-                                  onClick={() => toggleProductSelection(product._id)}
-                                >
-                                  <div className="w-8 h-8 mr-3 flex-shrink-0">
-                                    <img 
-                                      src={product.image || product.variants?.[0]?.additionalImages?.[0]} 
-                                      alt={product.name}
-                                      className="w-8 h-8 object-cover rounded-sm"
-                                      onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.src = 'https://via.placeholder.com/80?text=Product';
-                                      }}
-                                    />
+                              {products.map(product => {
+                                // Log product selection image source paths
+                                const mainImage = product.image;
+                                const variantImage = product.variants && product.variants[0]?.image;
+                                const variantAdditionalImage = product.variants && product.variants[0]?.additionalImages && product.variants[0]?.additionalImages[0];
+                                const placeholderImage = `https://via.placeholder.com/80?text=${encodeURIComponent(product.name || 'Product')}`;
+                                
+                                // Determine which image will be used
+                                const imageToUse = mainImage || variantImage || variantAdditionalImage || placeholderImage;
+                                
+                                if (isProductSelected(product._id)) {
+                                  console.log(`[Selected Product] ${product.name}:`, {
+                                    productId: product._id,
+                                    mainImage,
+                                    variantImage,
+                                    variantAdditionalImage,
+                                    imageUsed: imageToUse
+                                  });
+                                }
+                                
+                                return (
+                                  <div 
+                                    key={product._id} 
+                                    className={`flex items-center p-2 cursor-pointer hover:bg-gray-50 border-l-2 ${isProductSelected(product._id) ? 'border-purple-500' : 'border-transparent'}`}
+                                    onClick={() => toggleProductSelection(product._id)}
+                                  >
+                                    <div className="w-8 h-8 mr-3 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                                      <img 
+                                        src={imageToUse} 
+                                        alt={product.name}
+                                        className="w-8 h-8 object-cover"
+                                        onError={(e) => {
+                                          console.log(`[Selection Image Error] Failed to load image for ${product.name}, using placeholder`);
+                                          e.target.onerror = null;
+                                          e.target.src = placeholderImage;
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                      <p className="text-xs text-gray-500">
+                                        {typeof product.basePrice === 'number' ? 
+                                          `GH₵ ${product.basePrice.toFixed(2)}` : 
+                                          product.basePrice || "GH₵ 0.00"}
+                                      </p>
+                                    </div>
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isProductSelected(product._id) ? 'bg-purple-500 text-white' : 'border border-gray-300'}`}>
+                                      {isProductSelected(product._id) && <FaCheck className="w-3 h-3" />}
+                                    </div>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                                    <p className="text-xs text-gray-500">GH₵{product.basePrice?.toFixed(2) || "0.00"}</p>
-                                  </div>
-                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isProductSelected(product._id) ? 'bg-purple-500 text-white' : 'border border-gray-300'}`}>
-                                    {isProductSelected(product._id) && <FaCheck className="w-3 h-3" />}
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -992,9 +1187,15 @@ const CollectionsPage = () => {
                           className="h-32 w-full object-cover rounded-md"
                           onError={(e) => {
                             e.target.onerror = null;
-                            e.target.src = 'https://via.placeholder.com/400x200?text=Invalid+Image+URL';
+                            e.target.src = `https://via.placeholder.com/400x200?text=${encodeURIComponent(newCollection.name || 'Invalid Image URL')}`;
+                            console.log(`⚠️ [CollectionsPage] Preview image failed to load: ${newCollection.image}`);
                           }}
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                          {isValidImageUrl(newCollection.image) ? 
+                            '✓ Valid image URL' : 
+                            '⚠️ This might not be a valid image URL. Make sure it points directly to an image file.'}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1041,32 +1242,58 @@ const CollectionsPage = () => {
                           
                           {expandedCategories.includes(category) && (
                             <div className="pl-4 pb-2">
-                              {products.map(product => (
-                                <div 
-                                  key={product._id} 
-                                  className={`flex items-center p-2 cursor-pointer hover:bg-gray-50 border-l-2 ${isProductSelected(product._id) ? 'border-purple-500' : 'border-transparent'}`}
-                                  onClick={() => toggleProductSelection(product._id)}
-                                >
-                                  <div className="w-8 h-8 mr-3 flex-shrink-0">
-                                    <img 
-                                      src={product.image || product.variants?.[0]?.additionalImages?.[0]} 
-                                      alt={product.name}
-                                      className="w-8 h-8 object-cover rounded-sm"
-                                      onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.src = 'https://via.placeholder.com/80?text=Product';
-                                      }}
-                                    />
+                              {products.map(product => {
+                                // Log product selection image source paths
+                                const mainImage = product.image;
+                                const variantImage = product.variants && product.variants[0]?.image;
+                                const variantAdditionalImage = product.variants && product.variants[0]?.additionalImages && product.variants[0]?.additionalImages[0];
+                                const placeholderImage = `https://via.placeholder.com/80?text=${encodeURIComponent(product.name || 'Product')}`;
+                                
+                                // Determine which image will be used
+                                const imageToUse = mainImage || variantImage || variantAdditionalImage || placeholderImage;
+                                
+                                if (isProductSelected(product._id)) {
+                                  console.log(`[Selected Product] ${product.name}:`, {
+                                    productId: product._id,
+                                    mainImage,
+                                    variantImage,
+                                    variantAdditionalImage,
+                                    imageUsed: imageToUse
+                                  });
+                                }
+                                
+                                return (
+                                  <div 
+                                    key={product._id} 
+                                    className={`flex items-center p-2 cursor-pointer hover:bg-gray-50 border-l-2 ${isProductSelected(product._id) ? 'border-purple-500' : 'border-transparent'}`}
+                                    onClick={() => toggleProductSelection(product._id)}
+                                  >
+                                    <div className="w-8 h-8 mr-3 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                                      <img 
+                                        src={imageToUse} 
+                                        alt={product.name}
+                                        className="w-8 h-8 object-cover"
+                                        onError={(e) => {
+                                          console.log(`[Selection Image Error] Failed to load image for ${product.name}, using placeholder`);
+                                          e.target.onerror = null;
+                                          e.target.src = placeholderImage;
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                      <p className="text-xs text-gray-500">
+                                        {typeof product.basePrice === 'number' ? 
+                                          `GH₵ ${product.basePrice.toFixed(2)}` : 
+                                          product.basePrice || "GH₵ 0.00"}
+                                      </p>
+                                    </div>
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isProductSelected(product._id) ? 'bg-purple-500 text-white' : 'border border-gray-300'}`}>
+                                      {isProductSelected(product._id) && <FaCheck className="w-3 h-3" />}
+                                    </div>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                                    <p className="text-xs text-gray-500">GH₵{product.basePrice?.toFixed(2) || "0.00"}</p>
-                                  </div>
-                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isProductSelected(product._id) ? 'bg-purple-500 text-white' : 'border border-gray-300'}`}>
-                                    {isProductSelected(product._id) && <FaCheck className="w-3 h-3" />}
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>

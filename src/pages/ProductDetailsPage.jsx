@@ -69,7 +69,7 @@ const ProductDetailsPage = () => {
     if (products.length > 0 && id) {
       // Find the product in the store by ID
       const storeProduct = products.find(p => p._id === id || p._id === location.state?.productId);
-      
+    
       if (storeProduct) {
         // If we found the product, use it
         setProduct(storeProduct);
@@ -83,11 +83,11 @@ const ProductDetailsPage = () => {
         if (storeProduct.sizes && storeProduct.sizes.length > 0) {
           setSelectedSize(storeProduct.sizes[0]);
         }
-      } else {
+    } else {
         // If product not found, show error and navigate back
         error('Product not found');
         navigate(-1);
-      }
+    }
     }
   }, [id, products, location.state, navigate, error]);
   
@@ -182,7 +182,7 @@ const ProductDetailsPage = () => {
       error('Failed to add item to cart');
       console.error('Cart error:', err);
     } finally {
-      setAddingToCart(false);
+        setAddingToCart(false);
     }
   };
   
@@ -191,9 +191,9 @@ const ProductDetailsPage = () => {
     // Validate size selection first if sizes are available
     if (!selectedSize && product.sizes && product.sizes.length > 0) {
       error('Please select a size first');
-      return;
-    }
-    
+        return;
+      }
+      
     // Get variant information if available
     const variantInfo = product.variants && product.variants.length > 0
       ? {
@@ -217,15 +217,15 @@ const ProductDetailsPage = () => {
     // Prepare product information for checkout
     const checkoutProductInfo = {
       id: product._id,
-      name: product.name,
+            name: product.name,
       price: formattedPrice,
       image: variantInfo.image || `https://via.placeholder.com/400x500?text=${encodeURIComponent(product.name)}`,
       selectedColor: variantInfo.color,
       colorName: variantInfo.colorName || 'Default',
       size: selectedSize || 'One Size',
-      quantity: quantity,
+            quantity: quantity,
       variants: product.variants || [],
-      currentVariantIndex: selectedVariantIndex
+            currentVariantIndex: selectedVariantIndex
     };
     
     // Navigate directly to checkout with product info
@@ -245,8 +245,8 @@ const ProductDetailsPage = () => {
     // Navigate to the similar product's page
     // We'll pass minimal information and let the product details page 
     // load the complete product information from the store
-    navigate(`/product/${similarProduct.id}`, { 
-      state: { 
+    navigate(`/product/${similarProduct.id}`, {
+      state: {
         productId: similarProduct.id,
         variantIndex: 0
       }
@@ -555,119 +555,119 @@ const ProductDetailsPage = () => {
             
             {/* Only show color selection if variants exist */}
             {product.variants && product.variants.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-900">Color</h3>
-                <div className="flex items-center space-x-3 mt-2">
-                  {product.variants.map((variant, index) => (
-                    <button
-                      key={index}
-                      className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${
-                        selectedVariantIndex === index 
-                          ? 'border-black ring-2 ring-black ring-offset-2' 
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      style={{ backgroundColor: variant.color }}
-                      onClick={() => handleVariantSelect(index)}
-                      aria-label={variant.colorName}
-                      title={variant.colorName}
-                    />
-                  ))}
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  {product.variants[selectedVariantIndex]?.colorName || ''}
-                </p>
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-900">Color</h3>
+              <div className="flex items-center space-x-3 mt-2">
+                {product.variants.map((variant, index) => (
+                  <button
+                    key={index}
+                    className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${
+                      selectedVariantIndex === index 
+                        ? 'border-black ring-2 ring-black ring-offset-2' 
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{ backgroundColor: variant.color }}
+                    onClick={() => handleVariantSelect(index)}
+                    aria-label={variant.colorName}
+                    title={variant.colorName}
+                  />
+                ))}
               </div>
+              <p className="mt-1 text-sm text-gray-500">
+                  {product.variants[selectedVariantIndex]?.colorName || ''}
+              </p>
+            </div>
             )}
             
             {/* Only show size selection if sizes exist */}
             {product.sizes && product.sizes.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-900">Size</h3>
-                <div className="grid grid-cols-5 gap-2 mt-2">
-                  {product.sizes.map((size) => (
-                    <button
-                      key={size}
-                      className={`py-2 px-3 border rounded-md text-sm font-medium ${
-                        selectedSize === size
-                          ? 'bg-black text-white border-black'
-                          : 'border-gray-300 text-gray-700 hover:border-gray-600'
-                      }`}
-                      onClick={() => handleSizeSelect(size)}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center mt-2 text-sm text-gray-500">
-                  <Ruler className="w-4 h-4 mr-1" />
-                  <button className="underline" onClick={() => setShowSizeGuide(true)}>Size Guide</button>
-                </div>
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-900">Size</h3>
+              <div className="grid grid-cols-5 gap-2 mt-2">
+                {product.sizes.map((size) => (
+                  <button
+                    key={size}
+                    className={`py-2 px-3 border rounded-md text-sm font-medium ${
+                      selectedSize === size
+                        ? 'bg-black text-white border-black'
+                        : 'border-gray-300 text-gray-700 hover:border-gray-600'
+                    }`}
+                    onClick={() => handleSizeSelect(size)}
+                  >
+                    {size}
+                  </button>
+                ))}
               </div>
+              <div className="flex items-center mt-2 text-sm text-gray-500">
+                <Ruler className="w-4 h-4 mr-1" />
+                <button className="underline" onClick={() => setShowSizeGuide(true)}>Size Guide</button>
+              </div>
+            </div>
             )}
             
             {/* Only show quantity selection if in stock */}
             {isInStock && (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-900">Quantity</h3>
-                <div className="flex items-center mt-2 border border-gray-300 rounded-md w-32">
-                  <button
-                    className="px-3 py-1 text-gray-600 hover:text-gray-900"
-                    onClick={() => handleQuantityChange(quantity - 1)}
-                    disabled={quantity <= 1}
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min="1"
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-900">Quantity</h3>
+              <div className="flex items-center mt-2 border border-gray-300 rounded-md w-32">
+                <button
+                  className="px-3 py-1 text-gray-600 hover:text-gray-900"
+                  onClick={() => handleQuantityChange(quantity - 1)}
+                  disabled={quantity <= 1}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  min="1"
                     max={stockQuantity}
-                    value={quantity}
+                  value={quantity}
                     onChange={(e) => handleQuantityChange(Math.min(parseInt(e.target.value) || 1, stockQuantity))}
-                    className="w-full text-center py-1 border-x border-gray-300"
-                  />
-                  <button
-                    className="px-3 py-1 text-gray-600 hover:text-gray-900"
+                  className="w-full text-center py-1 border-x border-gray-300"
+                />
+                <button
+                  className="px-3 py-1 text-gray-600 hover:text-gray-900"
                     onClick={() => handleQuantityChange(Math.min(quantity + 1, stockQuantity))}
                     disabled={quantity >= stockQuantity}
-                  >
-                    +
-                  </button>
-                </div>
+                >
+                  +
+                </button>
               </div>
+            </div>
             )}
             
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
               {isInStock ? (
                 <>
-                  <button
-                    type="button"
-                    disabled={addingToCart}
-                    className={`flex-1 ${
-                      addingToCart 
-                        ? 'bg-gray-700 border border-gray-700' 
-                        : 'bg-black border border-black hover:bg-gray-900'
-                    } text-white py-3 px-6 rounded-md font-medium transition-colors duration-200 flex items-center justify-center`}
-                    onClick={handleAddToCart}
-                  >
-                    {addingToCart ? (
-                      <>
-                        <Check className="w-5 h-5 mr-2 animate-pulse" />
-                        Added
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-5 h-5 mr-2" />
-                        Add to Cart
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 bg-white border border-black text-black py-3 px-6 rounded-md hover:bg-gray-100 font-medium transition-colors"
-                    onClick={handleBuyNow}
-                  >
-                    Buy Now
-                  </button>
+              <button
+                type="button"
+                disabled={addingToCart}
+                className={`flex-1 ${
+                  addingToCart 
+                    ? 'bg-gray-700 border border-gray-700' 
+                    : 'bg-black border border-black hover:bg-gray-900'
+                } text-white py-3 px-6 rounded-md font-medium transition-colors duration-200 flex items-center justify-center`}
+                onClick={handleAddToCart}
+              >
+                {addingToCart ? (
+                  <>
+                    <Check className="w-5 h-5 mr-2 animate-pulse" />
+                    Added
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag className="w-5 h-5 mr-2" />
+                    Add to Cart
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                className="flex-1 bg-white border border-black text-black py-3 px-6 rounded-md hover:bg-gray-100 font-medium transition-colors"
+                onClick={handleBuyNow}
+              >
+                Buy Now
+              </button>
                 </>
               ) : (
                 <button
@@ -769,11 +769,11 @@ const ProductDetailsPage = () => {
             {activeTab === 'details' && (
               <div className="prose max-w-none">
                 {product.details && product.details.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-2">
-                    {product.details.map((detail, index) => (
-                      <li key={index}>{detail}</li>
-                    ))}
-                  </ul>
+                <ul className="list-disc pl-5 space-y-2">
+                  {product.details.map((detail, index) => (
+                    <li key={index}>{detail}</li>
+                  ))}
+                </ul>
                 ) : (
                   <p>No additional details available for this product.</p>
                 )}
@@ -845,27 +845,27 @@ const ProductDetailsPage = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {similarProducts && similarProducts.length > 0 ? (
               similarProducts.map((similarProduct) => (
-                <div 
-                  key={similarProduct.id} 
-                  className="cursor-pointer"
-                  onClick={() => handleSimilarProductClick(similarProduct)}
-                >
-                  <div className="aspect-[3/4] rounded-md overflow-hidden bg-gray-100">
-                    <img
-                      src={similarProduct.image}
-                      alt={similarProduct.name}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              <div 
+                key={similarProduct.id} 
+                className="cursor-pointer"
+                onClick={() => handleSimilarProductClick(similarProduct)}
+              >
+                <div className="aspect-[3/4] rounded-md overflow-hidden bg-gray-100">
+                  <img
+                    src={similarProduct.image}
+                    alt={similarProduct.name}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = `https://via.placeholder.com/400x500?text=${encodeURIComponent(similarProduct.name)}`;
                       }}
-                    />
-                  </div>
-                  <div className="mt-2">
-                    <h3 className="text-sm font-medium text-gray-900 truncate">{similarProduct.name}</h3>
-                    <p className="mt-1 text-sm text-gray-500">{similarProduct.price}</p>
-                  </div>
+                  />
                 </div>
+                <div className="mt-2">
+                  <h3 className="text-sm font-medium text-gray-900 truncate">{similarProduct.name}</h3>
+                  <p className="mt-1 text-sm text-gray-500">{similarProduct.price}</p>
+                </div>
+              </div>
               ))
             ) : (
               <div className="col-span-full text-center py-8">

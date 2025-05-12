@@ -115,17 +115,27 @@ export const useCollectionsStore = create(
           const data = await response.json();
           
           if (data.success) {
-            set({ collections: data.data });
+            // Ensure image URLs are properly formatted
+            const processedCollections = data.data.map(collection => ({
+              ...collection,
+              // Ensure image property exists and is a valid URL or use a placeholder
+              image: collection.image || `https://via.placeholder.com/400x200?text=${encodeURIComponent(collection.name || 'Collection')}`
+            }));
+            
+            set({ collections: processedCollections });
             
             // Update derived state
-            const featuredCollections = data.data.filter(c => c.featured);
+            const featuredCollections = processedCollections.filter(c => c.featured);
             
             set({ 
               featuredCollections
             });
+            
+            console.log('✅ [collectionsStore] Fetched and processed collections:', processedCollections.length);
+            return processedCollections;
           }
         } catch (error) {
-          console.error('Error fetching collections:', error);
+          console.error('❌ [collectionsStore] Error fetching collections:', error);
         }
       }
     }),

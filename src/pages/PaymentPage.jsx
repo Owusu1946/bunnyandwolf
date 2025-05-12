@@ -81,6 +81,17 @@ const PaymentPage = () => {
     }
   }, [location.state]);
 
+  // Initialize form data from orderInfo when component mounts
+  useEffect(() => {
+    if (orderInfo) {
+      setFormData({
+        amount: orderInfo.total ? String(orderInfo.total).replace(/[GH₵\s]/g, '') : '0',
+        email: orderInfo.customerInfo?.email || orderInfo.contactInfo?.email || '',
+        note: getOrderNote()
+      });
+    }
+  }, [orderInfo]);
+
   // Helper function to get note from order info
   const getOrderNote = () => {
     if (!orderInfo || !orderInfo.products) return 'Order payment';
@@ -107,14 +118,6 @@ const PaymentPage = () => {
     if (price === undefined || price === null) return 'GH₵0.00';
     if (typeof price === 'string' && price.includes('GH₵')) return price;
     return `GH₵${typeof price === 'number' ? price.toFixed(2) : '0.00'}`;
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
   };
 
   const handleReceiptLinkChange = (e) => {
@@ -218,6 +221,7 @@ const PaymentPage = () => {
       // Get the amount and note parameters
       const amount = parsePrice(orderInfo?.total || formData.amount);
       const note = formData.note || getOrderNote();
+      const email = formData.email || orderInfo?.customerInfo?.email || orderInfo?.contactInfo?.email || '';
       
       // Create a transaction record with a unique ID
       const transactionId = `CHIP-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -469,107 +473,71 @@ const PaymentPage = () => {
 
                 {paymentStatus === 'initial' && (
                   <>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                      <p className="text-green-800">
-                        You'll be redirected to Chipper Cash to complete your payment safely and securely.
-                      </p>
-                    </div>
-                    
-                    <div className="mb-6">
-                      <img 
-                        src="https://www.chippercash.com/img/logos/wordmark.svg" 
-                        alt="Chipper Cash" 
-                        className="h-10 mx-auto mb-4"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://via.placeholder.com/200x50?text=Chipper+Cash';
-                        }}
-                      />
-                      <p className="text-center text-sm text-gray-600">
-                        Fast, secure payments across Africa
-                      </p>
-                    </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <p className="text-green-800">
+                    You'll be redirected to Chipper Cash to complete your payment safely and securely.
+                  </p>
+                </div>
+                
+                <div className="mb-6">
+                  <img 
+                        src="https://play-lh.googleusercontent.com/EzUq7fHrWw2DQR9KfTu3-vhpwOn5Ffiyd9rYHVlphPItqBqMBZP4o5XWQhPCFikPbNID" 
+                    alt="Chipper Cash" 
+                    className="h-10 mx-auto mb-4"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://via.placeholder.com/200x50?text=Chipper+Cash';
+                    }}
+                  />
+                  <p className="text-center text-sm text-gray-600">
+                    Fast, secure payments across Africa
+                  </p>
+            </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Amount</label>
-                        <div className="mt-1 relative rounded-md shadow-sm">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <span className="text-gray-500 sm:text-sm">GH₵</span>
-                          </div>
-                          <input
-                            type="text"
-                            name="amount"
-                            value={formData.amount}
-                            readOnly
-                              className="block w-full pl-12 py-3 px-4 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Email Address</label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          className="mt-1 block w-full py-3 px-4 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="you@example.com"
-                          required
-                        />
-                      </div>
-                          
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Payment Note</label>
-                        <input
-                          type="text"
-                          name="note"
-                          value={formData.note}
-                          onChange={handleChange}
-                          className="mt-1 block w-full py-3 px-4 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Order payment"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                          This will appear in your Chipper Cash transaction history
-                        </p>
-                      </div>
+                    <div className="py-4 px-6 bg-blue-50 rounded-lg mb-6">
+                      <div className="flex justify-between">
+                        <span className="font-medium text-gray-700">Order Total:</span>
+                        <span className="font-bold text-lg">{safelyFormatPrice(orderInfo?.total || formData.amount)}</span>
                     </div>
+                      <div className="mt-2 text-sm text-gray-500">
+                        Payment will be processed through Chipper Cash
+                    </div>
+                  </div>
 
-                    <button
-                      type="button"
-                      onClick={handleChipperCashPayment}
-                      disabled={isProcessing}
-                      className="w-full bg-[#0066F5] text-white py-4 px-4 rounded-xl hover:bg-blue-700 transition-colors duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium text-lg mt-6"
-                    >
-                      {isProcessing ? (
-                        <div className="flex items-center justify-center">
-                          <svg
-                            className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Processing...
-                        </div>
-                      ) : (
-                        `Pay with Chipper Cash ${safelyFormatPrice(orderInfo?.total || formData.amount)}`
-                      )}
-                    </button>
+                <button
+                  type="button"
+                  onClick={handleChipperCashPayment}
+                  disabled={isProcessing}
+                  className="w-full bg-[#0066F5] text-white py-4 px-4 rounded-xl hover:bg-blue-700 transition-colors duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium text-lg mt-6"
+                >
+                  {isProcessing ? (
+                    <div className="flex items-center justify-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Processing...
+                    </div>
+                  ) : (
+                    `Pay with Chipper Cash ${safelyFormatPrice(orderInfo?.total || formData.amount)}`
+                  )}
+                </button>
                   </>
                 )}
 

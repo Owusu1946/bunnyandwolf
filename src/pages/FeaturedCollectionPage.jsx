@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaFilter, FaStar, FaHeart, FaRegHeart, FaChevronDown, FaSearch } from 'react-icons/fa';
+import { FaFilter, FaStar, FaHeart, FaRegHeart, FaChevronDown, FaSearch, FaArrowLeft } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useCollectionsStore } from '../store/collectionsStore';
@@ -145,45 +145,59 @@ const FeaturedCollectionPage = () => {
     setSortOption('featured');
   };
 
-  // Get best product image
+  // Get best product image - improved version with better fallbacks
   const getProductImage = (product) => {
-    // Try to get main product image
-    if (product.image && product.image.startsWith('http')) {
+    // Check if product exists
+    if (!product) return "https://via.placeholder.com/300x400?text=Sinosply";
+    
+    const variantIndex = hoveredProduct === product._id ? 1 : 0;
+    
+    // First, try to get variant's additionalImages (this has higher quality images)
+    if (product.variants && product.variants.length > 0) {
+      const variant = product.variants[0];
+      if (variant.additionalImages && variant.additionalImages.length > 0) {
+        return variant.additionalImages[0];
+      }
+      
+      // Then try the variant's main image
+      if (variant.image) {
+        return variant.image;
+      }
+    }
+    
+    // Then try the product's main image
+    if (product.image) {
       return product.image;
     }
     
-    // Try to get first variant image
+    // Finally use placeholder
+    return `https://via.placeholder.com/300x400?text=${encodeURIComponent(product.name || 'Sinosply')}`;
+  };
+
+  // Get secondary product image for hover effect - improved version
+  const getSecondaryImage = (product) => {
+    // Check if product exists
+    if (!product) return "https://via.placeholder.com/300x400?text=Sinosply";
+    
+    // First try to get a second variant image if available
     if (product.variants && product.variants.length > 0) {
-      const variantImages = product.variants[0].images;
-      if (variantImages && variantImages.length > 0 && variantImages[0].startsWith('http')) {
-        return variantImages[0];
+      const variant = product.variants[0];
+      if (variant.additionalImages && variant.additionalImages.length > 1) {
+        return variant.additionalImages[1];
+      }
+      
+      // Then try a different variant if available
+      if (product.variants.length > 1 && product.variants[1].additionalImages && product.variants[1].additionalImages.length > 0) {
+        return product.variants[1].additionalImages[0];
       }
     }
     
-    // Try secondary images if available
-    if (product.images && product.images.length > 0 && product.images[0].startsWith('http')) {
-      return product.images[0];
-    }
-    
-    // Return placeholder if no valid image found
-    return "https://via.placeholder.com/300x400?text=Sinosply";
-  };
-
-  // Get secondary product image for hover effect
-  const getSecondaryImage = (product) => {
-    // Check if product has multiple images or variants with images
-    if (product.images && product.images.length > 1 && product.images[1].startsWith('http')) {
+    // Then try the product's secondary images
+    if (product.images && product.images.length > 1) {
       return product.images[1];
     }
     
-    if (product.variants && product.variants.length > 0) {
-      const variantImages = product.variants[0].images;
-      if (variantImages && variantImages.length > 1 && variantImages[1].startsWith('http')) {
-        return variantImages[1];
-      }
-    }
-    
-    // Return the same primary image if no secondary image available
+    // Fallback to the same primary image if no secondary image available
     return getProductImage(product);
   };
 
@@ -197,6 +211,15 @@ const FeaturedCollectionPage = () => {
 
       {/* Collection Banner */}
       <div className="relative w-full h-[50vh] bg-gray-900 overflow-hidden">
+        {/* Back Button */}
+        <Link 
+          to="/" 
+          className="absolute top-4 left-4 z-20 bg-white bg-opacity-80 hover:bg-white text-black p-3 rounded-full shadow-md transition-all duration-200 flex items-center justify-center"
+          aria-label="Back to collections"
+        >
+          <FaArrowLeft className="text-lg" />
+        </Link>
+        
         {collection?.image ? (
           <div className="w-full h-full">
             <img 
@@ -433,8 +456,9 @@ const FeaturedCollectionPage = () => {
                             className={`w-full h-full object-cover transition-opacity duration-300 ${hoveredProduct === product._id ? 'opacity-0' : 'opacity-100'}`}
                             onLoad={() => handleImageLoaded(product._id)}
                             onError={(e) => {
+                              console.log(`[Image Error] Failed to load image for ${product.name}, using placeholder`);
                               e.target.onerror = null;
-                              e.target.src = "https://via.placeholder.com/300x400?text=Sinosply";
+                              e.target.src = `https://via.placeholder.com/300x400?text=${encodeURIComponent(product.name || 'Sinosply')}`;
                             }}
                           />
                           {/* Secondary/Hover Image */}
@@ -443,6 +467,7 @@ const FeaturedCollectionPage = () => {
                             alt={`${product.name} alternate view`}
                             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hoveredProduct === product._id ? 'opacity-100' : 'opacity-0'}`}
                             onError={(e) => {
+                              console.log(`[Image Error] Failed to load secondary image for ${product.name}, using primary image`);
                               e.target.onerror = null;
                               e.target.src = getProductImage(product);
                             }}

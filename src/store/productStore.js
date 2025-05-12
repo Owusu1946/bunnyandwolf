@@ -143,6 +143,55 @@ export const useProductStore = create(
         filteredProducts: []
       }),
       
+      // Update product stock levels after an order is placed
+      updateStockAfterOrder: (orderedItems) => {
+        if (!orderedItems || !orderedItems.length) return;
+        
+        console.log('Updating local product stock levels after order');
+        
+        const products = get().products;
+        const updatedProducts = [...products];
+        let stockUpdated = false;
+        
+        // Process each ordered item
+        orderedItems.forEach(item => {
+          const productId = item.productId || item.id;
+          const quantity = parseInt(item.quantity) || 1;
+          
+          if (!productId) {
+            console.warn('No product ID found for item:', item.name);
+            return;
+          }
+          
+          // Find product and update stock
+          const index = updatedProducts.findIndex(p => p._id === productId);
+          
+          if (index !== -1) {
+            const product = updatedProducts[index];
+            const currentStock = product.stock || 0;
+            const newStock = Math.max(0, currentStock - quantity); // Prevent negative stock
+            
+            // Update product stock in local store
+            updatedProducts[index] = {
+              ...product,
+              stock: newStock
+            };
+            
+            console.log(`Local stock updated for ${product.name}: ${currentStock} → ${newStock}`);
+            stockUpdated = true;
+          }
+        });
+        
+        // Only update state if any products were actually updated
+        if (stockUpdated) {
+          set({ products: updatedProducts });
+          
+          // Update derived state
+          const featuredProducts = updatedProducts.filter(p => p.isFeatured);
+          set({ featuredProducts });
+        }
+      },
+      
       // Fetch products from API
       fetchProductsFromAPI: async () => {
         try {
