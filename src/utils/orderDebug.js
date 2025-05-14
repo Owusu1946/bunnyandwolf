@@ -1,4 +1,5 @@
 import axios from 'axios';
+import apiConfig from '../config/apiConfig';
 
 /**
  * Order Testing Utility
@@ -7,7 +8,8 @@ import axios from 'axios';
  * the order creation and retrieval functionality.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+// Use apiConfig for API URL instead of hardcoding
+const API_URL = apiConfig.baseURL;
 
 /**
  * Get diagnostic information about orders

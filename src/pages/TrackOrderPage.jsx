@@ -17,6 +17,7 @@ import {
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useOrderStore } from '../store/orderStore';
+import apiConfig from '../config/apiConfig';
 
 const TrackOrderPage = () => {
   const { trackingNumber } = useParams();
@@ -29,8 +30,8 @@ const TrackOrderPage = () => {
   const [currentStatus, setCurrentStatus] = useState('');
   const [packageHistory, setPackageHistory] = useState([]);
   
-  // Backend API URL - Fixed for Vite
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+  // API URL - Update with environment variable
+  const API_URL = apiConfig.baseURL;
   
   // Mock delivery statuses and their corresponding stages
   const deliveryStages = [

@@ -34,6 +34,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useOrderStore } from '../store/orderStore';
 import { useProductStore } from '../store/productStore';
+import apiConfig from '../config/apiConfig';
 
 const OrderConfirmationPage = () => {
   const location = useLocation();
@@ -55,7 +56,7 @@ const OrderConfirmationPage = () => {
   const productStore = useProductStore();
   
   // API URL - Fixed for Vite
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+  const API_URL = apiConfig.baseURL;
   
   // Generate a random tracking number
   const generateTrackingNumber = () => {

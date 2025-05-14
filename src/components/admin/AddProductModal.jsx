@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { FaTimes, FaUpload, FaSave, FaStar } from 'react-icons/fa';
 import axios from 'axios';
+import apiConfig from '../../config/apiConfig';
 
 const AddProductModal = ({ isOpen, onClose, onProductAdded }) => {
   const [loading, setLoading] = useState(false);
@@ -55,7 +56,7 @@ const AddProductModal = ({ isOpen, onClose, onProductAdded }) => {
         productData.append(key, formData[key]);
       });
       
-      const response = await axios.post('http://localhost:5000/api/v1/products', productData, {
+      const response = await axios.post(`${apiConfig.baseURL}/products`, productData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${localStorage.getItem('token')}`

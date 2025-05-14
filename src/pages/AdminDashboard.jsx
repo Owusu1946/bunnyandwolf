@@ -12,6 +12,7 @@ import { useCustomersStore } from '../store/customersStore';
 import { useOrderStore } from '../store/orderStore';
 import { useProductStore } from '../store/productStore';
 import { useSidebar } from '../context/SidebarContext';
+import apiConfig from '../config/apiConfig';
 
 // Mock data for the line chart
 const userAnalyticsData = [
@@ -160,7 +161,7 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/v1/admin/basic-stats', {
+      const response = await axios.get(`${apiConfig.baseURL}/admin/basic-stats`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         }

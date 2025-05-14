@@ -1,5 +1,6 @@
-// API URLs
-export const API_BASE_URL = 'http://localhost:5000/api/v1';
+// API URLs - use apiConfig.baseURL instead of hardcoding here
+import apiConfig from './apiConfig';
+export const API_BASE_URL = apiConfig.baseURL;
 
 // Fixed values
 export const LOW_STOCK_THRESHOLD = 10;

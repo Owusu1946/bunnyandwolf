@@ -1,11 +1,10 @@
 import { create } from 'zustand';
 import axios from 'axios';
-import { API_BASE_URL } from '../config/constants';
+import apiConfig from '../config/apiConfig';
 // Import ToastManager only when needed, not at the store level
 
-// Default API URL as fallback
-const DEFAULT_API_URL = 'http://localhost:5000/api/v1';
-const apiUrl = API_BASE_URL || DEFAULT_API_URL;
+// Use apiConfig for API URL
+const apiUrl = apiConfig.baseURL;
 
 const useCouponStore = create((set, get) => ({
   coupons: [],
