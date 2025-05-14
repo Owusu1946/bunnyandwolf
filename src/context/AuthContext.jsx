@@ -14,6 +14,28 @@ export const AuthProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(true);
 
+  // Enhanced setUser function to also store userId separately
+  const handleSetUser = (userData) => {
+    if (userData) {
+      // Store full user object in localStorage
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Also store userId separately for easier access
+      if (userData._id) {
+        localStorage.setItem('userId', userData._id);
+        console.log('✅ [AuthContext] User ID stored separately:', userData._id);
+      }
+      
+      // Update React state
+      setUser(userData);
+    } else {
+      // If userData is null, clear user data
+      localStorage.removeItem('user');
+      localStorage.removeItem('userId');
+      setUser(null);
+    }
+  };
+
   // Validate token on initial load
   useEffect(() => {
     const validateToken = async () => {
@@ -33,7 +55,13 @@ export const AuthProvider = ({ children }) => {
           console.log('✅ [AuthContext] Token verified successfully');
           const storedUser = localStorage.getItem('user');
           if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+            
+            // Also ensure userId is stored separately
+            if (userData._id) {
+              localStorage.setItem('userId', userData._id);
+            }
           }
         } else {
           // If token is invalid, logout
@@ -80,6 +108,7 @@ export const AuthProvider = ({ children }) => {
     // Clear localStorage
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     localStorage.removeItem('rememberMe');
     
     // Reset user state
@@ -91,7 +120,7 @@ export const AuthProvider = ({ children }) => {
   // Provide the context value
   const value = {
     user,
-    setUser,
+    setUser: handleSetUser,
     logout,
     loading,
     isAuthenticated: !!user

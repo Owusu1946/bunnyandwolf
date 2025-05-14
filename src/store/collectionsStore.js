@@ -115,11 +115,11 @@ export const useCollectionsStore = create(
           const data = await response.json();
           
           if (data.success) {
-            // Ensure image URLs are properly formatted
+            // Only use placeholders for null/empty images, not for all images
             const processedCollections = data.data.map(collection => ({
               ...collection,
-              // Ensure image property exists and is a valid URL or use a placeholder
-              image: collection.image || `https://via.placeholder.com/400x200?text=${encodeURIComponent(collection.name || 'Collection')}`
+              // Only use placeholder if image is null or empty string
+              image: collection.image ? collection.image : `https://via.placeholder.com/400x200?text=${encodeURIComponent(collection.name || 'Collection')}`
             }));
             
             set({ collections: processedCollections });

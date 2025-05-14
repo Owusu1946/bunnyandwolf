@@ -9,6 +9,7 @@ export const useProductStore = create(
       featuredProducts: [], // Products marked as featured
       categories: [], // Available product categories
       filteredProducts: [], // Products filtered by category or search
+      platformProducts: {}, // Products organized by platform ID
       
       // Set all products
       setProducts: (products) => {
@@ -18,15 +19,28 @@ export const useProductStore = create(
         const featuredProducts = products.filter(p => p.isFeatured);
         const categories = [...new Set(products.map(p => p.category))];
         
+        // Organize products by platform
+        const platformProducts = {};
+        products.forEach(product => {
+          if (product.platformId) {
+            if (!platformProducts[product.platformId]) {
+              platformProducts[product.platformId] = [];
+            }
+            platformProducts[product.platformId].push(product);
+          }
+        });
+        
         set({ 
           featuredProducts,
-          categories
+          categories,
+          platformProducts
         });
       },
       
       // Add a single product
       addProduct: (product) => {
         const products = get().products;
+        const platformProducts = get().platformProducts;
         
         // Check if product already exists
         const exists = products.some(p => p._id === product._id);
@@ -52,6 +66,43 @@ export const useProductStore = create(
         const featuredProducts = allProducts.filter(p => p.isFeatured);
         const categories = [...new Set(allProducts.map(p => p.category))];
         
+        // Update platform products mapping
+        const updatedPlatformProducts = { ...platformProducts };
+        
+        // Handle old platform association removal
+        if (exists) {
+          // Find product's previous platform if it exists
+          const oldProduct = products.find(p => p._id === product._id);
+          if (oldProduct && oldProduct.platformId && oldProduct.platformId !== product.platformId) {
+            // Remove from old platform's product list
+            if (updatedPlatformProducts[oldProduct.platformId]) {
+              updatedPlatformProducts[oldProduct.platformId] = updatedPlatformProducts[oldProduct.platformId]
+                .filter(p => p._id !== product._id);
+            }
+          }
+        }
+        
+        // Add or update in new platform's product list
+        if (product.platformId) {
+          if (!updatedPlatformProducts[product.platformId]) {
+            updatedPlatformProducts[product.platformId] = [];
+          }
+          
+          // Check if product already exists in platform list
+          const platformProductIndex = updatedPlatformProducts[product.platformId]
+            .findIndex(p => p._id === product._id);
+            
+          if (platformProductIndex >= 0) {
+            // Update existing product in platform list
+            updatedPlatformProducts[product.platformId][platformProductIndex] = product;
+          } else {
+            // Add new product to platform list
+            updatedPlatformProducts[product.platformId].push(product);
+          }
+          
+          console.log(`🔄 ProductStore: Associated product "${product.name}" with platform ID: ${product.platformId}`);
+        }
+        
         // Log featured product status
         if (product.isFeatured) {
           console.log(`⭐ ProductStore: Product "${product.name}" is marked as featured`);
@@ -61,7 +112,8 @@ export const useProductStore = create(
         
         set({ 
           featuredProducts,
-          categories
+          categories,
+          platformProducts: updatedPlatformProducts
         });
       },
       
@@ -83,6 +135,14 @@ export const useProductStore = create(
         return products.find(p => p.slug === slug);
       },
       
+      // Get products by platform ID
+      getProductsByPlatform: (platformId) => {
+        if (!platformId) return [];
+        
+        const platformProducts = get().platformProducts;
+        return platformProducts[platformId] || [];
+      },
+      
       // Filter products by category
       filterByCategory: (category) => {
         const products = get().products;
@@ -93,6 +153,21 @@ export const useProductStore = create(
           : products.filter(p => p.category === category);
         
         console.log(`🔍 ProductStore: Found ${filtered.length} products in category "${category}"`);
+        set({ filteredProducts: filtered });
+        return filtered;
+      },
+      
+      // Filter products by platform
+      filterByPlatform: (platformId) => {
+        if (!platformId) {
+          set({ filteredProducts: get().products });
+          return get().products;
+        }
+        
+        console.log(`🔍 ProductStore: Filtering products by platform ID: "${platformId}"`);
+        const filtered = get().products.filter(p => p.platformId === platformId);
+        console.log(`🔍 ProductStore: Found ${filtered.length} products for platform "${platformId}"`);
+        
         set({ filteredProducts: filtered });
         return filtered;
       },
@@ -114,6 +189,7 @@ export const useProductStore = create(
             ${product.category} 
             ${product.details?.join(' ') || ''}
             ${product.variants?.map(v => v.colorName).join(' ') || ''}
+            ${product.platformId ? `platform ${product.platformId}` : ''}
             price ${product.basePrice} 
             ${product.salePrice ? 'sale ' + product.salePrice : ''}
             stock ${product.stock}
@@ -134,9 +210,23 @@ export const useProductStore = create(
       // Remove a product
       removeProduct: (id) => {
         const products = get().products;
+        const platformProducts = get().platformProducts;
+        const productToRemove = products.find(p => p._id === id);
         const updatedProducts = products.filter(p => p._id !== id);
         
-        set({ products: updatedProducts });
+        // Update platform products mapping if needed
+        const updatedPlatformProducts = { ...platformProducts };
+        if (productToRemove && productToRemove.platformId && updatedPlatformProducts[productToRemove.platformId]) {
+          updatedPlatformProducts[productToRemove.platformId] = updatedPlatformProducts[productToRemove.platformId]
+            .filter(p => p._id !== id);
+            
+          console.log(`🔄 ProductStore: Removed product ${id} from platform ${productToRemove.platformId}`);
+        }
+        
+        set({ 
+          products: updatedProducts,
+          platformProducts: updatedPlatformProducts 
+        });
         
         // Update derived state
         const featuredProducts = updatedProducts.filter(p => p.isFeatured);
@@ -153,7 +243,8 @@ export const useProductStore = create(
         products: [],
         featuredProducts: [],
         categories: [],
-        filteredProducts: []
+        filteredProducts: [],
+        platformProducts: {}
       }),
       
       // Update product stock levels after an order is placed
@@ -202,6 +293,19 @@ export const useProductStore = create(
           // Update derived state
           const featuredProducts = updatedProducts.filter(p => p.isFeatured);
           set({ featuredProducts });
+          
+          // Re-organize products by platform
+          const platformProducts = {};
+          updatedProducts.forEach(product => {
+            if (product.platformId) {
+              if (!platformProducts[product.platformId]) {
+                platformProducts[product.platformId] = [];
+              }
+              platformProducts[product.platformId].push(product);
+            }
+          });
+          
+          set({ platformProducts });
         }
       },
       
@@ -220,11 +324,29 @@ export const useProductStore = create(
             const featuredProducts = data.data.filter(p => p.isFeatured);
             const categories = [...new Set(data.data.map(p => p.category))];
             
+            // Organize products by platform
+            const platformProducts = {};
+            data.data.forEach(product => {
+              if (product.platformId) {
+                if (!platformProducts[product.platformId]) {
+                  platformProducts[product.platformId] = [];
+                }
+                platformProducts[product.platformId].push(product);
+              }
+            });
+            
+            // Count platforms with associated products
+            const platformsCount = Object.keys(platformProducts).length;
+            console.log(`📊 ProductStore: Found products for ${platformsCount} platforms`);
+            
             console.log(`✨ ProductStore: Found ${featuredProducts.length} featured products`);
             if (featuredProducts.length > 0) {
               featuredProducts.forEach(p => {
                 console.log(`  - Featured: ${p.name} (ID: ${p._id})`);
                 console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
+                if (p.platformId) {
+                  console.log(`    Platform: ${p.platformId}`);
+                }
               });
             }
             
@@ -233,7 +355,8 @@ export const useProductStore = create(
             set({ 
               featuredProducts,
               categories,
-              filteredProducts: data.data
+              filteredProducts: data.data,
+              platformProducts
             });
           } else {
             console.error('❌ ProductStore: API request failed', data);
@@ -259,6 +382,20 @@ export const useProductStore = create(
         return categoryProducts;
       },
       
+      // Get products by both platform and category
+      getProductsByPlatformAndCategory: (platformId, category) => {
+        if (!platformId && (!category || category === 'all')) {
+          return get().products;
+        }
+        
+        const products = get().products;
+        return products.filter(product => {
+          const matchesPlatform = !platformId || product.platformId === platformId;
+          const matchesCategory = !category || category === 'all' || product.category === category;
+          return matchesPlatform && matchesCategory;
+        });
+      },
+      
       // Fetch only featured products from API
       fetchFeaturedProducts: async () => {
         console.log('🌟 ProductStore: Fetching featured products from API');
@@ -276,6 +413,9 @@ export const useProductStore = create(
             data.data.forEach(p => {
               console.log(`  - Featured: ${p.name} (ID: ${p._id})`);
               console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
+              if (p.platformId) {
+                console.log(`    Platform: ${p.platformId}`);
+              }
             });
             
             return data.data;

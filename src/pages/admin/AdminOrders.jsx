@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaSort, FaFilter, FaEye, FaPencilAlt, FaInfoCircle, FaTimes, FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaSave, FaCheck, FaSync } from 'react-icons/fa';
+import { FaSearch, FaSort, FaFilter, FaEye, FaPencilAlt, FaInfoCircle, FaTimes, FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaSave, FaCheck, FaSync, FaFileInvoiceDollar, FaExternalLinkAlt, FaDownload, FaSearchPlus, FaSearchMinus } from 'react-icons/fa';
 import { useOrderStore } from '../../store/orderStore';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import axios from 'axios';
+import apiConfig from '../../config/apiConfig';
 
 // Skeleton loader for order rows
 const OrderRowSkeleton = () => {
@@ -35,6 +37,27 @@ const OrderRowSkeleton = () => {
   );
 };
 
+// Mobile skeleton for card view
+const OrderCardSkeleton = () => {
+  return (
+    <div className="animate-pulse bg-white rounded-lg shadow-sm p-4 mb-3">
+      <div className="flex justify-between mb-3">
+        <div className="h-5 bg-gray-200 rounded w-1/3"></div>
+        <div className="h-5 bg-gray-200 rounded w-1/4"></div>
+      </div>
+      <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+      <div className="flex justify-between items-center">
+        <div className="h-6 bg-gray-200 rounded w-20"></div>
+        <div className="flex space-x-2">
+          <div className="h-8 bg-gray-200 rounded-full w-8"></div>
+          <div className="h-8 bg-gray-200 rounded-full w-8"></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminOrders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -52,6 +75,12 @@ const AdminOrders = () => {
   const [showStatusDropdown, setShowStatusDropdown] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
+  const [userDetailsCache, setUserDetailsCache] = useState({}); // Cache for user details by userId
+  // New state for receipt viewer modal
+  const [receiptViewerOpen, setReceiptViewerOpen] = useState(false);
+  const [currentReceiptImage, setCurrentReceiptImage] = useState('');
+  const [imageZoomLevel, setImageZoomLevel] = useState(100);
 
   // Status options for the dropdown
   const ORDER_STATUSES = [
@@ -78,6 +107,16 @@ const AdminOrders = () => {
     fetchOrders
   } = useOrderStore();
 
+  // Check viewport width on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // First load - fetch all orders from the API
   useEffect(() => {
     const loadOrders = async () => {
@@ -92,6 +131,9 @@ const AdminOrders = () => {
           initializeWithSampleOrder();
         } else {
           console.log(`Loaded ${result.data.length} orders`);
+          
+          // Fetch user details for each order
+          await fetchUserDetailsForOrders(result.data);
         }
       } catch (error) {
         console.error('Error loading orders:', error);
@@ -107,6 +149,59 @@ const AdminOrders = () => {
     
     loadOrders();
   }, []);
+
+  // Fetch user details for an array of orders
+  const fetchUserDetailsForOrders = async (orders) => {
+    try {
+      const uniqueUserIds = [...new Set(orders
+        .filter(order => order.user) // Only consider orders with user IDs
+        .map(order => order.user))]; // Extract user IDs
+      
+      console.log(`Fetching user details for ${uniqueUserIds.length} unique users`);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No auth token found for fetching user details');
+        return;
+      }
+      
+      // Create a temporary cache for this batch
+      const userCache = { ...userDetailsCache };
+      
+      // Fetch user details for each unique user ID
+      for (const userId of uniqueUserIds) {
+        if (!userCache[userId]) {
+          try {
+            const response = await axios.get(`${apiConfig.baseURL}/users/${userId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            if (response.data.success && response.data.data) {
+              userCache[userId] = response.data.data;
+              console.log(`Fetched user details for ${userId}`);
+            }
+          } catch (err) {
+            console.error(`Failed to fetch user details for ${userId}:`, err);
+          }
+        }
+      }
+      
+      // Update the cache with all fetched user details
+      setUserDetailsCache(userCache);
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+    }
+  };
+  
+  // Get user details for a specific order
+  const getUserForOrder = (order) => {
+    if (!order) return null;
+    
+    const userId = order.user;
+    if (!userId) return null;
+    
+    return userDetailsCache[userId] || null;
+  };
 
   // Handle filter changes
   useEffect(() => {
@@ -225,14 +320,19 @@ const AdminOrders = () => {
     setCurrentPage(1); // Reset to first page when changing items per page
   };
 
-  // Handle refresh (just reapply filters on local data)
+  // Handle refresh - update to also refresh user details
   const handleRefresh = () => {
     setIsRefreshing(true);
     setCurrentPage(1);
     
     // Set a timeout to simulate network request for better UX
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
+        // If we have orders, fetch fresh user details
+        if (orders.length > 0) {
+          await fetchUserDetailsForOrders(orders);
+        }
+        
         filterAndSortOrders();
         setSuccessMessage('Order list refreshed successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
@@ -367,66 +467,219 @@ const AdminOrders = () => {
   
   const stats = getOrderStats();
 
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+  // Format customer name for display
+  const formatCustomerName = (order) => {
+    // Try to get user details from cache
+    const userDetails = getUserForOrder(order);
+    
+    if (userDetails) {
+      // Use real user account info if available
+      return `${userDetails.firstName || ''} ${userDetails.lastName || ''}`.trim() || 'Unknown';
+    } else {
+      // Fall back to order's customer name
+      return order.customerName || 'Unknown';
+    }
+  };
+  
+  // Get customer email from user details or order
+  const getCustomerEmail = (order) => {
+    const userDetails = getUserForOrder(order);
+    
+    if (userDetails) {
+      return userDetails.email;
+    } else {
+      return order.customerEmail || 'No email';
+    }
+  };
+
+  // Open receipt viewer modal
+  const openReceiptViewer = (imageData) => {
+    setCurrentReceiptImage(imageData);
+    setReceiptViewerOpen(true);
+    // Reset zoom level when opening a new image
+    setImageZoomLevel(100);
+  };
+
+  // Close receipt viewer modal
+  const closeReceiptViewer = () => {
+    setReceiptViewerOpen(false);
+    setCurrentReceiptImage('');
+  };
+
+  // Handle zoom in/out
+  const handleZoomIn = () => {
+    setImageZoomLevel(prev => Math.min(prev + 25, 200)); // Max 200%
+  };
+
+  const handleZoomOut = () => {
+    setImageZoomLevel(prev => Math.max(prev - 25, 50)); // Min 50%
+  };
+
+  // Download receipt image
+  const downloadReceiptImage = () => {
+    if (!currentReceiptImage) return;
+    
+    try {
+      // Create anchor element and trigger download
+      const link = document.createElement('a');
+      link.href = currentReceiptImage;
+      link.download = `receipt-${selectedOrder?.orderNumber || 'image'}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Error downloading image:', err);
+      alert('Failed to download image');
+    }
+  };
+
+  // Handle receipt image display - optimize for large images
+  const handleReceiptImage = (paymentReceipt) => {
+    if (!paymentReceipt) return null;
+    
+    if (paymentReceipt.type === 'image' && paymentReceipt.imageData) {
+      // Check if the image data is very large (might cause browser slowdowns)
+      const imageDataSize = paymentReceipt.imageData.length;
+      const sizeInMB = (imageDataSize / 1024 / 1024).toFixed(2);
       
-      <div className="flex-1 ml-64">
+      if (imageDataSize > 1 * 1024 * 1024) { // 1MB warning threshold
+        return (
+          <div className="mt-2">
+            <p className="text-xs sm:text-sm text-gray-500 mb-1">Receipt Image ({sizeInMB}MB):</p>
+            <div className="border border-gray-200 rounded-md p-2">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 mb-2 text-xs text-yellow-800">
+                This is a large image ({sizeInMB}MB). Click the button below to view.
+              </div>
+              <button
+                onClick={() => openReceiptViewer(paymentReceipt.imageData)}
+                className="bg-blue-500 text-white text-xs rounded-md py-1 px-2 hover:bg-blue-600"
+              >
+                View Full Receipt
+              </button>
+            </div>
+          </div>
+        );
+      } else {
+        // Regular size image, show directly with option to view larger
+        return (
+          <div className="mt-2">
+            <p className="text-xs sm:text-gray-500 mb-1">Receipt Image:</p>
+            <div className="border border-gray-200 rounded-md overflow-hidden">
+              <div className="relative group">
+                <img 
+                  src={paymentReceipt.imageData} 
+                  alt="Payment Receipt" 
+                  className="max-w-full h-auto max-h-48 object-contain cursor-pointer"
+                  onClick={() => openReceiptViewer(paymentReceipt.imageData)}
+                  onError={(e) => {e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=Invalid+Image";}}
+                />
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    className="bg-white bg-opacity-75 p-2 rounded-full"
+                    onClick={() => openReceiptViewer(paymentReceipt.imageData)}
+                  >
+                    <FaSearchPlus className="text-gray-800" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+    } else if (paymentReceipt.type === 'reference' && paymentReceipt.note) {
+      // Show reference note
+      return (
+        <div className="mt-2">
+          <p className="text-xs sm:text-gray-500 mb-1">Receipt Note:</p>
+          <div className="border border-gray-200 rounded-md p-2 bg-gray-50 text-xs">
+            {paymentReceipt.note}
+          </div>
+        </div>
+      );
+    } else if (paymentReceipt.type === 'link' && paymentReceipt.link) {
+      // Show link
+      return (
+        <div className="mt-2">
+          <p className="text-xs sm:text-gray-500 mb-1">Receipt Link:</p>
+          <a 
+            href={paymentReceipt.link} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
+          >
+            <span className="truncate max-w-xs">{paymentReceipt.link}</span>
+            <FaExternalLinkAlt className="ml-1 h-3 w-3" />
+          </a>
+        </div>
+      );
+    }
+    
+    return (
+      <p className="text-xs sm:text-sm text-gray-500">No receipt details available</p>
+    );
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="hidden md:block md:fixed md:w-64 md:h-full">
+        <Sidebar />
+      </div>
+      
+      <div className="w-full md:ml-64">
         {isLoading && <LoadingOverlay />}
         
-        <div className="p-6">
-          <div className="mb-8">
-            <h1 className="text-2xl font-semibold text-gray-800">Orders Management</h1>
-            <p className="text-gray-600">View and manage all customer orders</p>
+        <div className="p-3 sm:p-6">
+          <div className="mb-4 sm:mb-8">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Orders Management</h1>
+            <p className="text-sm sm:text-base text-gray-600">View and manage all customer orders</p>
           </div>
           
-          
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <h3 className="text-sm font-medium text-gray-500">Total Orders</h3>
-              <p className="text-2xl font-bold">{stats.totalOrders}</p>
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
+              <h3 className="text-xs sm:text-sm font-medium text-gray-500">Total Orders</h3>
+              <p className="text-lg sm:text-2xl font-bold truncate">{stats.totalOrders}</p>
             </div>
             
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <h3 className="text-sm font-medium text-gray-500">Total Revenue</h3>
-              <p className="text-2xl font-bold">{formatPrice(stats.totalRevenue)}</p>
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
+              <h3 className="text-xs sm:text-sm font-medium text-gray-500">Total Revenue</h3>
+              <p className="text-lg sm:text-2xl font-bold truncate">{formatPrice(stats.totalRevenue)}</p>
             </div>
             
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <h3 className="text-sm font-medium text-gray-500">Recent Orders (7d)</h3>
-              <p className="text-2xl font-bold">{stats.recentOrders}</p>
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
+              <h3 className="text-xs sm:text-sm font-medium text-gray-500">Recent Orders (7d)</h3>
+              <p className="text-lg sm:text-2xl font-bold truncate">{stats.recentOrders}</p>
             </div>
             
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <h3 className="text-sm font-medium text-gray-500">Recent Revenue (7d)</h3>
-              <p className="text-2xl font-bold">{formatPrice(stats.recentRevenue)}</p>
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
+              <h3 className="text-xs sm:text-sm font-medium text-gray-500">Recent Revenue (7d)</h3>
+              <p className="text-lg sm:text-2xl font-bold truncate">{formatPrice(stats.recentRevenue)}</p>
             </div>
           </div>
           
           {/* Filters and Search */}
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-            <div className="relative w-full md:w-64">
+          <div className="space-y-3 mb-4 sm:space-y-0 sm:flex sm:flex-row sm:justify-between sm:items-center sm:mb-6">
+            <div className="relative w-full sm:w-64">
               <form onSubmit={handleSearch}>
-              <input
-                type="text"
-                placeholder="Search orders..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <div className="absolute left-3 top-2.5 text-gray-400">
-                <FaSearch />
-              </div>
+                <input
+                  type="text"
+                  placeholder="Search orders..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <div className="absolute left-3 top-2.5 text-gray-400">
+                  <FaSearch />
+                </div>
                 <button type="submit" className="hidden">Search</button>
               </form>
             </div>
             
-            <div className="flex flex-col md:flex-row items-center gap-4">
-              <div className="flex items-center">
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center flex-1 min-w-[180px]">
                 <FaFilter className="mr-2 text-gray-500" />
                 <select
-                  className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="border border-gray-300 rounded-lg px-2 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
                   value={statusFilter}
                   onChange={handleStatusFilterChange}
                 >
@@ -440,10 +693,10 @@ const AdminOrders = () => {
                 </select>
               </div>
               
-              <div className="flex items-center">
-                <span className="mr-2 text-gray-500">Show:</span>
+              <div className="flex items-center flex-1 min-w-[120px]">
+                <span className="mr-2 text-gray-500 whitespace-nowrap text-sm">Show:</span>
                 <select
-                  className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="border border-gray-300 rounded-lg px-2 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
                   value={itemsPerPage}
                   onChange={handleItemsPerPageChange}
                 >
@@ -455,7 +708,7 @@ const AdminOrders = () => {
               </div>
               
               <button
-                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center flex-1 min-w-[140px] justify-center ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
                 onClick={handleRefresh}
                 disabled={isRefreshing}
               >
@@ -475,9 +728,9 @@ const AdminOrders = () => {
           
           {/* Error message */}
           {error && (
-            <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6">
+            <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4 sm:mb-6">
               <h3 className="font-semibold mb-2">Error:</h3>
-              <p>{error}</p>
+              <p className="text-sm">{error}</p>
               <button 
                 className="mt-2 text-sm px-3 py-1 bg-red-200 text-red-800 rounded-md hover:bg-red-300"
                 onClick={handleRefresh}
@@ -559,8 +812,8 @@ const AdminOrders = () => {
                     currentOrders.map((order) => (
                       <tr key={order._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{order.customerName || 'Unknown'}</div>
-                          <div className="text-sm text-gray-500">{order.customerEmail || 'No email'}</div>
+                          <div className="text-sm font-medium text-gray-900">{formatCustomerName(order)}</div>
+                          <div className="text-sm text-gray-500">{getCustomerEmail(order)}</div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-900">{order.orderNumber}</div>
@@ -649,8 +902,8 @@ const AdminOrders = () => {
             
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
-                <div className="flex-1 flex justify-between sm:hidden">
+              <div className="px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between border-t border-gray-200">
+                <div className="flex justify-between sm:hidden mb-3">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
@@ -662,6 +915,9 @@ const AdminOrders = () => {
                   >
                     Previous
                   </button>
+                  <div className="text-sm text-gray-700">
+                    Page {currentPage} of {totalPages}
+                  </div>
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
@@ -751,26 +1007,27 @@ const AdminOrders = () => {
         
         {/* Order Details/Edit Modal */}
         {showOrderModal && selectedOrder && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative bg-white rounded-lg shadow-xl mx-auto max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-start md:items-center justify-center">
+            <div className="relative bg-white rounded-lg shadow-xl mx-auto w-full md:w-4/5 lg:max-w-4xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto mt-2 md:mt-0">
               {/* Modal Header */}
-              <div className="sticky top-0 bg-white px-6 py-4 border-b flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">
+              <div className="sticky top-0 bg-white px-4 sm:px-6 py-3 sm:py-4 border-b flex justify-between items-center z-10">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                   {isEditMode ? 'Edit Order: ' : 'Order: '}
                   #{isEditMode ? editedOrder.orderNumber : selectedOrder.orderNumber}
                 </h3>
                 <div className="flex items-center space-x-2">
                   {isEditMode && (
                     <button 
-                      className="text-green-600 hover:text-green-700 px-3 py-1 bg-green-100 rounded-md flex items-center"
+                      className="text-green-600 hover:text-green-700 px-2 sm:px-3 py-1 bg-green-100 rounded-md flex items-center text-sm"
                       onClick={handleSaveOrder}
                     >
                       <FaSave className="mr-1" /> Save
                     </button>
                   )}
                   <button 
-                    className="text-gray-400 hover:text-gray-500"
+                    className="text-gray-400 hover:text-gray-500 p-1"
                     onClick={closeOrderModal}
+                    aria-label="Close"
                   >
                     <FaTimes size={20} />
                   </button>
@@ -778,19 +1035,19 @@ const AdminOrders = () => {
               </div>
               
               {/* Modal Content */}
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 {/* Order Status Header */}
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6">
                   <div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-xs sm:text-sm text-gray-500">
                       Created on: {formatDate(isEditMode ? editedOrder.createdAt : selectedOrder.createdAt)}
                     </div>
                     
                     {isEditMode ? (
                       <div className="mt-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Status</label>
                         <select
-                          className="border border-gray-300 rounded-md px-3 py-1 focus:ring-blue-500 focus:border-blue-500"
+                          className="border border-gray-300 rounded-md px-3 py-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                           name="status"
                           value={editedOrder.status || ''}
                           onChange={handleEditChange}
@@ -816,13 +1073,13 @@ const AdminOrders = () => {
                     )}
                   </div>
                   
-                  <div className="mt-4 md:mt-0">
+                  <div className="mt-3 sm:mt-0">
                     {isEditMode ? (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Total Amount</label>
                         <input
                           type="number"
-                          className="border border-gray-300 rounded-md px-3 py-1 focus:ring-blue-500 focus:border-blue-500"
+                          className="border border-gray-300 rounded-md px-3 py-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                           name="totalAmount"
                           value={editedOrder.totalAmount || 0}
                           onChange={handleEditChange}
@@ -830,7 +1087,7 @@ const AdminOrders = () => {
                         />
                       </div>
                     ) : (
-                      <div className="text-xl font-bold text-gray-900">
+                      <div className="text-lg sm:text-xl font-bold text-gray-900">
                         {formatPrice(selectedOrder.totalAmount)}
                       </div>
                     )}
@@ -838,31 +1095,31 @@ const AdminOrders = () => {
                 </div>
                 
                 {/* Order Info Sections */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                   {/* Customer Info */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center mb-3">
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                    <div className="flex items-center mb-2 sm:mb-3">
                       <FaUser className="text-gray-500 mr-2" />
-                      <h4 className="text-md font-medium">Customer Information</h4>
+                      <h4 className="text-sm sm:text-md font-medium">Customer Information</h4>
                     </div>
                     
                     {isEditMode ? (
-                      <div className="pl-6 space-y-2">
+                      <div className="pl-2 sm:pl-6 space-y-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Name</label>
                           <input
                             type="text"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="customerName"
                             value={editedOrder.customerName || ''}
                             onChange={handleEditChange}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email</label>
                           <input
                             type="email"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="customerEmail"
                             value={editedOrder.customerEmail || ''}
                             onChange={handleEditChange}
@@ -870,29 +1127,33 @@ const AdminOrders = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="pl-6">
-                        <p className="text-sm font-medium">{selectedOrder.customerName || 'Unknown'}</p>
-                        <p className="text-sm text-gray-500">{selectedOrder.customerEmail || 'No email'}</p>
+                      <div className="pl-2 sm:pl-6">
+                        <p className="text-sm font-medium">{formatCustomerName(selectedOrder)}</p>
+                        <p className="text-xs sm:text-sm text-gray-500">{getCustomerEmail(selectedOrder)}</p>
+                        {/* Show user ID if available */}
+                        {selectedOrder.user && (
+                          <p className="text-xs sm:text-sm text-gray-500">User ID: {selectedOrder.user}</p>
+                        )}
                       </div>
                     )}
                   </div>
                   
                   {/* Shipping Info */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center mb-3">
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                    <div className="flex items-center mb-2 sm:mb-3">
                       <FaMapMarkerAlt className="text-gray-500 mr-2" />
-                      <h4 className="text-md font-medium">Shipping Information</h4>
+                      <h4 className="text-sm sm:text-md font-medium">Shipping Information</h4>
                     </div>
                     
                     {isEditMode ? (
-                      <div className="pl-6 space-y-2">
+                      <div className="pl-2 sm:pl-6 space-y-2">
                         {editedOrder.shippingAddress && (
                           <>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Address</label>
                               <input
                                 type="text"
-                                className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                                className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                                 name="shippingAddress.street"
                                 value={editedOrder.shippingAddress.street || ''}
                                 onChange={handleEditChange}
@@ -900,20 +1161,20 @@ const AdminOrders = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">City</label>
                                 <input
                                   type="text"
-                                  className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                                  className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                                   name="shippingAddress.city"
                                   value={editedOrder.shippingAddress.city || ''}
                                   onChange={handleEditChange}
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">State</label>
                                 <input
                                   type="text"
-                                  className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                                  className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                                   name="shippingAddress.state"
                                   value={editedOrder.shippingAddress.state || ''}
                                   onChange={handleEditChange}
@@ -922,20 +1183,20 @@ const AdminOrders = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Zip</label>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Zip</label>
                                 <input
                                   type="text"
-                                  className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                                  className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                                   name="shippingAddress.zip"
                                   value={editedOrder.shippingAddress.zip || ''}
                                   onChange={handleEditChange}
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Country</label>
                                 <input
                                   type="text"
-                                  className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                                  className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                                   name="shippingAddress.country"
                                   value={editedOrder.shippingAddress.country || ''}
                                   onChange={handleEditChange}
@@ -946,40 +1207,40 @@ const AdminOrders = () => {
                         )}
                       </div>
                     ) : (
-                      <div className="pl-6">
+                      <div className="pl-2 sm:pl-6">
                         {selectedOrder.shippingAddress ? (
                           <>
                             <p className="text-sm">{selectedOrder.shippingAddress.name}</p>
-                            <p className="text-sm text-gray-500">{selectedOrder.shippingAddress.street}</p>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-xs sm:text-sm text-gray-500">{selectedOrder.shippingAddress.street}</p>
+                            <p className="text-xs sm:text-sm text-gray-500">
                               {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state} {selectedOrder.shippingAddress.zip}
                             </p>
-                            <p className="text-sm text-gray-500">{selectedOrder.shippingAddress.country}</p>
+                            <p className="text-xs sm:text-sm text-gray-500">{selectedOrder.shippingAddress.country}</p>
                             {selectedOrder.shippingAddress.phone && (
-                              <p className="text-sm text-gray-500">Phone: {selectedOrder.shippingAddress.phone}</p>
+                              <p className="text-xs sm:text-sm text-gray-500">Phone: {selectedOrder.shippingAddress.phone}</p>
                             )}
                           </>
                         ) : (
-                          <p className="text-sm text-gray-500">No shipping address provided</p>
+                          <p className="text-xs sm:text-sm text-gray-500">No shipping address provided</p>
                         )}
                       </div>
                     )}
                   </div>
                   
                   {/* Payment Info */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center mb-3">
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                    <div className="flex items-center mb-2 sm:mb-3">
                       <FaCreditCard className="text-gray-500 mr-2" />
-                      <h4 className="text-md font-medium">Payment Information</h4>
+                      <h4 className="text-sm sm:text-md font-medium">Payment Information</h4>
                     </div>
                     
                     {isEditMode ? (
-                      <div className="pl-6 space-y-2">
+                      <div className="pl-2 sm:pl-6 space-y-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                           <input
                             type="text"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="paymentMethod"
                             value={editedOrder.paymentMethod || ''}
                             onChange={handleEditChange}
@@ -988,9 +1249,9 @@ const AdminOrders = () => {
                         {editedOrder.paymentDetails && (
                           <>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Status</label>
                               <select
-                                className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                                className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                                 name="paymentDetails.status"
                                 value={editedOrder.paymentDetails.status || ''}
                                 onChange={handleEditChange}
@@ -1002,10 +1263,10 @@ const AdminOrders = () => {
                               </select>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
+                              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
                               <input
                                 type="text"
-                                className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                                className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                                 name="paymentDetails.transactionId"
                                 value={editedOrder.paymentDetails.transactionId || ''}
                                 onChange={handleEditChange}
@@ -1015,14 +1276,14 @@ const AdminOrders = () => {
                         )}
                       </div>
                     ) : (
-                      <div className="pl-6">
+                      <div className="pl-2 sm:pl-6">
                         <p className="text-sm font-medium">Method: {selectedOrder.paymentMethod || 'Unknown'}</p>
                         {selectedOrder.paymentDetails && (
                           <>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-xs sm:text-sm text-gray-500">
                               Status: {selectedOrder.paymentDetails.status || 'Unknown'}
                             </p>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-xs sm:text-sm text-gray-500">
                               Transaction ID: {selectedOrder.paymentDetails.transactionId || 'N/A'}
                             </p>
                           </>
@@ -1031,29 +1292,89 @@ const AdminOrders = () => {
                     )}
                   </div>
                   
-                  {/* Tracking Info */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center mb-3">
-                      <FaTruck className="text-gray-500 mr-2" />
-                      <h4 className="text-md font-medium">Tracking Information</h4>
+                  {/* Payment Receipt */}
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                    <div className="flex items-center mb-2 sm:mb-3">
+                      <FaFileInvoiceDollar className="text-gray-500 mr-2" />
+                      <h4 className="text-sm sm:text-md font-medium">Payment Receipt</h4>
                     </div>
                     
                     {isEditMode ? (
-                      <div className="pl-6 space-y-2">
+                      <div className="pl-2 sm:pl-6 space-y-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Receipt Type</label>
+                          <select
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            name="paymentReceipt.type"
+                            value={(editedOrder.paymentReceipt && editedOrder.paymentReceipt.type) || 'none'}
+                            onChange={handleEditChange}
+                          >
+                            <option value="none">None</option>
+                            <option value="image">Image</option>
+                            <option value="link">Link</option>
+                          </select>
+                        </div>
+                        
+                        {editedOrder.paymentReceipt && editedOrder.paymentReceipt.type === 'link' && (
+                          <div>
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Receipt Link</label>
+                            <input
+                              type="text"
+                              className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              name="paymentReceipt.link"
+                              value={editedOrder.paymentReceipt.link || ''}
+                              onChange={handleEditChange}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="pl-2 sm:pl-6">
+                        {selectedOrder.paymentReceipt ? (
+                          <>
+                            <p className="text-sm font-medium mb-2">
+                              Receipt Type: {selectedOrder.paymentReceipt.type === 'image' ? 'Image' : 
+                                             selectedOrder.paymentReceipt.type === 'link' ? 'Link' : 'None'}
+                            </p>
+                            
+                            {handleReceiptImage(selectedOrder.paymentReceipt)}
+                            
+                            {selectedOrder.paymentReceipt.uploadedAt && (
+                              <p className="text-xs text-gray-500 mt-2">
+                                Uploaded: {new Date(selectedOrder.paymentReceipt.uploadedAt).toLocaleString()}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs sm:text-sm text-gray-500">No receipt information available</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Tracking Info */}
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                    <div className="flex items-center mb-2 sm:mb-3">
+                      <FaTruck className="text-gray-500 mr-2" />
+                      <h4 className="text-sm sm:text-md font-medium">Tracking Information</h4>
+                    </div>
+                    
+                    {isEditMode ? (
+                      <div className="pl-2 sm:pl-6 space-y-2">
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
                           <input
                             type="text"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="trackingNumber"
                             value={editedOrder.trackingNumber || ''}
                             onChange={handleEditChange}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Shipping Method</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Shipping Method</label>
                           <select
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="shippingMethod"
                             value={editedOrder.shippingMethod || 'standard'}
                             onChange={handleEditChange}
@@ -1065,10 +1386,10 @@ const AdminOrders = () => {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Est. Delivery Date</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Est. Delivery Date</label>
                           <input
                             type="date"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="estimatedDelivery"
                             value={editedOrder.estimatedDelivery ? new Date(editedOrder.estimatedDelivery).toISOString().split('T')[0] : ''}
                             onChange={handleEditChange}
@@ -1076,17 +1397,17 @@ const AdminOrders = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="pl-6">
+                      <div className="pl-2 sm:pl-6">
                         <p className="text-sm font-medium">
                           {selectedOrder.trackingNumber 
                             ? `Tracking #: ${selectedOrder.trackingNumber}` 
                             : 'No tracking number'}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs sm:text-sm text-gray-500">
                           Shipping Method: {selectedOrder.shippingMethod || 'Standard'}
                         </p>
                         {selectedOrder.estimatedDelivery && (
-                          <p className="text-sm text-gray-500">
+                          <p className="text-xs sm:text-sm text-gray-500">
                             Est. Delivery: {formatDate(selectedOrder.estimatedDelivery)}
                           </p>
                         )}
@@ -1096,88 +1417,90 @@ const AdminOrders = () => {
                 </div>
                 
                 {/* Order Items */}
-                <div className="mt-8">
-                  <div className="flex items-center mb-4">
+                <div className="mt-6 sm:mt-8">
+                  <div className="flex items-center mb-3 sm:mb-4">
                     <FaBox className="text-gray-500 mr-2" />
-                    <h4 className="text-lg font-medium">Order Items</h4>
+                    <h4 className="text-base sm:text-lg font-medium">Order Items</h4>
                   </div>
                   
                   <div className="bg-gray-50 rounded-lg overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Product
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Quantity
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Price
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                          selectedOrder.items.map((item, index) => (
-                            <tr key={item._id || index} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  {item.image && (
-                                    <div className="flex-shrink-0 h-10 w-10 mr-4">
-                                      <img 
-                                        className="h-10 w-10 rounded-md object-cover" 
-                                        src={item.image} 
-                                        alt={item.name} 
-                                      />
-                                    </div>
-                                  )}
-                                  <div>
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {item.name}
-                                    </div>
-                                    {(item.color || item.size) && (
-                                      <div className="text-xs text-gray-500">
-                                        {item.color && `Color: ${item.color}`}
-                                        {item.color && item.size && ` | `}
-                                        {item.size && `Size: ${item.size}`}
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Product
+                            </th>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Qty
+                            </th>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Price
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                            selectedOrder.items.map((item, index) => (
+                              <tr key={item._id || index} className="hover:bg-gray-50">
+                                <td className="px-3 sm:px-6 py-3 sm:py-4">
+                                  <div className="flex items-center">
+                                    {item.image && (
+                                      <div className="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10 mr-2 sm:mr-4">
+                                        <img 
+                                          className="h-8 w-8 sm:h-10 sm:w-10 rounded-md object-cover" 
+                                          src={item.image} 
+                                          alt={item.name} 
+                                        />
                                       </div>
                                     )}
+                                    <div>
+                                      <div className="text-xs sm:text-sm font-medium text-gray-900 line-clamp-2">
+                                        {item.name}
+                                      </div>
+                                      {(item.color || item.size) && (
+                                        <div className="text-xs text-gray-500">
+                                          {item.color && `Color: ${item.color}`}
+                                          {item.color && item.size && ` | `}
+                                          {item.size && `Size: ${item.size}`}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {item.quantity}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                {formatPrice(item.price)}
+                                </td>
+                                <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-500">
+                                  {item.quantity}
+                                </td>
+                                <td className="px-3 sm:px-6 py-3 sm:py-4 text-right text-xs sm:text-sm font-medium">
+                                  {formatPrice(item.price)}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="3" className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500">
+                                No items found in this order
                               </td>
                             </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">
-                              No items found in this order
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
                 
                 {/* Order Summary */}
-                <div className="mt-8 bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-lg font-medium mb-4">Order Summary</h4>
+                <div className="mt-6 sm:mt-8 bg-gray-50 p-3 sm:p-4 rounded-lg">
+                  <h4 className="text-base sm:text-lg font-medium mb-3 sm:mb-4">Order Summary</h4>
                   
                   {isEditMode ? (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Subtotal</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Subtotal</label>
                           <input
                             type="number"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="subtotal"
                             value={editedOrder.subtotal || 0}
                             onChange={handleEditChange}
@@ -1185,10 +1508,10 @@ const AdminOrders = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Tax</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Tax</label>
                           <input
                             type="number"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="tax"
                             value={editedOrder.tax || 0}
                             onChange={handleEditChange}
@@ -1198,10 +1521,10 @@ const AdminOrders = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Shipping</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Shipping</label>
                           <input
                             type="number"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="shipping"
                             value={editedOrder.shipping || 0}
                             onChange={handleEditChange}
@@ -1209,10 +1532,10 @@ const AdminOrders = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Discount</label>
                           <input
                             type="number"
-                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500"
+                            className="border border-gray-300 rounded-md px-3 py-1 w-full focus:ring-blue-500 focus:border-blue-500 text-sm"
                             name="discount"
                             value={editedOrder.discount || 0}
                             onChange={handleEditChange}
@@ -1224,30 +1547,30 @@ const AdminOrders = () => {
                   ) : (
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Subtotal:</span>
-                        <span className="text-sm">{formatPrice(selectedOrder.subtotal || 0)}</span>
+                        <span className="text-xs sm:text-sm text-gray-500">Subtotal:</span>
+                        <span className="text-xs sm:text-sm">{formatPrice(selectedOrder.subtotal || 0)}</span>
                       </div>
                       {selectedOrder.tax > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-sm text-gray-500">Tax:</span>
-                          <span className="text-sm">{formatPrice(selectedOrder.tax)}</span>
+                          <span className="text-xs sm:text-sm text-gray-500">Tax:</span>
+                          <span className="text-xs sm:text-sm">{formatPrice(selectedOrder.tax)}</span>
                         </div>
                       )}
                       {selectedOrder.shipping > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-sm text-gray-500">Shipping:</span>
-                          <span className="text-sm">{formatPrice(selectedOrder.shipping)}</span>
+                          <span className="text-xs sm:text-sm text-gray-500">Shipping:</span>
+                          <span className="text-xs sm:text-sm">{formatPrice(selectedOrder.shipping)}</span>
                         </div>
                       )}
                       {selectedOrder.discount > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-sm text-gray-500">Discount:</span>
-                          <span className="text-sm text-red-500">-{formatPrice(selectedOrder.discount)}</span>
+                          <span className="text-xs sm:text-sm text-gray-500">Discount:</span>
+                          <span className="text-xs sm:text-sm text-red-500">-{formatPrice(selectedOrder.discount)}</span>
                         </div>
                       )}
                       <div className="border-t pt-2 mt-2 flex justify-between font-bold">
-                        <span>Total:</span>
-                        <span>{formatPrice(selectedOrder.totalAmount)}</span>
+                        <span className="text-sm sm:text-base">Total:</span>
+                        <span className="text-sm sm:text-base">{formatPrice(selectedOrder.totalAmount)}</span>
                       </div>
                     </div>
                   )}
@@ -1255,17 +1578,17 @@ const AdminOrders = () => {
               </div>
               
               {/* Modal Footer */}
-              <div className="border-t px-6 py-4 flex justify-end">
+              <div className="border-t px-4 sm:px-6 py-3 sm:py-4 flex justify-end">
                 {isEditMode ? (
                   <>
                     <button
-                      className="mr-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none"
+                      className="mr-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none text-sm"
                       onClick={closeOrderModal}
                     >
                       Cancel
                     </button>
                     <button
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none flex items-center"
+                      className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none flex items-center text-sm"
                       onClick={handleSaveOrder}
                     >
                       <FaSave className="mr-1" /> Save Changes
@@ -1274,19 +1597,96 @@ const AdminOrders = () => {
                 ) : (
                   <>
                     <button
-                      className="mr-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none flex items-center"
+                      className="mr-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none flex items-center text-sm"
                       onClick={() => setIsEditMode(true)}
                     >
                       <FaPencilAlt className="mr-1" /> Edit
                     </button>
                     <button
-                      className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 focus:outline-none"
+                      className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 focus:outline-none text-sm"
                       onClick={closeOrderModal}
                     >
                       Close
                     </button>
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Receipt Viewer Modal */}
+        {receiptViewerOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-medium">Receipt Image</h3>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={handleZoomOut} 
+                    className="p-1 bg-gray-200 rounded-full hover:bg-gray-300"
+                    disabled={imageZoomLevel <= 50}
+                    title="Zoom Out"
+                  >
+                    <FaSearchMinus />
+                  </button>
+                  <span className="text-sm font-medium">{imageZoomLevel}%</span>
+                  <button 
+                    onClick={handleZoomIn} 
+                    className="p-1 bg-gray-200 rounded-full hover:bg-gray-300"
+                    disabled={imageZoomLevel >= 200}
+                    title="Zoom In"
+                  >
+                    <FaSearchPlus />
+                  </button>
+                  <button 
+                    onClick={downloadReceiptImage} 
+                    className="p-1 bg-gray-200 rounded-full hover:bg-gray-300 ml-2"
+                    title="Download Receipt"
+                  >
+                    <FaDownload />
+                  </button>
+                  <button 
+                    onClick={closeReceiptViewer} 
+                    className="p-1 bg-gray-200 rounded-full hover:bg-gray-300 ml-2"
+                    title="Close"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Modal Body - Image Container */}
+              <div className="p-2 overflow-auto flex-grow flex items-center justify-center bg-gray-100">
+                {currentReceiptImage ? (
+                  <div className="overflow-auto max-h-full flex items-center justify-center">
+                    <img 
+                      src={currentReceiptImage} 
+                      alt="Receipt" 
+                      className="max-w-full"
+                      style={{ transform: `scale(${imageZoomLevel / 100})` }}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "https://via.placeholder.com/300?text=Image+Failed+to+Load";
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500">
+                    Failed to load receipt image
+                  </div>
+                )}
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="border-t p-4 text-right">
+                <button 
+                  onClick={closeReceiptViewer}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

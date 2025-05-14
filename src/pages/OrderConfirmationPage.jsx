@@ -147,6 +147,15 @@ const OrderConfirmationPage = () => {
       // Generate an order number if not provided
       const orderNumber = orderData.orderNumber || orderData.id || `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
       
+      // Log receipt data as received from OrderPage
+      console.log('📷 OrderConfirmation - Receipt data received:', {
+        hasReceipt: !!orderData.paymentReceipt,
+        receiptType: orderData.paymentReceipt?.type || 'none',
+        hasImageData: orderData.paymentReceipt?.imageData ? 'Yes' : 'No',
+        hasLink: orderData.paymentReceipt?.link ? 'Yes' : 'No',
+        uploadedAt: orderData.paymentReceipt?.uploadedAt ? new Date(orderData.paymentReceipt.uploadedAt).toISOString() : 'N/A'
+      });
+      
       // Ensure shipping address is complete
       const shippingAddress = {
         name: orderData.shippingAddress?.name || orderData.customer?.name || 'Customer',
@@ -167,6 +176,47 @@ const OrderConfirmationPage = () => {
         zip: shippingAddress.zip,
         country: shippingAddress.country
       };
+
+      // Check if we have a payment receipt with image data that's very large
+      let paymentReceiptToSend = orderData.paymentReceipt;
+      
+      if (!paymentReceiptToSend) {
+        console.warn('⚠️ OrderConfirmation - No payment receipt found, creating empty receipt object');
+        paymentReceiptToSend = {
+          type: 'none',
+          imageData: '',
+          link: '',
+          uploadedAt: new Date()
+        };
+      } else {
+        console.log('🧾 OrderConfirmation - Processing receipt for backend:', {
+          type: paymentReceiptToSend.type,
+          hasImageData: !!paymentReceiptToSend.imageData,
+          hasLink: !!paymentReceiptToSend.link,
+          uploadDate: paymentReceiptToSend.uploadedAt
+        });
+      }
+      
+      if (orderData.paymentReceipt && 
+          orderData.paymentReceipt.type === 'image' && 
+          orderData.paymentReceipt.imageData) {
+        
+        // Check if the image data is very large (over 5MB after JSON stringification)
+        const imageDataSize = orderData.paymentReceipt.imageData.length;
+        console.log(`📊 OrderConfirmation - Payment receipt image size: ${(imageDataSize / 1024 / 1024).toFixed(2)}MB`);
+        
+        if (imageDataSize > 5 * 1024 * 1024) { // 5MB
+          console.log('⚠️ OrderConfirmation - Image data is very large, replacing with reference');
+          // Replace with a reference instead of the full image data
+          paymentReceiptToSend = {
+            type: 'reference',
+            imageData: '', // Clear the large data
+            link: '',
+            uploadedAt: orderData.paymentReceipt.uploadedAt,
+            note: `Large image receipt (${(imageDataSize / 1024 / 1024).toFixed(2)}MB) was uploaded but not stored in database.`
+          };
+        }
+      }
       
       // Format data for the API
       const apiOrderData = {
@@ -189,6 +239,19 @@ const OrderConfirmationPage = () => {
           status: 'completed',
           cardDetails: orderData.cardDetails || {}
         },
+        // Add payment receipt information if available
+        paymentReceipt: paymentReceiptToSend ? {
+          type: paymentReceiptToSend.type || 'none',
+          imageData: paymentReceiptToSend.imageData || '',
+          link: paymentReceiptToSend.link || '',
+          uploadedAt: paymentReceiptToSend.uploadedAt || new Date(),
+          note: paymentReceiptToSend.note || ''
+        } : {
+          type: 'none',
+          imageData: '',
+          link: '',
+          uploadedAt: new Date()
+        },
         subtotal: parseFloat(orderData.subtotal) || 0,
         tax: parseFloat(orderData.tax) || 0,
         shipping: parseFloat(orderData.shipping) || 0,
@@ -198,6 +261,15 @@ const OrderConfirmationPage = () => {
         customerName: orderData.customer?.name || shippingAddress.name,
         shippingMethod: orderData.shippingMethod || 'Standard Shipping',
       };
+
+      // Log the API receipt data being sent
+      console.log('📤 OrderConfirmation - Payment receipt in API payload:', {
+        type: apiOrderData.paymentReceipt.type,
+        hasImageData: !!apiOrderData.paymentReceipt.imageData,
+        imageDataLength: apiOrderData.paymentReceipt.imageData?.length || 0,
+        hasLink: !!apiOrderData.paymentReceipt.link,
+        hasNote: !!apiOrderData.paymentReceipt.note
+      });
       
       // SIMPLIFIED USER ID HANDLING - Match the backend createOrder function
       // Use the same approach as the test orders to ensure consistency
@@ -243,7 +315,12 @@ const OrderConfirmationPage = () => {
       // Update order details with API response
       if (response.data && response.data.success) {
         const savedOrder = response.data.data;
-        console.log('Order saved to database successfully:', savedOrder);
+        console.log('🟢 Order saved to database successfully:', savedOrder);
+        console.log('📄 Receipt info in saved order:', {
+          type: savedOrder.paymentReceipt?.type || 'none',
+          hasImageData: !!savedOrder.paymentReceipt?.imageData,
+          hasLink: !!savedOrder.paymentReceipt?.link
+        });
         
         // Keep our UI data but add any server-generated fields
         setOrderDetails(prev => ({
@@ -278,7 +355,9 @@ const OrderConfirmationPage = () => {
           customerEmail: apiOrderData.customerEmail,
           customerName: apiOrderData.customerName,
           createdAt: savedOrder.createdAt || new Date().toISOString(),
-          updatedAt: savedOrder.updatedAt || new Date().toISOString()
+          updatedAt: savedOrder.updatedAt || new Date().toISOString(),
+          // Preserve the original payment receipt for local display
+          paymentReceipt: orderData.paymentReceipt
         };
         
         // Add the completed order to the store for Profile display
@@ -296,9 +375,12 @@ const OrderConfirmationPage = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to save order to database:', err);
+      console.error('❌ Failed to save order to database:', err);
       if (err.response && err.response.data) {
-        console.error('Server error details:', err.response.data);
+        console.error('❌ Server error details:', err.response.data);
+        if (err.response.status === 413) {
+          console.error('❌ The server rejected the request due to its large size. Payment receipt image may be too large.');
+        }
       }
       setApiError('Unable to save order details to our system. Your order is still valid.');
       
@@ -316,7 +398,8 @@ const OrderConfirmationPage = () => {
           shippingMethod: orderData.shippingMethod || 'Standard Shipping',
           createdAt: new Date().toISOString(),
           customerEmail: orderData.customer?.email || 'guest@example.com',
-          customerName: orderData.customer?.name || 'Customer'
+          customerName: orderData.customer?.name || 'Customer',
+          paymentReceipt: orderData.paymentReceipt
         };
         
         // Still add to orderStore even if backend fails
@@ -358,6 +441,62 @@ const OrderConfirmationPage = () => {
       const calculatedSubtotal = processedItems.length > 0 
         ? processedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
         : parseFloat(details.amount || 0);
+      
+      // Process payment receipt information
+      let paymentReceiptData = null;
+      if (details.paymentReceipt) {
+        // If paymentReceipt is already in the correct format
+        paymentReceiptData = {
+          type: details.paymentReceipt.type || 'none',
+          imageData: details.paymentReceipt.imageData || '',
+          link: details.paymentReceipt.link || '',
+          uploadedAt: details.paymentReceipt.uploadedAt || new Date()
+        };
+        
+        // Make sure the type field is set properly and not empty
+        if (!paymentReceiptData.type || paymentReceiptData.type === '') {
+          if (paymentReceiptData.imageData) {
+            paymentReceiptData.type = 'image';
+          } else if (paymentReceiptData.link) {
+            paymentReceiptData.type = 'link';
+          } else {
+            paymentReceiptData.type = 'none';
+          }
+        }
+        
+        console.log('🧾 OrderConfirmation - Processed receipt data:', {
+          type: paymentReceiptData.type,
+          hasImageData: !!paymentReceiptData.imageData,
+          hasLink: !!paymentReceiptData.link
+        });
+      } else if (details.receiptImage) {
+        // Legacy format with direct image data
+        paymentReceiptData = {
+          type: 'image',
+          imageData: details.receiptImage,
+          link: '',
+          uploadedAt: new Date()
+        };
+        console.log('🧾 OrderConfirmation - Created image receipt from legacy format');
+      } else if (details.receiptLink) {
+        // Legacy format with direct link
+        paymentReceiptData = {
+          type: 'link',
+          imageData: '',
+          link: details.receiptLink,
+          uploadedAt: new Date()
+        };
+        console.log('🧾 OrderConfirmation - Created link receipt from legacy format');
+      } else {
+        // No receipt information
+        paymentReceiptData = {
+          type: 'none',
+          imageData: '',
+          link: '',
+          uploadedAt: new Date()
+        };
+        console.log('🧾 OrderConfirmation - No receipt data found, created empty receipt');
+      }
       
       // Create a comprehensive order details object
       const orderData = {
@@ -404,6 +543,8 @@ const OrderConfirmationPage = () => {
           brand: 'Visa',
           last4: '4242'
         },
+        // Include payment receipt information
+        paymentReceipt: paymentReceiptData,
         transactionId: details.transactionId || `txn_${Math.random().toString(36).substring(2, 15)}`,
         // Include pricing details - ensure numeric values
         subtotal: typeof details.subtotal === 'number' ? details.subtotal : calculatedSubtotal,
@@ -484,6 +625,13 @@ const OrderConfirmationPage = () => {
         cardDetails: {
           brand: 'Visa',
           last4: '4242'
+        },
+        // Add sample payment receipt
+        paymentReceipt: {
+          type: 'link',
+          imageData: '',
+          link: 'https://pay.chippercash.com/api/pdfs/receipt?ref=DEMO-' + Date.now(),
+          uploadedAt: new Date()
         },
         transactionId: `txn_${Math.random().toString(36).substring(2, 15)}`,
         // Demo customer

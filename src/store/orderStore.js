@@ -129,21 +129,105 @@ export const useOrderStore = create(
         const orders = get().orders;
         // Check if order already exists
         const exists = orders.some(o => o._id === order._id || o.orderNumber === order.orderNumber);
+        
+        // Ensure the order has correct user ID fields
+        const orderWithUser = { ...order };
+        
+        // If either userId or user is set, ensure both are set consistently
+        if (orderWithUser.userId && !orderWithUser.user) {
+          orderWithUser.user = orderWithUser.userId;
+        } else if (orderWithUser.user && !orderWithUser.userId) {
+          orderWithUser.userId = orderWithUser.user;
+        }
+        
+        console.log('OrderStore - Adding order:', { 
+          order: orderWithUser, 
+          exists, 
+          currentOrdersCount: orders.length 
+        });
+        
         if (!exists) {
-          set({ orders: [order, ...orders] });
+          set({ orders: [orderWithUser, ...orders] });
+          console.log('OrderStore - Order added, new count:', get().orders.length);
+        } else {
+          console.log('OrderStore - Order already exists, not adding');
         }
       },
       
-      getOrders: () => get().orders,
+      getOrders: () => {
+        const orders = get().orders;
+        console.log('OrderStore - Getting all orders:', { 
+          count: orders.length,
+          orders
+        });
+        return orders;
+      },
       
-      clearOrders: () => set({ orders: [] }),
+      // Get orders for a specific user
+      getUserOrders: (userId, userEmail) => {
+        if (!userId && !userEmail) return [];
+        
+        const orders = get().orders;
+        return orders.filter(order => {
+          return (
+            (userId && order.userId === userId) ||
+            (userId && order.user === userId) ||
+            (userEmail && order.customerEmail === userEmail)
+          );
+        });
+      },
+
+      // Ensure all orders have consistent user ID fields
+      fixOrderUserIds: () => {
+        const orders = get().orders;
+        console.log('OrderStore - Fixing order user IDs for consistency');
+        
+        let hasChanges = false;
+        const fixedOrders = orders.map(order => {
+          const updatedOrder = { ...order };
+          let updated = false;
+          
+          // If userId exists but user doesn't, copy userId to user
+          if (updatedOrder.userId && !updatedOrder.user) {
+            console.log(`OrderStore - Setting user field for order ${updatedOrder.orderNumber || updatedOrder._id}`);
+            updatedOrder.user = updatedOrder.userId;
+            updated = true;
+          }
+          // If user exists but userId doesn't, copy user to userId
+          else if (updatedOrder.user && !updatedOrder.userId) {
+            console.log(`OrderStore - Setting userId field for order ${updatedOrder.orderNumber || updatedOrder._id}`);
+            updatedOrder.userId = updatedOrder.user;
+            updated = true;
+          }
+          
+          hasChanges = hasChanges || updated;
+          return updatedOrder;
+        });
+        
+        // Only update state if changes were made
+        if (hasChanges) {
+          set({ orders: fixedOrders });
+          console.log('OrderStore - Fixed order IDs, count:', fixedOrders.length);
+        } else {
+          console.log('OrderStore - No fixes needed for order IDs');
+        }
+        
+        return fixedOrders;
+      },
+      
+      clearOrders: () => {
+        console.log('OrderStore - Clearing all orders');
+        set({ orders: [] });
+      },
 
       // Initialize with sample order data
-      initializeWithSampleOrder: () => {
+      initializeWithSampleOrder: (userId = null, userEmail = null) => {
+        console.log('OrderStore - Initializing with sample order for user:', { userId, userEmail });
         const sampleOrder = {
-          _id: "681af6563e9cdf9c37a86fea",
-          orderNumber: "ORD-1746597441691",
-          user: "6785e68c70b5db143ffb765a",
+          _id: "sample-" + Date.now(),
+          orderNumber: "ORD-" + Math.floor(10000 + Math.random() * 90000),
+          userId: userId || "6785e68c70b5db143ffb765a",
+          user: userId || "6785e68c70b5db143ffb765a",
           items: [
             {
               productId: "17",
@@ -154,7 +238,7 @@ export const useOrderStore = create(
               sku: "",
               color: "",
               size: "",
-              _id: "681af6563e9cdf9c37a86feb"
+              _id: "sample-item-" + Date.now()
             }
           ],
           shippingAddress: {
@@ -174,12 +258,19 @@ export const useOrderStore = create(
           },
           paymentMethod: "Mobile Money",
           paymentDetails: {
-            transactionId: "REF-1746597459703",
+            transactionId: "REF-" + Date.now(),
             status: "completed",
             cardDetails: {
               brand: "Visa",
               last4: "4242"
             }
+          },
+          // Add sample payment receipt
+          paymentReceipt: {
+            type: 'link',
+            imageData: '',
+            link: 'https://pay.chippercash.com/api/pdfs/receipt?ref=SAMPLE-RECEIPT',
+            uploadedAt: new Date().toISOString()
           },
           subtotal: 85,
           tax: 12.75,
@@ -187,17 +278,19 @@ export const useOrderStore = create(
           discount: 8.5,
           totalAmount: 85,
           status: "Processing",
-          trackingNumber: "RG787623152DS",
+          trackingNumber: "RG" + Math.floor(100000 + Math.random() * 900000) + "DS",
           shippingMethod: "express",
           estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          receiptId: "RCP-849776",
-          customerEmail: "owusukenneth77@gmail.com",
+          receiptId: "RCP-" + Math.floor(100000 + Math.random() * 900000),
+          customerEmail: userEmail || "customer@example.com",
           customerName: "Customer",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
 
+        console.log('OrderStore - Created sample order:', sampleOrder);
         set({ orders: [sampleOrder] });
+        console.log('OrderStore - Store updated with sample order');
       },
 
       // New functions for selected order
@@ -211,19 +304,57 @@ export const useOrderStore = create(
       
       getSelectedOrder: () => get().selectedOrder,
 
-      // Add update order function
+      // Add update order function with support for nested objects
       updateOrder: (orderId, updatedData) => {
         const orders = get().orders;
-        const updatedOrders = orders.map(order => 
-          order._id === orderId ? { ...order, ...updatedData, updatedAt: new Date().toISOString() } : order
-        );
         
+        // Helper function to handle deep merging of nested objects
+        const deepMerge = (target, source) => {
+          const output = {...target};
+          
+          if (isObject(target) && isObject(source)) {
+            Object.keys(source).forEach(key => {
+              if (isObject(source[key])) {
+                if (!(key in target)) {
+                  output[key] = source[key];
+                } else {
+                  output[key] = deepMerge(target[key], source[key]);
+                }
+              } else {
+                output[key] = source[key];
+              }
+            });
+          }
+          
+          return output;
+        };
+        
+        // Check if value is an object
+        function isObject(item) {
+          return (item && typeof item === 'object' && !Array.isArray(item));
+        }
+        
+        const updatedOrders = orders.map(order => {
+          if (order._id === orderId) {
+            // Create a deep merged version of the order
+            const updatedOrder = deepMerge(order, updatedData);
+            // Always update the timestamp
+            updatedOrder.updatedAt = new Date().toISOString();
+            return updatedOrder;
+          }
+          return order;
+        });
+        
+        // Check if we need to update selectedOrder too
+        const selectedOrder = get().selectedOrder;
+        const updatedSelectedOrder = selectedOrder && selectedOrder._id === orderId 
+          ? deepMerge(selectedOrder, {...updatedData, updatedAt: new Date().toISOString()}) 
+          : selectedOrder;
+        
+        // Update the state
         set({ 
           orders: updatedOrders,
-          // If the selected order is being updated, update that too
-          selectedOrder: get().selectedOrder?._id === orderId 
-            ? { ...get().selectedOrder, ...updatedData, updatedAt: new Date().toISOString() } 
-            : get().selectedOrder
+          selectedOrder: updatedSelectedOrder
         });
         
         return updatedOrders.find(order => order._id === orderId);

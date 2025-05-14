@@ -451,26 +451,26 @@ const ProductDetailsPage = () => {
     <div className="min-h-screen bg-white">
       <Navbar />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Breadcrumb */}
-        <div className="flex items-center text-sm text-gray-500 mb-8">
+        <div className="flex items-center text-sm text-gray-500 mb-4 sm:mb-8 overflow-x-auto hide-scrollbar">
           <button 
             onClick={() => navigate(-1)}
-            className="flex items-center text-gray-600 hover:text-gray-900"
+            className="flex items-center text-gray-600 hover:text-gray-900 whitespace-nowrap"
           >
-            <ArrowLeft className="w-4 h-4 mr-1" />
+            <ArrowLeft className="w-4 h-4 mr-1 flex-shrink-0" />
             Back
           </button>
           <span className="mx-2">/</span>
-          <a href="/" className="hover:text-gray-900">Home</a>
+          <a href="/" className="hover:text-gray-900 whitespace-nowrap">Home</a>
           <span className="mx-2">/</span>
-          <a href="/shop" className="hover:text-gray-900">Shop</a>
+          <a href="/shop" className="hover:text-gray-900 whitespace-nowrap">Shop</a>
           <span className="mx-2">/</span>
-          <span className="font-medium text-gray-900">{product.name}</span>
+          <span className="font-medium text-gray-900 truncate max-w-[150px] sm:max-w-none">{product.name}</span>
         </div>
         
         {/* Product Detail Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
           {/* Left Column - Images */}
           <div className="space-y-4">
             {/* Main Image */}
@@ -504,7 +504,7 @@ const ProductDetailsPage = () => {
           
           {/* Right Column - Product Info */}
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{product.name}</h1>
             <div className="mt-2 flex items-center">
               <div className="flex items-center">
                 {[...Array(5)].map((_, i) => (
@@ -522,7 +522,7 @@ const ProductDetailsPage = () => {
             </div>
             
             <div className="mt-4">
-              <span className="text-2xl font-bold text-gray-900">
+              <span className="text-xl sm:text-2xl font-bold text-gray-900">
                 {/* Display price with fallbacks for products without variants */}
                 {product.variants && product.variants.length > 0 && product.variants[selectedVariantIndex]?.price ? 
                   (typeof product.variants[selectedVariantIndex].price === 'number' ? 
@@ -533,7 +533,7 @@ const ProductDetailsPage = () => {
                     `GH₵${product.basePrice}`)}
               </span>
               {product.salePrice > 0 && (
-                <span className="ml-2 text-lg text-gray-500 line-through">
+                <span className="ml-2 text-base sm:text-lg text-gray-500 line-through">
                   {typeof product.basePrice === 'number' ? 
                     `GH₵${product.basePrice.toFixed(2)}` : 
                     `GH₵${product.basePrice}`}
@@ -583,7 +583,7 @@ const ProductDetailsPage = () => {
             {product.sizes && product.sizes.length > 0 && (
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-900">Size</h3>
-              <div className="grid grid-cols-5 gap-2 mt-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-2">
                 {product.sizes.map((size) => (
                   <button
                     key={size}
@@ -725,10 +725,10 @@ const ProductDetailsPage = () => {
         </div>
         
         {/* Tabs Section */}
-        <div className="mt-16 border-t border-gray-200 pt-10">
-          <div className="flex border-b border-gray-200">
+        <div className="mt-10 sm:mt-16 border-t border-gray-200 pt-6 sm:pt-10">
+          <div className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar">
             <button
-              className={`pb-4 px-1 mr-8 text-sm font-medium border-b-2 ${
+              className={`pb-4 px-1 mr-4 sm:mr-8 text-sm font-medium border-b-2 whitespace-nowrap ${
                 activeTab === 'description'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -738,7 +738,7 @@ const ProductDetailsPage = () => {
               Description
             </button>
             <button
-              className={`pb-4 px-1 mr-8 text-sm font-medium border-b-2 ${
+              className={`pb-4 px-1 mr-4 sm:mr-8 text-sm font-medium border-b-2 whitespace-nowrap ${
                 activeTab === 'details'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -748,7 +748,7 @@ const ProductDetailsPage = () => {
               Details & Care
             </button>
             <button
-              className={`pb-4 px-1 mr-8 text-sm font-medium border-b-2 ${
+              className={`pb-4 px-1 mr-4 sm:mr-8 text-sm font-medium border-b-2 whitespace-nowrap ${
                 activeTab === 'reviews'
                   ? 'border-black text-black'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -840,9 +840,9 @@ const ProductDetailsPage = () => {
         </div>
         
         {/* Similar Products Section */}
-        <div className="mt-16">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">You May Also Like</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="mt-10 sm:mt-16">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">You May Also Like</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {similarProducts && similarProducts.length > 0 ? (
               similarProducts.map((similarProduct) => (
               <div 
@@ -876,9 +876,9 @@ const ProductDetailsPage = () => {
         </div>
         
         {/* Recently Viewed */}
-        <div className="mt-16">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Recently Viewed</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="mt-10 sm:mt-16">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Recently Viewed</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {/* Placeholder for recently viewed items */}
             <div className="aspect-[3/4] rounded-md bg-gray-100 flex items-center justify-center">
               <p className="text-gray-400 text-sm">No items viewed yet</p>
@@ -902,27 +902,27 @@ const ProductDetailsPage = () => {
               </button>
             </div>
             
-            <div className="p-6">
-              <div className="mb-8">
+            <div className="p-4 sm:p-6">
+              <div className="mb-6 sm:mb-8">
                 <h4 className="text-base font-medium text-gray-900 mb-4">How to Measure</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
                   <div className="flex flex-col items-center">
-                    <div className="w-32 h-32 bg-gray-100 flex items-center justify-center rounded-full mb-3">
-                      <Ruler className="w-12 h-12 text-gray-400" />
+                    <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 flex items-center justify-center rounded-full mb-3">
+                      <Ruler className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" />
                     </div>
                     <h5 className="font-medium text-gray-900 mb-1">Bust</h5>
                     <p className="text-sm text-gray-500 text-center">Measure around the fullest part of your bust, keeping the tape parallel to the floor.</p>
                   </div>
                   <div className="flex flex-col items-center">
-                    <div className="w-32 h-32 bg-gray-100 flex items-center justify-center rounded-full mb-3">
-                      <Ruler className="w-12 h-12 text-gray-400" />
+                    <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 flex items-center justify-center rounded-full mb-3">
+                      <Ruler className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" />
                     </div>
                     <h5 className="font-medium text-gray-900 mb-1">Waist</h5>
                     <p className="text-sm text-gray-500 text-center">Measure around your natural waistline, keeping the tape comfortably loose.</p>
                   </div>
                   <div className="flex flex-col items-center">
-                    <div className="w-32 h-32 bg-gray-100 flex items-center justify-center rounded-full mb-3">
-                      <Ruler className="w-12 h-12 text-gray-400" />
+                    <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 flex items-center justify-center rounded-full mb-3">
+                      <Ruler className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" />
                     </div>
                     <h5 className="font-medium text-gray-900 mb-1">Hips</h5>
                     <p className="text-sm text-gray-500 text-center">Measure around the fullest part of your hips, about 8 inches below your waistline.</p>
@@ -930,69 +930,71 @@ const ProductDetailsPage = () => {
                 </div>
               </div>
               
-              <div className="mb-8">
+              <div className="mb-6 sm:mb-8">
                 <h4 className="text-base font-medium text-gray-900 mb-4">Women's Clothing Sizes</h4>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">US</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">UK</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">EU</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bust (in)</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Waist (in)</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hips (in)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">XS</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0-2</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4-6</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">32-34</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">31.5-32.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">24.5-25.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">34.5-35.5</td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">S</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4-6</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">8-10</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">36-38</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">33.5-34.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">26.5-27.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">36.5-37.5</td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">M</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">8-10</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12-14</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">40-42</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">35.5-36.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">28.5-29.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">38.5-39.5</td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">L</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12-14</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">16-18</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">44-46</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">37.5-39.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">30.5-32.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">40.5-42.5</td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">XL</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">16-18</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">20-22</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">48-50</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">40.5-42.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">33.5-35.5</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">43.5-45.5</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="inline-block min-w-full px-4 sm:px-0">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">US</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">UK</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">EU</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bust (in)</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Waist (in)</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hips (in)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">XS</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0-2</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4-6</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">32-34</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">31.5-32.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">24.5-25.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">34.5-35.5</td>
+                        </tr>
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">S</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4-6</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">8-10</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">36-38</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">33.5-34.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">26.5-27.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">36.5-37.5</td>
+                        </tr>
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">M</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">8-10</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12-14</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">40-42</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">35.5-36.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">28.5-29.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">38.5-39.5</td>
+                        </tr>
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">L</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12-14</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">16-18</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">44-46</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">37.5-39.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">30.5-32.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">40.5-42.5</td>
+                        </tr>
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">XL</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">16-18</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">20-22</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">48-50</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">40.5-42.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">33.5-35.5</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">43.5-45.5</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
               
@@ -1043,7 +1045,7 @@ const ProductDetailsPage = () => {
       {/* Notify When Back in Stock Modal */}
       {showNotifyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-800">Get In-Stock Alert</h3>
               <button 

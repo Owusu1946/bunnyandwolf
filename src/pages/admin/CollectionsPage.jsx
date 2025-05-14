@@ -14,18 +14,12 @@ const isValidImageUrl = (url) => {
   // Basic URL format validation
   try {
     new URL(url);
+    return true; // Consider any valid URL as potentially valid for images
   } catch (e) {
     return false;
   }
   
-  // Check if URL ends with common image extensions
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
-  const lowercaseUrl = url.toLowerCase();
-  return imageExtensions.some(ext => lowercaseUrl.endsWith(ext)) || 
-         // Also allow URLs containing image service patterns
-         lowercaseUrl.includes('cloudinary.com') || 
-         lowercaseUrl.includes('imgur.com') ||
-         lowercaseUrl.includes('unsplash.com');
+  // Removed overly restrictive image extension and domain checking
 };
 
 const CollectionsPage = () => {
@@ -370,19 +364,13 @@ const CollectionsPage = () => {
         return;
       }
       
-      // Validate image URL if provided
+      // Use the image URL as provided by user without replacing it with a placeholder
       let collectionData = {...newCollection};
       
+      // Only log a warning for potentially invalid URLs but don't replace them
       if (collectionData.image && !isValidImageUrl(collectionData.image)) {
-        console.warn(`⚠️ [CollectionsPage] Potentially invalid image URL: ${collectionData.image}`);
-        // You can decide to either warn the user or use a fallback:
-        // Option 1: Alert the user (uncomment this if you want to block submission)
-        // alert('The image URL may not be valid. Please check the URL and try again.');
-        // setLoading(false);
-        // return;
-        
-        // Option 2: Use a fallback image or clear it
-        collectionData.image = `https://via.placeholder.com/400x200?text=${encodeURIComponent(collectionData.name || 'Collection')}`;
+        console.warn(`⚠️ [CollectionsPage] Potentially invalid image URL format: ${collectionData.image}`);
+        // No longer replacing with placeholder - use the URL as provided
       }
       
       const response = await axios.post(
@@ -397,11 +385,8 @@ const CollectionsPage = () => {
       );
       
       if (response.data.success) {
-        // Ensure image is properly set in the returned data
+        // No longer forcing placeholder images - use the image as returned by the API
         const returnedCollection = response.data.data;
-        if (!returnedCollection.image) {
-          returnedCollection.image = `https://via.placeholder.com/400x200?text=${encodeURIComponent(returnedCollection.name || 'Collection')}`;
-        }
         
         // Add to store
         storeAddCollection(returnedCollection);
@@ -470,19 +455,13 @@ const CollectionsPage = () => {
         return;
       }
       
-      // Validate image URL if provided
+      // Use the image URL as provided by user without replacing it with a placeholder
       let collectionData = {...newCollection};
       
+      // Only log a warning for potentially invalid URLs but don't replace them
       if (collectionData.image && !isValidImageUrl(collectionData.image)) {
-        console.warn(`⚠️ [CollectionsPage] Potentially invalid image URL: ${collectionData.image}`);
-        // You can decide to either warn the user or use a fallback:
-        // Option 1: Alert the user (uncomment this if you want to block submission)
-        // alert('The image URL may not be valid. Please check the URL and try again.');
-        // setLoading(false);
-        // return;
-        
-        // Option 2: Use a fallback image or clear it
-        collectionData.image = `https://via.placeholder.com/400x200?text=${encodeURIComponent(collectionData.name || 'Collection')}`;
+        console.warn(`⚠️ [CollectionsPage] Potentially invalid image URL format: ${collectionData.image}`);
+        // No longer replacing with placeholder - use the URL as provided
       }
       
       const response = await axios.put(
@@ -497,11 +476,8 @@ const CollectionsPage = () => {
       );
       
       if (response.data.success) {
-        // Ensure image is properly set in the returned data
+        // No longer forcing placeholder images - use the image as returned by the API
         const returnedCollection = response.data.data;
-        if (!returnedCollection.image) {
-          returnedCollection.image = `https://via.placeholder.com/400x200?text=${encodeURIComponent(returnedCollection.name || 'Collection')}`;
-        }
         
         // Update in store
         storeAddCollection(returnedCollection);
@@ -968,8 +944,8 @@ const CollectionsPage = () => {
                         />
                         <p className="mt-1 text-xs text-gray-500">
                           {isValidImageUrl(newCollection.image) ? 
-                            '✓ Valid image URL' : 
-                            '⚠️ This might not be a valid image URL. Make sure it points directly to an image file.'}
+                            '✓ Valid URL format' : 
+                            '⚠️ This might not be a valid URL format. Make sure it\'s a complete URL including http:// or https://'}
                         </p>
                       </div>
                     )}
@@ -1193,8 +1169,8 @@ const CollectionsPage = () => {
                         />
                         <p className="mt-1 text-xs text-gray-500">
                           {isValidImageUrl(newCollection.image) ? 
-                            '✓ Valid image URL' : 
-                            '⚠️ This might not be a valid image URL. Make sure it points directly to an image file.'}
+                            '✓ Valid URL format' : 
+                            '⚠️ This might not be a valid URL format. Make sure it\'s a complete URL including http:// or https://'}
                         </p>
                       </div>
                     )}

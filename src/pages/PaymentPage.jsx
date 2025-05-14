@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Lock, Upload, Check, ExternalLink, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, Lock, Upload, Check, ExternalLink, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useOrderStore } from '../store/orderStore';
+import apiConfig from '../config/apiConfig';
 
 const PaymentPage = () => {
   const location = useLocation();
@@ -138,6 +139,10 @@ const PaymentPage = () => {
 
   const navigateToOrderConfirmation = (paymentMethod, transactionId, amount) => {
     try {
+      // Get user ID from localStorage if available
+      const token = localStorage.getItem('token');
+      const userId = localStorage.getItem('userId');
+      
       // Ensure numeric values for prices
       const calculatedAmount = parsePrice(amount || formData.amount || 0);
       const subtotal = parsePrice(orderInfo?.subtotal || calculatedAmount);
@@ -159,10 +164,45 @@ const PaymentPage = () => {
           }))
         : [];
 
+      // Create payment receipt object
+      const paymentReceipt = {
+        type: receiptType, // 'image' or 'link'
+        imageData: receiptType === 'image' ? receiptPreview : null,
+        link: receiptType === 'link' ? receiptLink : null,
+        uploadedAt: new Date()
+      };
+
+      // Validate receipt type vs content
+      if (!paymentReceipt.type || paymentReceipt.type === '') {
+        if (paymentReceipt.imageData) {
+          paymentReceipt.type = 'image';
+          console.log('📝 Receipt type corrected to "image" based on content');
+        } else if (paymentReceipt.link) {
+          paymentReceipt.type = 'link';
+          console.log('📝 Receipt type corrected to "link" based on content');
+        } else {
+          paymentReceipt.type = 'none';
+          console.log('📝 Receipt type set to "none" due to missing content');
+        }
+      }
+
+      // Ensure we never have null or undefined values in the receipt
+      paymentReceipt.imageData = paymentReceipt.imageData || '';
+      paymentReceipt.link = paymentReceipt.link || '';
+
+      console.log('📝 Order - Creating order with receipt:', {
+        receiptType: paymentReceipt.type,
+        hasImageData: !!paymentReceipt.imageData,
+        imageDataLength: paymentReceipt.imageData ? paymentReceipt.imageData.length : 0,
+        link: paymentReceipt.link
+      });
+
       // Create order details for confirmation page
       const orderDetails = {
         id: transactionId || `txn-${Date.now()}`,
         orderNumber: orderInfo?.orderNumber || `ORD-${Date.now()}`,
+        userId: userId, // Add user ID
+        user: userId, // Add user ID in expected format for MongoDB
         date: new Date().toISOString(),
         paymentMethod: paymentMethod,
         transactionId: transactionId,
@@ -188,27 +228,44 @@ const PaymentPage = () => {
         shippingAddress: orderInfo?.shippingAddress || null,
         billingAddress: orderInfo?.billingAddress || orderInfo?.shippingAddress || null,
         shippingMethod: orderInfo?.shippingMethod || 'Standard Shipping',
-        paymentReceipt: receiptType === 'link' ? receiptLink : receiptPreview
+        paymentReceipt: paymentReceipt // Add the payment receipt information
       };
 
       // Update the payment status in the store
       orderStore.setPaymentStatus({
         status: 'success',
+        userId: userId, // Add user ID
         transactionId: transactionId,
         paymentMethod: paymentMethod,
         date: new Date(),
+        receiptType: receiptType,
         receiptImage: receiptType === 'image' ? receiptPreview : null,
         receiptLink: receiptType === 'link' ? receiptLink : null
       });
       
-      console.log("Navigating to order confirmation with:", orderDetails);
+      // Save the order to the store with user association
+      console.log('💾 Order - Saving order to store with receipt included');
+      orderStore.addOrder({
+        ...orderDetails,
+        status: 'Processing',
+        createdAt: new Date().toISOString(),
+        customerEmail: formData.email || orderInfo?.contactInfo?.email || 'customer@example.com',
+        customerName: orderInfo?.contactInfo?.name || 'Customer'
+      });
+      
+      console.log("🔄 Order - Navigating to order confirmation with:", {
+        orderId: orderDetails.id, 
+        orderNumber: orderDetails.orderNumber,
+        hasReceipt: !!orderDetails.paymentReceipt,
+        receiptType: orderDetails.paymentReceipt?.type
+      });
       
       // Navigate to order confirmation page
       navigate('/order-confirmation', {
         state: { orderDetails }
       });
     } catch (error) {
-      console.error('Navigation error:', error);
+      console.error('❌ Navigation error:', error);
       setIsProcessing(false);
     }
   };
@@ -267,18 +324,124 @@ const PaymentPage = () => {
     const file = e.target.files[0];
     if (!file) return;
     
+    console.log('📷 Receipt upload - File selected:', {
+      name: file.name,
+      type: file.type,
+      size: apiConfig.upload.formatFileSize(file.size)
+    });
+    
+    // Check if file type is acceptable
+    if (!apiConfig.upload.acceptedImageFormats.includes(file.type)) {
+      alert(`Unsupported file type. Please upload ${apiConfig.upload.acceptedImageFormats.map(t => t.replace('image/', '.')).join(', ')}`);
+      return;
+    }
+    
     setPaymentReceipt(file);
     setReceiptType('image');
     
-    // Create a preview URL for the uploaded image
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setReceiptPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    // Check file size against the maximum size in apiConfig
+    const fileSizeMB = file.size / (1024 * 1024);
+    const isLargeFile = file.size > apiConfig.upload.maxFileSize;
     
-    // Update payment status
-    setPaymentStatus('receipt-uploaded');
+    if (isLargeFile) {
+      // For very large files, warn the user
+      console.log(`⚠️ Receipt upload - Large file detected (${fileSizeMB.toFixed(2)}MB)`);
+      alert(`Warning: Your image is ${fileSizeMB.toFixed(2)}MB which is larger than our recommended size of ${apiConfig.upload.maxFileSize / (1024 * 1024)}MB. The image will be compressed.`);
+    }
+    
+    // Compress if larger than 1MB or very large files
+    if (file.size > 1024 * 1024) {
+      console.log('🔄 Receipt upload - Starting image compression');
+      compressImage(file)
+        .then(compressedDataUrl => {
+          const base64Size = compressedDataUrl.length * 0.75; // approximate size in bytes
+          const compressedSizeMB = base64Size / (1024 * 1024);
+          
+          console.log(`✅ Receipt upload - Compression complete: ${fileSizeMB.toFixed(2)}MB → ${compressedSizeMB.toFixed(2)}MB`);
+          setReceiptPreview(compressedDataUrl);
+          
+          // Check the size of the compressed data
+          if (compressedSizeMB > 5) {
+            console.warn(`⚠️ Receipt upload - Compressed image is still large: ${compressedSizeMB.toFixed(2)}MB`);
+          }
+          
+          setPaymentStatus('receipt-uploaded');
+        })
+        .catch(err => {
+          console.error("❌ Receipt upload - Image compression failed:", err);
+          // Fall back to regular file reader
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            console.log('⚠️ Receipt upload - Using uncompressed image as fallback');
+            setReceiptPreview(reader.result);
+          };
+          reader.readAsDataURL(file);
+          setPaymentStatus('receipt-uploaded');
+        });
+    } else {
+      // For small files, don't compress
+      console.log('📷 Receipt upload - Small file, skipping compression');
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptPreview(reader.result);
+        console.log('✅ Receipt upload - Image loaded successfully');
+      };
+      reader.readAsDataURL(file);
+      setPaymentStatus('receipt-uploaded');
+    }
+  };
+
+  // Function to compress images using canvas - updated to use apiConfig settings
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          // Calculate new dimensions using apiConfig settings
+          const maxWidth = apiConfig.upload.maxImageWidth;
+          const maxHeight = apiConfig.upload.maxImageHeight;
+          let width = img.width;
+          let height = img.height;
+          
+          // Calculate aspect ratio to maintain proportions
+          const aspectRatio = width / height;
+          
+          // Resize based on whichever dimension exceeds max first
+          if (width > maxWidth) {
+            width = maxWidth;
+            height = width / aspectRatio;
+          }
+          
+          if (height > maxHeight) {
+            height = maxHeight;
+            width = height * aspectRatio;
+          }
+          
+          // Create canvas for resizing
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw image on canvas
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Get compressed data URL (JPEG at quality from apiConfig)
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', apiConfig.upload.imageQuality);
+          
+          resolve(compressedDataUrl);
+        };
+        img.onerror = (error) => {
+          reject(error);
+        };
+      };
+      reader.onerror = (error) => {
+        reject(error);
+      };
+    });
   };
   
   // Handle mark as paid button
@@ -300,6 +463,13 @@ const PaymentPage = () => {
           transactionId = ref;
         }
       }
+
+      console.log('💳 Payment - Marking as paid with receipt:', {
+        receiptType,
+        receiptImageSize: receiptType === 'image' ? apiConfig.upload.formatFileSize(receiptPreview?.length * 0.75 || 0) : 'N/A',
+        receiptLink: receiptType === 'link' ? receiptLink : 'N/A',
+        transactionId
+      });
       
       // Navigate to order confirmation
       navigateToOrderConfirmation('Chipper Cash', transactionId, formData.amount);
@@ -307,29 +477,29 @@ const PaymentPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         <button 
           onClick={() => navigate(-1)}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-8"
+          className="flex items-center text-gray-600 hover:text-gray-900 mb-4 sm:mb-8"
         >
-          <ArrowLeft className="w-5 h-5 mr-2" />
+          <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Shopping
         </button>
 
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2">
             {/* Product Summary Section */}
-            <div className="bg-gray-50 p-8 flex flex-col">
+            <div className="bg-gray-50 p-4 sm:p-8 flex flex-col">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Order Summary</h2>
                 
                 {/* If we have multiple products from orderInfo, show them all */}
                 {orderInfo && orderInfo.products && orderInfo.products.length > 0 ? (
                   <div className="space-y-4 mb-6">
                     {orderInfo.products.map((product, index) => (
                       <div key={index} className="flex items-center space-x-4">
-                        <div className="w-16 h-16 overflow-hidden rounded-lg">
+                        <div className="w-16 h-16 overflow-hidden rounded-lg flex-shrink-0">
                           <img
                             src={product.image || 'https://via.placeholder.com/400x500'}
                             alt={product.name}
@@ -339,16 +509,16 @@ const PaymentPage = () => {
                             }}
                           />
                         </div>
-                        <div className="flex-1">
-                          <h3 className="font-medium">{product.name}</h3>
-                          <p className="text-sm text-gray-600">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium truncate">{product.name}</h3>
+                          <p className="text-xs sm:text-sm text-gray-600 truncate">
                             {product.colorName && `Color: ${product.colorName}`} 
                             {product.size && product.colorName && ' | '} 
                             {product.size && `Size: ${product.size}`}
                             {product.quantity > 1 && ` | Qty: ${product.quantity}`}
                           </p>
                         </div>
-                        <div className="font-medium">
+                        <div className="font-medium text-sm sm:text-base whitespace-nowrap">
                           {typeof product.price === 'number' ? `GH₵${product.price.toFixed(2)}` : product.price}
                         </div>
                       </div>
@@ -368,10 +538,10 @@ const PaymentPage = () => {
                   </div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Product</span>
-                    <span className="font-medium">
+                    <span className="text-gray-600 text-sm sm:text-base">Product</span>
+                    <span className="font-medium text-sm sm:text-base">
                       {orderInfo && orderInfo.products && orderInfo.products.length > 1 
                         ? `${orderInfo.products.length} items` 
                         : productInfo.name}
@@ -380,8 +550,8 @@ const PaymentPage = () => {
                   
                   {!orderInfo.subtotal && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Price</span>
-                      <span className="font-medium text-lg">
+                      <span className="text-gray-600 text-sm sm:text-base">Price</span>
+                      <span className="font-medium text-base sm:text-lg">
                         {productInfo.allVariants[selectedVariantIndex]?.price || productInfo.price}
                       </span>
                     </div>
@@ -389,36 +559,36 @@ const PaymentPage = () => {
                   
                   {orderInfo && orderInfo.subtotal !== undefined && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium text-lg">{safelyFormatPrice(orderInfo.subtotal)}</span>
+                      <span className="text-gray-600 text-sm sm:text-base">Subtotal</span>
+                      <span className="font-medium text-base sm:text-lg">{safelyFormatPrice(orderInfo.subtotal)}</span>
                     </div>
                   )}
                   
                   {orderInfo && orderInfo.shipping !== undefined && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Shipping</span>
-                      <span className="font-medium text-lg">{safelyFormatPrice(orderInfo.shipping)}</span>
+                      <span className="text-gray-600 text-sm sm:text-base">Shipping</span>
+                      <span className="font-medium text-base sm:text-lg">{safelyFormatPrice(orderInfo.shipping)}</span>
                     </div>
                   )}
                   
                   {orderInfo && orderInfo.tax !== undefined && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Tax</span>
-                      <span className="font-medium text-lg">{safelyFormatPrice(orderInfo.tax)}</span>
+                      <span className="text-gray-600 text-sm sm:text-base">Tax</span>
+                      <span className="font-medium text-base sm:text-lg">{safelyFormatPrice(orderInfo.tax)}</span>
                     </div>
                   )}
                   
                   {orderInfo && orderInfo.discount !== undefined && orderInfo.discount > 0 && (
                     <div className="flex justify-between items-center text-green-600">
-                      <span>Discount</span>
-                      <span className="font-medium text-lg">-{safelyFormatPrice(orderInfo.discount)}</span>
+                      <span className="text-sm sm:text-base">Discount</span>
+                      <span className="font-medium text-base sm:text-lg">-{safelyFormatPrice(orderInfo.discount)}</span>
                     </div>
                   )}
                   
                   <div className="border-t border-gray-200 pt-4">
                     <div className="flex justify-between items-center">
-                      <span className="font-medium">Total</span>
-                      <span className="font-bold text-xl text-blue-600">
+                      <span className="font-medium text-sm sm:text-base">Total</span>
+                      <span className="font-bold text-lg sm:text-xl text-blue-600">
                         {orderInfo && orderInfo.total !== undefined
                           ? safelyFormatPrice(orderInfo.total)
                           : productInfo.allVariants[selectedVariantIndex]?.price || productInfo.price}
@@ -427,29 +597,29 @@ const PaymentPage = () => {
                   </div>
                 </div>
               </div>
-              <div className="mt-8">
-                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-                  <Lock className="w-4 h-4" />
+              <div className="mt-6 sm:mt-8">
+                <div className="flex items-center justify-center space-x-2 text-xs sm:text-sm text-gray-500">
+                  <Lock className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>Secure Checkout</span>
                 </div>
               </div>
           </div>
 
             {/* Payment Section */}
-          <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Payment Method</h2>
+          <div className="p-4 sm:p-8">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Payment Method</h2>
             
-              <div className="mb-8">
+              <div className="mb-6 sm:mb-8">
                 {/* Payment Status Indicator */}
                 {paymentStatus !== 'initial' && (
                   <div className="mb-6">
                     <div className="flex items-center mb-4">
-                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 mr-3">
-                        <span className="text-lg font-semibold">1</span>
+                      <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 mr-3">
+                        <span className="text-base sm:text-lg font-semibold">1</span>
                       </div>
-                      <div className="flex-grow">
-                        <h4 className="font-medium">Make Payment</h4>
-                        <p className="text-sm text-gray-500">Pay via Chipper Cash</p>
+                      <div className="flex-grow min-w-0">
+                        <h4 className="font-medium text-sm sm:text-base">Make Payment</h4>
+                        <p className="text-xs sm:text-sm text-gray-500">Pay via Chipper Cash</p>
                       </div>
                       <div className={`ml-3 ${paymentUrl ? 'text-green-500' : 'text-gray-400'}`}>
                         {paymentUrl && <Check className="h-5 w-5" />}
@@ -457,12 +627,12 @@ const PaymentPage = () => {
                     </div>
                     
                     <div className="flex items-center">
-                      <div className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full ${(receiptPreview || receiptLink) ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'} mr-3`}>
-                        <span className="text-lg font-semibold">2</span>
+                      <div className={`flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-full ${(receiptPreview || receiptLink) ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'} mr-3`}>
+                        <span className="text-base sm:text-lg font-semibold">2</span>
                       </div>
-                      <div className="flex-grow">
-                        <h4 className="font-medium">Verify Payment</h4>
-                        <p className="text-sm text-gray-500">Share receipt link or upload screenshot</p>
+                      <div className="flex-grow min-w-0">
+                        <h4 className="font-medium text-sm sm:text-base">Verify Payment</h4>
+                        <p className="text-xs sm:text-sm text-gray-500 truncate">Share receipt link or upload screenshot</p>
                       </div>
                       <div className={`ml-3 ${(receiptPreview || validateReceiptLink()) ? 'text-green-500' : 'text-gray-400'}`}>
                         {(receiptPreview || validateReceiptLink()) && <Check className="h-5 w-5" />}
@@ -473,33 +643,33 @@ const PaymentPage = () => {
 
                 {paymentStatus === 'initial' && (
                   <>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                  <p className="text-green-800">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+                  <p className="text-green-800 text-sm sm:text-base">
                     You'll be redirected to Chipper Cash to complete your payment safely and securely.
                   </p>
                 </div>
                 
-                <div className="mb-6">
+                <div className="mb-4 sm:mb-6">
                   <img 
                         src="https://play-lh.googleusercontent.com/EzUq7fHrWw2DQR9KfTu3-vhpwOn5Ffiyd9rYHVlphPItqBqMBZP4o5XWQhPCFikPbNID" 
                     alt="Chipper Cash" 
-                    className="h-10 mx-auto mb-4"
+                    className="h-8 sm:h-10 mx-auto mb-2 sm:mb-4"
                     onError={(e) => {
                       e.target.onerror = null;
                       e.target.src = 'https://via.placeholder.com/200x50?text=Chipper+Cash';
                     }}
                   />
-                  <p className="text-center text-sm text-gray-600">
+                  <p className="text-center text-xs sm:text-sm text-gray-600">
                     Fast, secure payments across Africa
                   </p>
             </div>
 
-                    <div className="py-4 px-6 bg-blue-50 rounded-lg mb-6">
+                    <div className="py-3 sm:py-4 px-4 sm:px-6 bg-blue-50 rounded-lg mb-4 sm:mb-6">
                       <div className="flex justify-between">
-                        <span className="font-medium text-gray-700">Order Total:</span>
-                        <span className="font-bold text-lg">{safelyFormatPrice(orderInfo?.total || formData.amount)}</span>
+                        <span className="font-medium text-gray-700 text-sm sm:text-base">Order Total:</span>
+                        <span className="font-bold text-base sm:text-lg">{safelyFormatPrice(orderInfo?.total || formData.amount)}</span>
                     </div>
-                      <div className="mt-2 text-sm text-gray-500">
+                      <div className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500">
                         Payment will be processed through Chipper Cash
                     </div>
                   </div>
@@ -508,12 +678,12 @@ const PaymentPage = () => {
                   type="button"
                   onClick={handleChipperCashPayment}
                   disabled={isProcessing}
-                  className="w-full bg-[#0066F5] text-white py-4 px-4 rounded-xl hover:bg-blue-700 transition-colors duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium text-lg mt-6"
+                  className="w-full bg-[#0066F5] text-white py-3 sm:py-4 px-4 rounded-xl hover:bg-blue-700 transition-colors duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium text-base sm:text-lg mt-4 sm:mt-6"
                 >
                   {isProcessing ? (
                     <div className="flex items-center justify-center">
                       <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 sm:h-5 sm:w-5 text-white"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
@@ -542,12 +712,12 @@ const PaymentPage = () => {
                 )}
 
                 {paymentStatus === 'pending' && (
-                  <div className="space-y-6">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-blue-800 mb-2">
+                  <div className="space-y-4 sm:space-y-6">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                      <p className="text-blue-800 mb-2 text-sm sm:text-base">
                         Please complete your payment on Chipper Cash. After payment, provide the receipt link or upload a screenshot below.
                       </p>
-                      <div className="flex justify-between items-center">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                         <button
                           onClick={() => window.open(paymentUrl, '_blank')}
                           className="flex items-center text-blue-600 hover:underline text-sm font-medium"
@@ -563,25 +733,25 @@ const PaymentPage = () => {
                       </div>
                     </div>
                     
-                    <div className="border-t border-b border-gray-200 py-6">
-                      <h3 className="text-lg font-medium mb-4">Verify Your Payment</h3>
+                    <div className="border-t border-b border-gray-200 py-4 sm:py-6">
+                      <h3 className="text-base sm:text-lg font-medium mb-3 sm:mb-4">Verify Your Payment</h3>
                       
-                      <div className="space-y-6">
+                      <div className="space-y-4 sm:space-y-6">
                         {/* Receipt Link Option */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                             Enter Receipt Link
                           </label>
                           <div className="relative rounded-md">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <LinkIcon className="h-5 w-5 text-gray-400" />
+                              <LinkIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                             </div>
                             <input
                               type="url"
                               placeholder="https://pay.chippercash.com/api/pdfs/receipt?ref=..."
                               value={receiptLink}
                               onChange={handleReceiptLinkChange}
-                              className="block w-full pl-10 py-3 px-4 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                              className="block w-full pl-10 py-2 sm:py-3 px-3 sm:px-4 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
                             />
                           </div>
                           <p className="mt-1 text-xs text-gray-500">
@@ -591,12 +761,12 @@ const PaymentPage = () => {
                         
                         <div className="flex items-center">
                           <span className="flex-grow border-t border-gray-300"></span>
-                          <span className="mx-4 text-gray-600">OR</span>
+                          <span className="mx-4 text-gray-600 text-xs sm:text-sm">OR</span>
                           <span className="flex-grow border-t border-gray-300"></span>
                         </div>
                         
                         {/* Screenshot Upload Option */}
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center">
                           <input
                             type="file"
                             id="receipt-upload"
@@ -608,8 +778,8 @@ const PaymentPage = () => {
                             htmlFor="receipt-upload"
                             className="cursor-pointer flex flex-col items-center justify-center"
                           >
-                            <Upload className="h-10 w-10 text-gray-400 mb-3" />
-                            <p className="text-sm text-gray-700 font-medium">
+                            <Upload className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400 mb-2 sm:mb-3" />
+                            <p className="text-xs sm:text-sm text-gray-700 font-medium">
                               Click to upload receipt screenshot
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
@@ -623,48 +793,48 @@ const PaymentPage = () => {
                 )}
 
                 {paymentStatus === 'receipt-uploaded' && (
-                  <div className="space-y-6">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-green-800">
+                  <div className="space-y-4 sm:space-y-6">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+                      <p className="text-green-800 text-sm sm:text-base">
                         Receipt {receiptType === 'image' ? 'uploaded' : 'link added'} successfully! Please review and confirm your payment.
                       </p>
                     </div>
                     
-                    <div className="border rounded-lg p-4">
-                      <h3 className="text-lg font-medium mb-3">Payment Receipt</h3>
+                    <div className="border rounded-lg p-3 sm:p-4">
+                      <h3 className="text-base sm:text-lg font-medium mb-2 sm:mb-3">Payment Receipt</h3>
                       
-                      <div className="mb-4">
+                      <div className="mb-3 sm:mb-4">
                         {receiptType === 'image' && receiptPreview ? (
                           <img 
                             src={receiptPreview} 
                             alt="Payment receipt" 
-                            className="w-full max-h-64 object-contain rounded-md border border-gray-200" 
+                            className="w-full max-h-48 sm:max-h-64 object-contain rounded-md border border-gray-200" 
                           />
                         ) : receiptType === 'link' && receiptLink ? (
                           <div className="w-full">
                             <div className="mb-2 flex items-center justify-between">
-                              <span className="text-blue-600 text-sm overflow-hidden text-ellipsis">{receiptLink}</span>
+                              <span className="text-blue-600 text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[200px] sm:max-w-none">{receiptLink}</span>
                               <button
                                 onClick={() => window.open(receiptLink, '_blank')}
-                                className="text-sm text-blue-600 hover:text-blue-800"
+                                className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 whitespace-nowrap ml-2"
                               >
                                 Open <ExternalLink className="inline h-3 w-3" />
                               </button>
                             </div>
                             <iframe
                               src={receiptLink}
-                              className="w-full h-64 border border-gray-200 rounded-md"
+                              className="w-full h-48 sm:h-64 border border-gray-200 rounded-md"
                               title="Chipper Cash Receipt"
                             />
                           </div>
                         ) : (
-                          <div className="text-center py-8 text-gray-500">
+                          <div className="text-center py-6 sm:py-8 text-gray-500 text-sm">
                             No receipt provided
                           </div>
                         )}
                       </div>
                       
-                      <div className="text-right">
+                      <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:items-center gap-3">
                         <button 
                           onClick={() => {
                             if (receiptType === 'image') {
@@ -675,7 +845,7 @@ const PaymentPage = () => {
                             }
                             setPaymentStatus('pending');
                           }}
-                          className="text-sm text-gray-600 hover:text-gray-800 mr-3"
+                          className="text-sm text-gray-600 hover:text-gray-800 text-center sm:mr-3"
                         >
                           Change
                         </button>
@@ -683,10 +853,10 @@ const PaymentPage = () => {
                         <button
                           onClick={handleMarkAsPaid}
                           disabled={isProcessing || (receiptType === 'link' && !validateReceiptLink())}
-                          className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:bg-green-300 disabled:cursor-not-allowed font-medium"
+                          className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:bg-green-300 disabled:cursor-not-allowed font-medium text-sm"
                         >
                           {isProcessing ? (
-                            <div className="flex items-center">
+                            <div className="flex items-center justify-center">
                               <svg
                                 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
                                 xmlns="http://www.w3.org/2000/svg"
@@ -720,8 +890,8 @@ const PaymentPage = () => {
                 
                 <div className="text-center mt-4">
                   <div className="flex items-center justify-center">
-                    <Lock className="w-4 h-4 text-gray-500 mr-2" />
-                    <span className="text-sm text-gray-500">Your payment is secured with SSL encryption</span>
+                    <Lock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 mr-1 sm:mr-2" />
+                    <span className="text-xs sm:text-sm text-gray-500">Your payment is secured with SSL encryption</span>
                   </div>
                 </div>
               </div>

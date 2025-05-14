@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaEdit, FaKey, FaHistory, FaHeart, FaShoppingBag, FaSignOutAlt, FaTruck } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import axios from 'axios';
 import { useOrderStore } from '../store/orderStore';
+import apiConfig from '../config/apiConfig';
 
 const Profile = () => {
   const { user, setUser, logout } = useAuth();
@@ -32,6 +33,9 @@ const Profile = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [viewingOrderDetails, setViewingOrderDetails] = useState(false);
   const [viewingTrackingInfo, setViewingTrackingInfo] = useState(false);
+  
+  // Use a ref to track if orders have already been loaded
+  const ordersLoaded = useRef(false);
 
   // Load orders from store
   useEffect(() => {
@@ -41,20 +45,123 @@ const Profile = () => {
     }
     
     setLoading(true);
+    console.log('Profile - Current user:', user, 'User ID:', user._id);
     
-    // Get orders from store
-    const storeOrders = orderStore.getOrders();
+    // Fix any inconsistent user ID fields in orders
+    orderStore.fixOrderUserIds();
     
-    // If no orders, initialize with sample data
-    if (!storeOrders || storeOrders.length === 0) {
-      orderStore.initializeWithSampleOrder();
-      setOrders(orderStore.getOrders());
-    } else {
-      setOrders(storeOrders);
-    }
+    // Fetch orders directly from the API instead of using local store
+    const fetchOrdersFromAPI = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('Profile - No auth token found');
+          setLoading(false);
+          return;
+        }
+        
+        console.log('Profile - Fetching orders from API for user ID:', user._id);
+        const response = await axios.get(
+          `${apiConfig.baseURL}/orders/my-orders`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        
+        console.log('Profile - API Response:', response.data);
+        
+        if (response.data.success) {
+          const fetchedOrders = response.data.data || [];
+          console.log(`Profile - Successfully fetched ${fetchedOrders.length} orders from API`);
+          
+          // Save to store for future use
+          fetchedOrders.forEach(order => orderStore.addOrder(order));
+          
+          // Set orders in component state
+          setOrders(fetchedOrders);
+        } else {
+          console.error('Profile - API returned error:', response.data.error);
+          setError(response.data.error || 'Failed to fetch orders');
+        }
+      } catch (error) {
+        console.error('Profile - Error fetching orders from API:', error);
+        console.error('Profile - Error details:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          userId: user._id,
+          userEmail: user.email
+        });
+        
+        setError('Failed to load your orders. Please try again later.');
+      } finally {
+        setLoading(false);
+        ordersLoaded.current = true;
+      }
+    };
     
-    setLoading(false);
-  }, [user, navigate, orderStore]);
+    fetchOrdersFromAPI();
+  }, [user, navigate]);
+
+  // Refresh orders from the API
+  const handleRefreshOrders = () => {
+    if (!user) return;
+    
+    setLoading(true);
+    setError('');
+    console.log('Profile - Refreshing orders for user:', user);
+    
+    const refreshOrdersFromAPI = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('Profile - No auth token found');
+          setError('Authentication required. Please log in again.');
+          setLoading(false);
+          return;
+        }
+        
+        console.log('Profile - Refreshing orders from API for user ID:', user._id);
+        const response = await axios.get(
+          `${apiConfig.baseURL}/orders/my-orders`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        
+        if (response.data.success) {
+          const fetchedOrders = response.data.data || [];
+          console.log(`Profile - Successfully refreshed ${fetchedOrders.length} orders from API`);
+          
+          // Update store for future use
+          fetchedOrders.forEach(order => orderStore.addOrder(order));
+          
+          // Set orders in component state
+          setOrders(fetchedOrders);
+        } else {
+          console.error('Profile - API refresh returned error:', response.data.error);
+          setError(response.data.error || 'Failed to refresh orders');
+        }
+      } catch (error) {
+        console.error('Profile - Error refreshing orders from API:', error);
+        console.error('Profile - Error details:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          userId: user._id,
+          userEmail: user.email
+        });
+        
+        setError('Failed to refresh your orders. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    refreshOrdersFromAPI();
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -70,13 +177,25 @@ const Profile = () => {
     setError('');
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+      
+      console.log('Profile - Updating user details:', formData);
       const { data } = await axios.put(
-        'http://localhost:5000/api/v1/auth/updatedetails',
-        formData
+        `${apiConfig.baseURL}/auth/updatedetails`,
+        formData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
       );
+      
+      console.log('Profile - Update response:', data);
       setUser(data.user);
       setIsEditing(false);
     } catch (err) {
+      console.error('Profile - Error updating user details:', err);
       setError(err.response?.data?.error || 'Failed to update profile');
     } finally {
       setLoading(false);
@@ -86,13 +205,6 @@ const Profile = () => {
   const handleLogout = () => {
     logout();
     navigate('/');
-  };
-
-  // Refresh orders from the store
-  const handleRefreshOrders = () => {
-    setLoading(true);
-    setOrders(orderStore.getOrders());
-      setLoading(false);
   };
 
   // View order details

@@ -61,19 +61,19 @@ const OrderStatsCards = ({ stats }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
       {statCards.map((card, index) => (
         <div 
           key={index} 
-          className={`${card.bgColor} p-4 rounded-lg border ${card.borderColor} shadow-sm transition-all hover:shadow-md`}
+          className={`${card.bgColor} p-3 sm:p-4 rounded-lg border ${card.borderColor} shadow-sm transition-all hover:shadow-md ${card.isRevenue ? 'col-span-2 md:col-span-3 lg:col-span-2' : ''}`}
         >
           <div className="flex items-center">
-            <div className={`${card.iconBgColor} p-3 rounded-lg mr-4`}>
+            <div className={`${card.iconBgColor} p-2 sm:p-3 rounded-lg mr-3`}>
               {card.icon}
             </div>
-            <div>
-              <p className="text-sm text-gray-500">{card.title}</p>
-              <p className={`text-xl font-bold ${card.textColor}`}>
+            <div className="truncate">
+              <p className="text-xs sm:text-sm text-gray-500 truncate">{card.title}</p>
+              <p className={`text-base sm:text-xl font-bold ${card.textColor} truncate`}>
                 {card.value}
               </p>
             </div>

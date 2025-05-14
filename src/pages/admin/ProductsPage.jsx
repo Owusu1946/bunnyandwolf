@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaCopy, FaStar, FaSync } from 'react-icons/fa';
+import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaCopy, FaStar, FaSync, FaGlobe } from 'react-icons/fa';
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { useProductStore } from '../../store/productStore';
 import { useCollectionsStore } from '../../store/collectionsStore';
+import { usePlatformsStore } from '../../store/platformsStore';
 import apiConfig from '../../config/apiConfig';
 
 const ProductsPage = () => {
@@ -32,6 +33,12 @@ const ProductsPage = () => {
     addProductToCollection 
   } = useCollectionsStore();
   
+  // Platforms store
+  const {
+    platforms,
+    fetchPlatformsFromAPI
+  } = usePlatformsStore();
+  
   // New product state
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -51,6 +58,7 @@ const ProductsPage = () => {
     sizes: ['XS', 'S', 'M', 'L', 'XL'],
     stock: 0,
     collectionId: '',
+    platformId: '',
     isFeatured: false
   });
 
@@ -74,6 +82,9 @@ const ProductsPage = () => {
     
     // Fetch collections for dropdown
     fetchCollectionsFromAPI();
+    
+    // Fetch platforms for dropdown
+    fetchPlatformsFromAPI();
   }, []);
 
   const fetchProducts = async () => {
@@ -408,6 +419,7 @@ const ProductsPage = () => {
           sizes: ['XS', 'S', 'M', 'L', 'XL'],
           stock: 0,
           collectionId: '',
+          platformId: '',
           isFeatured: false
         });
         
@@ -577,7 +589,10 @@ const ProductsPage = () => {
       sizes: product.sizes || ['XS', 'S', 'M', 'L', 'XL'],
       stock: product.stock || 0,
       slug: product.slug,
-      sku: product.sku
+      sku: product.sku,
+      collectionId: product.collectionId || '',
+      platformId: product.platformId || '',
+      isFeatured: !!product.isFeatured
     };
     
     // Set the editing product
@@ -614,6 +629,7 @@ const ProductsPage = () => {
       sizes: ['XS', 'S', 'M', 'L', 'XL'],
       stock: 0,
       collectionId: '',
+      platformId: '',
       isFeatured: false
     });
   };
@@ -649,7 +665,8 @@ const ProductsPage = () => {
         salePrice: newProduct.salePrice ? parseFloat(newProduct.salePrice) : 0,
         stock: parseInt(newProduct.stock),
         slug: newProduct.slug, // Preserve original slug
-        sku: newProduct.sku // Preserve original SKU
+        sku: newProduct.sku, // Preserve original SKU
+        isFeatured: !!newProduct.isFeatured
       };
       
       // Send data to API
@@ -709,6 +726,9 @@ const ProductsPage = () => {
         
         // Close modal
         handleEditProductClose();
+        
+        // Refresh products list to ensure we have the latest data
+        fetchProducts();
       } else {
         throw new Error(response.data.error || 'Failed to update product');
       }
@@ -817,8 +837,11 @@ const ProductsPage = () => {
                 </button>
               </div>
               <button
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
-                onClick={handleAddProductOpen}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center relative z-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddProductOpen();
+                }}
               >
                 <FaPlus className="mr-2" /> Add Product
               </button>
@@ -900,21 +923,30 @@ const ProductsPage = () => {
                       <div className="flex justify-center space-x-3 self-center">
                         <button 
                           className="text-blue-600 hover:text-blue-900"
-                          onClick={() => handleEditProductOpen(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditProductOpen(product);
+                          }}
                           title="Edit product"
                         >
                           <FaEdit />
                         </button>
                         <button 
                           className="text-green-600 hover:text-green-900"
-                          onClick={() => handleDuplicateProduct(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDuplicateProduct(product);
+                          }}
                           title="Duplicate product"
                         >
                           <FaCopy />
                         </button>
                         <button 
                           className="text-red-600 hover:text-red-900"
-                          onClick={() => handleDeleteConfirmation(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteConfirmation(product);
+                          }}
                           title="Delete product"
                         >
                           <FaTrash />
@@ -973,12 +1005,22 @@ const ProductsPage = () => {
         
         {/* Add Product Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && handleAddProductClose()}
+          >
+            <div 
+              className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative"
+              onClick={(e) => e.stopPropagation()}
+              style={{ isolation: "isolate" }}
+            >
               <div className="flex justify-between items-center p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">Add New Product</h2>
                 <button 
-                  onClick={handleAddProductClose}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddProductClose();
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <FaTimes />
@@ -1044,6 +1086,26 @@ const ProductsPage = () => {
                           {collections.map((collection) => (
                             <option key={collection._id} value={collection._id}>
                               {collection.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="platformId" className="block text-sm font-medium text-gray-700 mb-1">
+                          Platform (Optional)
+                        </label>
+                        <select
+                          id="platformId"
+                          name="platformId"
+                          value={newProduct.platformId}
+                          onChange={handleNewProductChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="">Select Platform</option>
+                          {platforms.map((platform) => (
+                            <option key={platform._id} value={platform._id}>
+                              {platform.name}
                             </option>
                           ))}
                         </select>
@@ -1135,6 +1197,25 @@ const ProductsPage = () => {
                     </div>
                   </div>
                   
+                  {/* Platform Association Indicator (if already selected) */}
+                  {newProduct.platformId && (
+                    <div className="mb-8">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center">
+                          <FaGlobe className="h-5 w-5 text-blue-500" />
+                          <div className="ml-3">
+                            <p className="text-blue-700">
+                              This product will be associated with the platform: 
+                              <span className="font-medium ml-1">
+                                {platforms.find(p => p._id === newProduct.platformId)?.name || 'Selected Platform'}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Description Section */}
                   <div className="mb-8">
                     <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">Description</h3>
@@ -1161,7 +1242,10 @@ const ProductsPage = () => {
                       <h3 className="text-lg font-medium text-gray-900">Product Details</h3>
                       <button
                         type="button"
-                        onClick={addDetail}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addDetail();
+                        }}
                         className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm"
                       >
                         + Add Detail
@@ -1180,7 +1264,10 @@ const ProductsPage = () => {
                           />
                           <button
                             type="button"
-                            onClick={() => removeDetail(index)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeDetail(index);
+                            }}
                             className="px-2 py-2 bg-red-50 text-red-500 rounded-md hover:bg-red-100"
                           >
                             <FaTimes />
@@ -1199,7 +1286,10 @@ const ProductsPage = () => {
                         <button
                           key={size}
                           type="button"
-                          onClick={() => handleSizeToggle(size)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSizeToggle(size);
+                          }}
                           className={`px-4 py-2 rounded-md ${
                             newProduct.sizes.includes(size)
                               ? 'bg-purple-100 text-purple-700 border-purple-300 border'
@@ -1218,7 +1308,10 @@ const ProductsPage = () => {
                       <h3 className="text-lg font-medium text-gray-900">Color Variants</h3>
                       <button
                         type="button"
-                        onClick={addVariant}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addVariant();
+                        }}
                         className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm"
                       >
                         + Add Color Variant
@@ -1233,7 +1326,10 @@ const ProductsPage = () => {
                             {newProduct.variants.length > 1 && (
                               <button
                                 type="button"
-                                onClick={() => removeVariant(variantIndex)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeVariant(variantIndex);
+                                }}
                                 className="px-2 py-1 bg-red-50 text-red-500 rounded-md hover:bg-red-100 text-sm"
                               >
                                 Remove
@@ -1290,7 +1386,10 @@ const ProductsPage = () => {
                               </label>
                               <button
                                 type="button"
-                                onClick={() => addVariantImage(variantIndex)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addVariantImage(variantIndex);
+                                }}
                                 className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-xs"
                               >
                                 + Add Image
@@ -1327,7 +1426,10 @@ const ProductsPage = () => {
                                   {variant.additionalImages.length > 1 && (
                                     <button
                                       type="button"
-                                      onClick={() => removeVariantImage(variantIndex, imageIndex)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeVariantImage(variantIndex, imageIndex);
+                                      }}
                                       className="px-2 py-2 bg-red-50 text-red-500 rounded-md hover:bg-red-100"
                                     >
                                       <FaTimes />
@@ -1345,21 +1447,30 @@ const ProductsPage = () => {
                     </div>
                   </div>
                   
-                  <div className="flex justify-end gap-3 mt-8 pt-4 border-t">
+                  <div className="flex justify-end gap-3 mt-8 pt-4 border-t relative">
                     <button
                       type="button"
-                      onClick={handleAddProductClose}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddProductClose();
+                      }}
                       className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                     >
                       Cancel
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleAddProduct}
-                      className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-                    >
-                      Save Product
-                    </button>
+                    <div className="relative" style={{ zIndex: 50, position: "relative" }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddProduct();
+                        }}
+                        className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 cursor-pointer"
+                        style={{ pointerEvents: "auto" }}
+                      >
+                        Save Product
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>
@@ -1369,12 +1480,22 @@ const ProductsPage = () => {
         
         {/* Edit Product Modal */}
         {showEditModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && handleEditProductClose()}
+          >
+            <div 
+              className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative"
+              onClick={(e) => e.stopPropagation()}
+              style={{ isolation: "isolate" }}
+            >
               <div className="flex justify-between items-center p-6 border-b">
                 <h2 className="text-xl font-bold text-gray-900">Edit Product</h2>
                 <button 
-                  onClick={handleEditProductClose}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditProductClose();
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <FaTimes />
@@ -1440,6 +1561,26 @@ const ProductsPage = () => {
                           {collections.map((collection) => (
                             <option key={collection._id} value={collection._id}>
                               {collection.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="edit-platformId" className="block text-sm font-medium text-gray-700 mb-1">
+                          Platform (Optional)
+                        </label>
+                        <select
+                          id="edit-platformId"
+                          name="platformId"
+                          value={newProduct.platformId}
+                          onChange={handleNewProductChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="">Select Platform</option>
+                          {platforms.map((platform) => (
+                            <option key={platform._id} value={platform._id}>
+                              {platform.name}
                             </option>
                           ))}
                         </select>
@@ -1531,6 +1672,25 @@ const ProductsPage = () => {
                     </div>
                   </div>
                   
+                  {/* Platform Association Indicator (if already selected) */}
+                  {newProduct.platformId && (
+                    <div className="mb-8">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center">
+                          <FaGlobe className="h-5 w-5 text-blue-500" />
+                          <div className="ml-3">
+                            <p className="text-blue-700">
+                              This product will be associated with the platform: 
+                              <span className="font-medium ml-1">
+                                {platforms.find(p => p._id === newProduct.platformId)?.name || 'Selected Platform'}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Description Section */}
                   <div className="mb-8">
                     <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">Description</h3>
@@ -1557,7 +1717,10 @@ const ProductsPage = () => {
                       <h3 className="text-lg font-medium text-gray-900">Product Details</h3>
                       <button
                         type="button"
-                        onClick={addDetail}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addDetail();
+                        }}
                         className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm"
                       >
                         + Add Detail
@@ -1576,7 +1739,10 @@ const ProductsPage = () => {
                           />
                           <button
                             type="button"
-                            onClick={() => removeDetail(index)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeDetail(index);
+                            }}
                             className="px-2 py-2 bg-red-50 text-red-500 rounded-md hover:bg-red-100"
                           >
                             <FaTimes />
@@ -1595,7 +1761,10 @@ const ProductsPage = () => {
                         <button
                           key={size}
                           type="button"
-                          onClick={() => handleSizeToggle(size)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSizeToggle(size);
+                          }}
                           className={`px-4 py-2 rounded-md ${
                             newProduct.sizes.includes(size)
                               ? 'bg-purple-100 text-purple-700 border-purple-300 border'
@@ -1614,7 +1783,10 @@ const ProductsPage = () => {
                       <h3 className="text-lg font-medium text-gray-900">Color Variants</h3>
                       <button
                         type="button"
-                        onClick={addVariant}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addVariant();
+                        }}
                         className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm"
                       >
                         + Add Color Variant
@@ -1629,7 +1801,10 @@ const ProductsPage = () => {
                             {newProduct.variants.length > 1 && (
                               <button
                                 type="button"
-                                onClick={() => removeVariant(variantIndex)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeVariant(variantIndex);
+                                }}
                                 className="px-2 py-1 bg-red-50 text-red-500 rounded-md hover:bg-red-100 text-sm"
                               >
                                 Remove
@@ -1686,7 +1861,10 @@ const ProductsPage = () => {
                               </label>
                               <button
                                 type="button"
-                                onClick={() => addVariantImage(variantIndex)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addVariantImage(variantIndex);
+                                }}
                                 className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-xs"
                               >
                                 + Add Image
@@ -1723,7 +1901,10 @@ const ProductsPage = () => {
                                   {variant.additionalImages.length > 1 && (
                                     <button
                                       type="button"
-                                      onClick={() => removeVariantImage(variantIndex, imageIndex)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeVariantImage(variantIndex, imageIndex);
+                                      }}
                                       className="px-2 py-2 bg-red-50 text-red-500 rounded-md hover:bg-red-100"
                                     >
                                       <FaTimes />
@@ -1741,21 +1922,30 @@ const ProductsPage = () => {
                     </div>
                   </div>
                   
-                  <div className="flex justify-end gap-3 mt-8 pt-4 border-t">
+                  <div className="flex justify-end gap-3 mt-8 pt-4 border-t relative">
                     <button
                       type="button"
-                      onClick={handleEditProductClose}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditProductClose();
+                      }}
                       className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                     >
                       Cancel
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleUpdateProduct}
-                      className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-                    >
-                      Update Product
-                    </button>
+                    <div className="relative" style={{ zIndex: 50, position: "relative" }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUpdateProduct();
+                        }}
+                        className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 cursor-pointer"
+                        style={{ pointerEvents: "auto" }}
+                      >
+                        Update Product
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>

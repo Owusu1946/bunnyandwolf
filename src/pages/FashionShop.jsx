@@ -108,19 +108,19 @@ const FashionShop = () => {
       <div className="relative mb-8 overflow-hidden">
         <div className="flex overflow-x-auto pb-2 hide-scrollbar snap-x scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="flex space-x-2 md:space-x-4 px-4 md:justify-center min-w-full">
-            {categories.map((category) => (
-              <button
-                key={category}
+        {categories.map((category) => (
+          <button
+            key={category}
                 className={`whitespace-nowrap px-4 py-1 text-sm snap-start flex-shrink-0 ${
-                  selectedCategory === category
-                    ? 'bg-black text-white'
-                    : 'border border-gray-300 hover:bg-gray-50'
-                }`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category}
-              </button>
-            ))}
+              selectedCategory === category
+                ? 'bg-black text-white'
+                : 'border border-gray-300 hover:bg-gray-50'
+            }`}
+            onClick={() => setSelectedCategory(category)}
+          >
+            {category}
+          </button>
+        ))}
           </div>
         </div>
         <div className="absolute pointer-events-none inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent md:hidden"></div>

@@ -21,12 +21,32 @@ import {
   FaShoppingBag,
   FaStore,
   FaUserPlus,
-  FaBars
+  FaBars,
+  FaQuoteRight
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { useSidebar } from '../../context/SidebarContext';
 import axios from 'axios';
 import apiConfig from '../../config/apiConfig';
+
+// Custom CSS for scrollbar
+const scrollbarStyles = `
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  /* Handle */
+  .sidebar-nav::-webkit-scrollbar-thumb {
+    background: #CBD5E0;
+    border-radius: 3px;
+  }
+
+  /* Handle on hover */
+  .sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: #A0AEC0;
+  }
+`;
 
 // Custom tooltip component
 const Tooltip = ({ children, label, visible }) => {
@@ -46,6 +66,8 @@ const Tooltip = ({ children, label, visible }) => {
 };
 
 const Sidebar = () => {
+  console.log("Sidebar component rendering");
+
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
@@ -65,6 +87,7 @@ const Sidebar = () => {
     { id: 'products', path: '/admin/products', icon: FaBoxes, label: 'Products' },
     { id: 'collections', path: '/admin/collections', icon: FaShoppingBag, label: 'Collections' },
     { id: 'platforms', path: '/admin/platforms', icon: FaStore, label: 'Platforms' },
+    { id: 'quotes', path: '/admin/quotes', icon: FaQuoteRight, label: 'Quote Requests' },
     { id: 'customers', path: '/admin/customers', icon: FaUsers, label: 'Customers' },
     { id: 'chats', path: '/admin/chats', icon: FaComments, label: 'Chats' },
     { id: 'campaigns', path: '/admin/campaigns', icon: FaBullhorn, label: 'Campaigns' },
@@ -194,14 +217,49 @@ const Sidebar = () => {
     
     return () => window.removeEventListener('resize', handleResize);
   }, [setCollapsed]);
+  
+  // Check if navigation is scrollable and show scroll indicator when needed
+  useEffect(() => {
+    const checkScrollable = () => {
+      // Find the navigation element
+      const nav = document.querySelector('.sidebar-nav');
+      const scrollIndicator = document.querySelector('.nav-has-overflow');
+      
+      if (nav && scrollIndicator) {
+        // Check if content is scrollable
+        const isScrollable = nav.scrollHeight > nav.clientHeight;
+        
+        // Show or hide scroll indicator
+        if (isScrollable) {
+          scrollIndicator.classList.remove('hidden');
+        } else {
+          scrollIndicator.classList.add('hidden');
+        }
+      }
+    };
+    
+    // Check when component mounts
+    checkScrollable();
+    
+    // Also check when window is resized
+    window.addEventListener('resize', checkScrollable);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkScrollable);
+  }, [menuItems, collapsed, mobileOpen]);
 
   // Check if user can generate reports
   const canGenerateReports = () => {
     return user?.role === 'admin' || (user?.role === 'staff' && user?.permissions?.includes('reports'));
   };
 
+  console.log("Sidebar about to return JSX");
+
   return (
     <>
+      {/* Add custom scrollbar styles */}
+      <style>{scrollbarStyles}</style>
+      
       {/* Mobile Menu Button */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <button 
@@ -226,7 +284,7 @@ const Sidebar = () => {
                       ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} 
                       md:translate-x-0 
                       ${collapsed ? 'md:w-20' : 'md:w-64'}
-                      w-3/4 sm:w-64`}>
+                      w-3/4 sm:w-64 flex flex-col`}>
         {/* Mobile close button */}
         <button 
           className="md:hidden absolute top-4 right-4 p-1 text-gray-500"
@@ -235,15 +293,15 @@ const Sidebar = () => {
           <FaTimes className="h-5 w-5" />
         </button>
         
-        {/* Logo/Title */}
-        <div className="p-4 md:p-6 border-b flex items-center">
+        {/* Logo/Title - Fixed at top */}
+        <div className="p-4 md:p-6 border-b flex items-center flex-shrink-0">
           <FaStore className="text-purple-600 text-xl mr-3" />
           <h1 className={`text-xl font-semibold text-gray-800 ${collapsed && !mobileOpen ? 'md:hidden' : 'block'}`}>Sinosply</h1>
         </div>
 
-        {/* Main Navigation */}
-        <nav className="flex-1 px-4 mt-6 overflow-y-auto">
-          <div className="space-y-2">
+        {/* Main Navigation - Scrollable */}
+        <nav className="sidebar-nav flex-1 px-4 mt-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+          <div className="space-y-2 py-2">
           {menuItems.map((item) => (
             <Tooltip key={item.path} label={item.label} visible={collapsed && !mobileOpen}>
               <Link
@@ -267,8 +325,18 @@ const Sidebar = () => {
           </div>
         </nav>
 
-        {/* Bottom Navigation */}
-        <div className="px-4 py-4 border-t">
+        {/* Scroll indicator - only visible when content is scrollable */}
+        <div className="px-4 py-2 text-center text-xs text-gray-500 hidden nav-has-overflow">
+          <span>Scroll for more</span>
+          <div className="mt-1 flex justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Bottom Navigation - Fixed at bottom */}
+        <div className="px-4 py-4 border-t flex-shrink-0">
           <div className="space-y-2">
             {authorizedBottomMenuItems.map((item) => (
               <Tooltip key={item.path} label={item.label} visible={collapsed && !mobileOpen}>
@@ -306,7 +374,7 @@ const Sidebar = () => {
 
         {/* Generate Report Button - Only show for users with permission */}
         {canGenerateReports() && (
-          <div className="px-4 mb-6">
+          <div className="px-4 mb-4 flex-shrink-0">
             <Tooltip label="Generate Report" visible={collapsed && !mobileOpen}>
               <button 
                 className={`w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center ${collapsed && !mobileOpen ? 'md:justify-center' : ''}`}
@@ -462,6 +530,8 @@ const Sidebar = () => {
           </div>
         </div>
       )}
+
+      {console.log("Sidebar rendering children")}
     </>
   );
 };

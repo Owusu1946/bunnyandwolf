@@ -34,7 +34,12 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import CollectionsPage from './pages/admin/CollectionsPage'
 import PlatformsPage from './pages/admin/PlatformsPage'
+import QuotesPage from './pages/admin/QuotesPage'
 import FeaturedCollectionPage from './pages/FeaturedCollectionPage'
+import BunnyAndWolf from './pages/BunnyAndWolf'
+import Stores from './pages/Stores'
+import Quote from './pages/Quote'
+import Products from './pages/Products'
 // Import category pages
 import NewArrivalsPage from './pages/NewArrivalsPage'
 import BestSellersPage from './pages/BestSellersPage'
@@ -72,9 +77,14 @@ function App() {
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/payment" element={<PaymentPage />} />
                 <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/products/:category" element={<Products />} />
                 <Route path="/product/:id" element={<ProductDetailsPage />} />
                 <Route path="/track-order/:trackingNumber" element={<TrackOrderPage />} />
                 <Route path="/collections/:collectionId" element={<FeaturedCollectionPage />} />
+                <Route path="/stores" element={<Stores />} />
+                <Route path="/quote" element={<Quote />} />
+
                 
                 {/* Category Pages */}
                 <Route path="/new-arrivals" element={<NewArrivalsPage />} />
@@ -83,6 +93,7 @@ function App() {
                 <Route path="/tops" element={<TopsPage />} />
                 <Route path="/bottoms" element={<BottomsPage />} />
                 <Route path="/back-in-stock" element={<BackInStockPage />} />
+                <Route path="/bunny-and-wolf" element={<BunnyAndWolf />} />
                 
                 <Route 
                   path="/profile" 
@@ -131,6 +142,11 @@ function App() {
                 <Route path="/admin/campaigns" element={
                   <AdminRouteWithSidebar>
                     <CampaignsPage />
+                  </AdminRouteWithSidebar>
+                } />
+                <Route path="/admin/quotes" element={
+                  <AdminRouteWithSidebar>
+                    <QuotesPage />
                   </AdminRouteWithSidebar>
                 } />
                 <Route path="/admin/profile" element={

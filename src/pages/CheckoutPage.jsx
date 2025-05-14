@@ -80,7 +80,7 @@ const CheckoutPage = () => {
   // Form states
   const [step, setStep] = useState(1); // 1: Contact, 2: Shipping, 3: Delivery, 4: Review
   const [contactInfo, setContactInfo] = useState({
-    email: '',
+    email: user?.email || '',
     phone: ''
   });
   
@@ -96,8 +96,8 @@ const CheckoutPage = () => {
   const [isNewUser, setIsNewUser] = useState(false);
   
   const [addressInfo, setAddressInfo] = useState({
-    firstName: '',
-    lastName: '',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
     address1: '',
     address2: '',
     city: '',
@@ -120,6 +120,30 @@ const CheckoutPage = () => {
   const [subtotal, setSubtotal] = useState(0);
   const [total, setTotal] = useState(0);
   const [formError, setFormError] = useState('');
+  
+  // Update form fields when user logs in or changes
+  useEffect(() => {
+    if (user) {
+      // Pre-fill contact info
+      setContactInfo(prevInfo => ({
+        ...prevInfo,
+        email: user.email || prevInfo.email
+      }));
+      
+      // Pre-fill address info
+      setAddressInfo(prevInfo => ({
+        ...prevInfo,
+        firstName: user.firstName || prevInfo.firstName,
+        lastName: user.lastName || prevInfo.lastName
+      }));
+      
+      console.log('CheckoutPage - Populated form with user data:', {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
+      });
+    }
+  }, [user]);
   
   // Fetch shipping methods from settings
   useEffect(() => {
@@ -1299,7 +1323,7 @@ const CheckoutPage = () => {
               <button
                 type="button"
                 onClick={handlePrevStep}
-                className="bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-50 font-medium flex items-center"
+                className="bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-50 font-medium flex items-center w-full sm:w-auto"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 {step === 1 ? 'Back to Shopping' : 'Previous Step'}
@@ -1308,7 +1332,7 @@ const CheckoutPage = () => {
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 font-medium flex items-center"
+                className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 font-medium flex items-center w-full sm:w-auto"
               >
                 {step === 4 ? 'Proceed to Payment' : 'Continue'}
                 <ChevronRight className="w-4 h-4 ml-2" />
@@ -1420,7 +1444,7 @@ const CheckoutPage = () => {
                 {/* Coupon Code */}
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <label htmlFor="couponCode" className="block text-sm font-medium text-gray-700 mb-2">Apply Coupon Code</label>
-                  <div className="flex">
+                  <div className="flex flex-col sm:flex-row">
                     <input
                       type="text"
                       id="couponCode"
@@ -1431,14 +1455,14 @@ const CheckoutPage = () => {
                         setCouponSuccess('');
                       }}
                       disabled={appliedCoupon || isCouponLoading}
-                      className="flex-1 py-2 px-3 border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500"
+                      className="flex-1 py-2 px-3 border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500 mb-2 sm:mb-0"
                       placeholder="Enter code"
                     />
                     <button
                       type="button"
                       onClick={handleApplyCoupon}
                       disabled={!couponCode.trim() || appliedCoupon || isCouponLoading}
-                      className={`py-2 px-4 rounded-r-lg font-medium flex items-center justify-center min-w-[80px] ${
+                      className={`py-2 px-4 rounded-r-lg font-medium flex items-center justify-center min-w-[80px] w-full sm:w-auto ${
                         !couponCode.trim() || appliedCoupon ? 
                         'bg-gray-200 text-gray-500 cursor-not-allowed' : 
                         'bg-blue-600 text-white hover:bg-blue-700'

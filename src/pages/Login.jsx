@@ -62,6 +62,7 @@ const Login = () => {
         hasToken: !!response?.token, 
         hasUser: !!response?.user,
         user: response?.user ? {
+          _id: response.user._id,
           firstName: response.user.firstName,
           lastName: response.user.lastName,
           email: response.user.email,
@@ -75,6 +76,7 @@ const Login = () => {
 
       // Store user data
       const userData = {
+        _id: response.user._id,
         firstName: response.user.firstName,
         lastName: response.user.lastName,
         email: response.user.email,
@@ -84,9 +86,11 @@ const Login = () => {
       // Update localStorage
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('userId', response.user._id);
       
       console.log('💾 User data stored in localStorage', { 
         token: !!response.token,
+        userId: response.user._id,
         user: userData 
       });
       
@@ -100,7 +104,7 @@ const Login = () => {
       
       // Navigate to home page
       console.log('🔀 Navigating to home page');
-      navigate('/home');
+      navigate('/bunny-and-wolf');
     } catch (err) {
       console.error('❌ Login error:', err);
       setError(err.message || 'Login failed. Please try again.');
@@ -122,6 +126,7 @@ const Login = () => {
 
       // Store user data
       const userData = {
+        _id: response.user._id,
         firstName: response.user.firstName,
         lastName: response.user.lastName,
         email: response.user.email,
@@ -131,7 +136,14 @@ const Login = () => {
       // Update localStorage
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('userId', response.user._id);
       setUser(userData);
+      
+      console.log('💾 Social login user data stored', { 
+        token: !!response.token,
+        userId: response.user._id,
+        user: userData 
+      });
       
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
