@@ -20,7 +20,7 @@
     "emoji-picker-react": "^4.12.0",
     "flag-icon-css": "^4.1.7",
     "formik": "^2.4.6",
-    "framer-motion": "^11.15.0",
+    "framer-motion": "^11.18.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
@@ -37,6 +37,8 @@
     "react-slick": "^0.30.3",
     "recharts": "^2.15.0",
     "slick-carousel": "^1.8.1",
+    "socket.io-client": "^4.8.1",
+    "uuid": "^9.0.1",
     "xlsx": "^0.18.5",
     "yup": "^1.6.1",
     "zustand": "^5.0.4"

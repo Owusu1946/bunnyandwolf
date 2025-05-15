@@ -103,7 +103,11 @@ const useQuoteStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     
     try {
-      console.log("Fetching quotes:", apiConfig.baseURL);
+      console.log("Fetching quotes with filters:", JSON.stringify(filters, null, 2));
+      
+      // Sanitize search term
+      const sanitizedSearch = filters.search ? filters.search.trim() : '';
+      
       const response = await axios.get(
         `${apiConfig.baseURL}/admin/quotes`,
         {
@@ -111,7 +115,7 @@ const useQuoteStore = create((set, get) => ({
             page,
             pageSize,
             status: filters.status,
-            search: filters.search,
+            search: sanitizedSearch,
             startDate: filters.dateRange.startDate,
             endDate: filters.dateRange.endDate,
             sortBy: filters.sortBy,
@@ -136,6 +140,11 @@ const useQuoteStore = create((set, get) => ({
         pageSize
       };
       
+      // Log search results
+      if (sanitizedSearch) {
+        console.log(`Search for "${sanitizedSearch}" found ${quotes.length} results`);
+      }
+      
       set({ 
         quotes: quotes,
         pagination: {
@@ -143,14 +152,30 @@ const useQuoteStore = create((set, get) => ({
           totalPages: paginationData.totalPages,
           currentPage: paginationData.currentPage,
           pageSize: paginationData.pageSize
-        }
+        },
+        error: quotes.length === 0 && sanitizedSearch 
+          ? `No quotes found matching "${sanitizedSearch}"`
+          : null
       });
       
       return response.data;
     } catch (error) {
       console.error("Error fetching quotes:", error);
+      
+      // Create a more user-friendly error message
+      let errorMessage = 'Failed to fetch quotes';
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        errorMessage = error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = 'No response from server. Please check your connection.';
+      }
+      
       set({ 
-        error: error.response?.data?.message || 'Failed to fetch quotes',
+        error: errorMessage,
         quotes: []
       });
       throw error;

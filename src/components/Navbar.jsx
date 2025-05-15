@@ -6,12 +6,22 @@ import { BsStar } from 'react-icons/bs';
 import { BiHomeAlt } from 'react-icons/bi';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useNotificationStore } from '../store/notificationStore';
+import NotificationDropdown from './NotificationDropdown';
 import '../styles/Navbar.css';
 import LoadingOverlay from './LoadingOverlay';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const { cartCount } = useCart();
+  const { 
+    notifications, 
+    clearAll: clearAllNotifications, 
+    removeNotification, 
+    markAsRead,
+    initOrderUpdateListeners 
+  } = useNotificationStore();
+  
   const [currency, setCurrency] = useState('$USD');
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -20,6 +30,38 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Initialize order update listeners
+  useEffect(() => {
+    if (user) {
+      console.log('[Navbar] Initializing order update listeners for user:', user.email);
+      const unsubscribe = initOrderUpdateListeners();
+      return () => unsubscribe && unsubscribe();
+    }
+  }, [user, initOrderUpdateListeners]);
+
+  // Add effect to log notifications when they change
+  useEffect(() => {
+    console.log('[Navbar] Notifications updated, count:', notifications.length);
+    if (notifications.length > 0) {
+      console.log('[Navbar] First notification:', notifications[0]);
+    }
+  }, [notifications]);
+
+  // Handle notification click
+  const handleNotificationClick = (notificationId) => {
+    markAsRead(notificationId);
+  };
+
+  // Clear a single notification
+  const handleClearNotification = (notificationId) => {
+    removeNotification(notificationId);
+  };
+
+  // Clear all notifications
+  const handleClearAllNotifications = () => {
+    clearAllNotifications();
+  };
 
   const categories = [
     {
@@ -161,6 +203,52 @@ const Navbar = () => {
               </Link>
               
               {user ? (
+                <>
+                  {/* Notification Bell - Only shown for logged in users */}
+                  <div className="icon-button relative">
+                    {/* Add user info debug */}
+                    {process.env.NODE_ENV === 'development' && (
+                      <div className="absolute -top-4 -left-4 bg-purple-500 text-white text-xs rounded-full px-1 py-0.5">
+                        User: {user.email.substring(0, 5)}...
+                      </div>
+                    )}
+                    
+                    {/* Show debug count if needed */}
+                    {process.env.NODE_ENV === 'development' && (
+                      <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {notifications.length}
+                      </div>
+                    )}
+                    <NotificationDropdown 
+                      onClearAll={handleClearAllNotifications}
+                      onClearNotification={handleClearNotification}
+                    />
+                    
+                    {/* Force add notification button */}
+                    <button 
+                      onClick={() => {
+                        try {
+                          console.log('[Navbar] Forcing a test notification...');
+                          const { addTestNotification } = useNotificationStore.getState();
+                          if (addTestNotification) {
+                            const notification = addTestNotification();
+                            console.log('[Navbar] Test notification created:', notification);
+                            alert('Test notification created');
+                          } else {
+                            console.error('[Navbar] addTestNotification not found in store');
+                            alert('Error: addTestNotification not found');
+                          }
+                        } catch (err) {
+                          console.error('[Navbar] Error creating test notification:', err);
+                          alert('Error: ' + err.message);
+                        }
+                      }}
+                      className="absolute top-0 right-2 bg-yellow-500 text-white text-xs rounded px-1 py-0.5"
+                    >
+                      +Test
+                    </button>
+                  </div>
+                  
                 <div className="relative" onClick={toggleProfileDropdown}>
                   <button className="flex items-center space-x-1 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors icon-button" aria-label="Profile">
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 overflow-hidden">
@@ -215,6 +303,7 @@ const Navbar = () => {
                     </div>
                   )}
                 </div>
+                </>
               ) : (
                 <Link to="/login" className="icon-button" aria-label="Account">
                   <FaRegUser className="text-gray-700" />

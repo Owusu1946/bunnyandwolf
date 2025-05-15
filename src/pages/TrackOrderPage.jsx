@@ -580,7 +580,7 @@ const TrackOrderPage = () => {
               </a>
               
               <button 
-                onClick={() => navigate('/contact')}
+                onClick={() => navigate('/sinosply-contact')}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700 transition-colors"
               >
                 Contact Us

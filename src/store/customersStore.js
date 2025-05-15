@@ -27,6 +27,21 @@ const logApiOperation = (operation, message, data = null, isError = false) => {
   }
 };
 
+// Create a custom axios instance to prevent global interceptors from auto-logging out
+const createCustomAxios = () => {
+  const token = localStorage.getItem('token');
+  const instance = axios.create({
+    baseURL: apiConfig.baseURL,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
+  });
+  
+  // Don't add interceptors that trigger logout
+  return instance;
+};
+
 export const useCustomersStore = create(
   persist(
     (set, get) => ({
@@ -107,31 +122,61 @@ export const useCustomersStore = create(
               logApiOperation('API', `Making API request to ${apiConfig.baseURL}/users`);
               const requestStartTime = Date.now();
               
-              const response = await axios.get(`${apiConfig.baseURL}/users`, {
-                params: {
-                  page,
-                  limit,
-                  search: search || undefined
-                },
-                headers: {
-                  Authorization: `Bearer ${localStorage.getItem('token')}`
+              // Use custom axios instance to prevent logout on 401
+              const customAxios = createCustomAxios();
+              
+              try {
+                const response = await customAxios.get(`${apiConfig.baseURL}/users`, {
+                  params: {
+                    page,
+                    limit,
+                    search: search || undefined
+                  },
+                  headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                  }
+                });
+                
+                const requestDuration = Date.now() - requestStartTime;
+                logApiOperation('API', `Request succeeded in ${requestDuration}ms, received ${response.data.data.length} customers`);
+                
+                set({ 
+                  customers: response.data.data,
+                  totalCustomers: response.data.total,
+                  totalPages: response.data.pages || Math.ceil(response.data.total / limit),
+                  currentPage: page,
+                  isLoading: false,
+                  lastFetchTime: Date.now(),
+                  isBackgroundRefreshing: false,
+                });
+                
+                resolve(response.data.data);
+              } catch (apiErr) {
+                // Handle 401 errors gracefully here without throwing
+                if (apiErr.response?.status === 401) {
+                  logApiOperation('AUTH', `Authentication error (401) but preventing auto-logout`, apiErr, true);
+                  
+                  // Don't throw the error - return empty data instead
+                  set({
+                    isLoading: false,
+                    error: 'Authentication error - please check your login status',
+                    isBackgroundRefreshing: false
+                  });
+                  
+                  // Return cached data if we have it
+                  if (cachedCustomers.length > 0) {
+                    const filteredCache = filterCustomers(cachedCustomers, search);
+                    const paginatedResults = paginateResults(filteredCache, page, limit);
+                    resolve(paginatedResults);
+                    return;
+                  }
+                  
+                  resolve([]);
+                  return;
                 }
-              });
-              
-              const requestDuration = Date.now() - requestStartTime;
-              logApiOperation('API', `Request succeeded in ${requestDuration}ms, received ${response.data.data.length} customers`);
-              
-              set({ 
-                customers: response.data.data,
-                totalCustomers: response.data.total,
-                totalPages: response.data.pages || Math.ceil(response.data.total / limit),
-                currentPage: page,
-                isLoading: false,
-                lastFetchTime: Date.now(),
-                isBackgroundRefreshing: false,
-              });
-              
-              resolve(response.data.data);
+                
+                throw apiErr; // Re-throw for other errors
+              }
             } catch (err) {
               // Log the error details
               logApiOperation('ERROR', `API request failed: ${err.message}`, err, true);
@@ -192,22 +237,35 @@ export const useCustomersStore = create(
         
         try {
           fetchInProgress = true;
-          const response = await axios.get(`${apiConfig.baseURL}/users`, {
-            params: { page, limit, search: search || undefined },
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
+          const customAxios = createCustomAxios();
+          
+          try {
+            const response = await customAxios.get(`${apiConfig.baseURL}/users`, {
+              params: { page, limit, search: search || undefined },
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            logApiOperation('BACKGROUND', `Successfully refreshed data in background, received ${response.data.data.length} customers`);
+            
+            set({
+              customers: response.data.data,
+              totalCustomers: response.data.total,
+              totalPages: response.data.pages || Math.ceil(response.data.total / limit),
+              lastFetchTime: Date.now(),
+              isBackgroundRefreshing: false,
+            });
+          } catch (apiErr) {
+            // If authentication error (401), log but don't trigger logout
+            if (apiErr.response?.status === 401) {
+              logApiOperation('BACKGROUND', 'Background refresh auth error (401) but preventing auto-logout', apiErr, true);
+              set({ isBackgroundRefreshing: false });
+              return;
             }
-          });
-          
-          logApiOperation('BACKGROUND', `Successfully refreshed data in background, received ${response.data.data.length} customers`);
-          
-          set({
-            customers: response.data.data,
-            totalCustomers: response.data.total,
-            totalPages: response.data.pages || Math.ceil(response.data.total / limit),
-            lastFetchTime: Date.now(),
-            isBackgroundRefreshing: false,
-          });
+            
+            throw apiErr; // Re-throw other errors
+          }
         } catch (err) {
           logApiOperation('BACKGROUND', `Background refresh failed: ${err.message}`, err, true);
           set({ isBackgroundRefreshing: false });
@@ -254,28 +312,39 @@ export const useCustomersStore = create(
         
         try {
           const requestStartTime = Date.now();
+          const customAxios = createCustomAxios();
           
-          const response = await axios.get(`${apiConfig.baseURL}/users/${id}`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          
-          const requestDuration = Date.now() - requestStartTime;
-          logApiOperation('FETCH_ONE', `Fetched customer ${id} in ${requestDuration}ms`);
-          
-          // Add to cache if not already there
-          const existingCustomers = get().customers;
-          const isInCache = existingCustomers.some(c => c._id === id);
-          
-          if (!isInCache) {
-            logApiOperation('CACHE', `Adding customer ${id} to cache`);
-            set({
-              customers: [...existingCustomers, response.data.data]
+          try {
+            const response = await customAxios.get(`${apiConfig.baseURL}/users/${id}`, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
             });
+            
+            const requestDuration = Date.now() - requestStartTime;
+            logApiOperation('FETCH_ONE', `Fetched customer ${id} in ${requestDuration}ms`);
+            
+            // Add to cache if not already there
+            const existingCustomers = get().customers;
+            const isInCache = existingCustomers.some(c => c._id === id);
+            
+            if (!isInCache) {
+              logApiOperation('CACHE', `Adding customer ${id} to cache`);
+              set({
+                customers: [...existingCustomers, response.data.data]
+              });
+            }
+            
+            return response.data.data;
+          } catch (apiErr) {
+            // If authentication error (401), handle gracefully
+            if (apiErr.response?.status === 401) {
+              logApiOperation('AUTH', `Authentication error (401) fetching customer ${id}, but preventing auto-logout`, apiErr, true);
+              throw new Error('Authentication error - please check your login status');
+            }
+            
+            throw apiErr; // Re-throw other errors
           }
-          
-          return response.data.data;
         } catch (err) {
           logApiOperation('ERROR', `Failed to fetch customer ${id}: ${err.message}`, err, true);
           
@@ -305,23 +374,34 @@ export const useCustomersStore = create(
         
         try {
           set({ isLoading: true, error: null });
+          const customAxios = createCustomAxios();
           
-          await axios.delete(`${apiConfig.baseURL}/users/${id}`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
+          try {
+            await customAxios.delete(`${apiConfig.baseURL}/users/${id}`, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            // Remove from local state
+            const updatedCustomers = get().customers.filter(customer => customer._id !== id);
+            set({ 
+              customers: updatedCustomers,
+              totalCustomers: get().totalCustomers - 1,
+              isLoading: false
+            });
+            
+            logApiOperation('DELETE', `Customer ${id} successfully deleted`);
+            return true;
+          } catch (apiErr) {
+            // If authentication error (401), handle gracefully
+            if (apiErr.response?.status === 401) {
+              logApiOperation('AUTH', `Authentication error (401) deleting customer ${id}, but preventing auto-logout`, apiErr, true);
+              throw new Error('Authentication error - please check your login status');
             }
-          });
-          
-          // Remove from local state
-          const updatedCustomers = get().customers.filter(customer => customer._id !== id);
-          set({ 
-            customers: updatedCustomers,
-            totalCustomers: get().totalCustomers - 1,
-            isLoading: false
-          });
-          
-          logApiOperation('DELETE', `Customer ${id} successfully deleted`);
-          return true;
+            
+            throw apiErr; // Re-throw other errors
+          }
         } catch (err) {
           logApiOperation('ERROR', `Failed to delete customer ${id}: ${err.message}`, err, true);
           
@@ -350,29 +430,40 @@ export const useCustomersStore = create(
         
         try {
           set({ isLoading: true, error: null });
+          const customAxios = createCustomAxios();
           
-          const response = await axios.put(`${apiConfig.baseURL}/users/${id}`, customerData, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
+          try {
+            const response = await customAxios.put(`${apiConfig.baseURL}/users/${id}`, customerData, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            // Update in local state
+            const updatedCustomers = get().customers.map(customer => 
+              customer._id === id ? { ...customer, ...response.data.data } : customer
+            );
+            
+            set({ 
+              customers: updatedCustomers,
+              isLoading: false,
+              // If selected customer is the one being updated, update it too
+              selectedCustomer: get().selectedCustomer?._id === id 
+                ? { ...get().selectedCustomer, ...response.data.data }
+                : get().selectedCustomer
+            });
+            
+            logApiOperation('UPDATE', `Customer ${id} successfully updated`);
+            return response.data.data;
+          } catch (apiErr) {
+            // If authentication error (401), handle gracefully
+            if (apiErr.response?.status === 401) {
+              logApiOperation('AUTH', `Authentication error (401) updating customer ${id}, but preventing auto-logout`, apiErr, true);
+              throw new Error('Authentication error - please check your login status');
             }
-          });
-          
-          // Update in local state
-          const updatedCustomers = get().customers.map(customer => 
-            customer._id === id ? { ...customer, ...response.data.data } : customer
-          );
-          
-          set({ 
-            customers: updatedCustomers,
-            isLoading: false,
-            // If selected customer is the one being updated, update it too
-            selectedCustomer: get().selectedCustomer?._id === id 
-              ? { ...get().selectedCustomer, ...response.data.data }
-              : get().selectedCustomer
-          });
-          
-          logApiOperation('UPDATE', `Customer ${id} successfully updated`);
-          return response.data.data;
+            
+            throw apiErr; // Re-throw other errors
+          }
         } catch (err) {
           logApiOperation('ERROR', `Failed to update customer ${id}: ${err.message}`, err, true);
           

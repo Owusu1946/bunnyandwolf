@@ -5,6 +5,7 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import apiConfig from '../../config/apiConfig';
 import axios from 'axios';
 import { usePlatformsStore } from '../../store/platformsStore';
+import { useNavigate } from 'react-router-dom';
 
 const PlatformsPage = () => {
   // Use platforms store
@@ -59,10 +60,31 @@ const PlatformsPage = () => {
     { id: 'dark', name: 'Dark Mode' }
   ];
 
+  // Add navigate hook to allow navigation to platform details
+  const navigate = useNavigate();
+
+  // Add state for last updated timestamp
+  const [lastUpdated, setLastUpdated] = useState(null);
+
   // Load platforms when component mounts
   useEffect(() => {
-    fetchPlatformsFromAPI();
+    fetchPlatformsData();
   }, [fetchPlatformsFromAPI]);
+
+  // Function to fetch platforms data
+  const fetchPlatformsData = async () => {
+    try {
+      await fetchPlatformsFromAPI();
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Error fetching platforms data:", error);
+    }
+  };
+
+  // Refresh platforms data
+  const handleRefreshData = async () => {
+    await fetchPlatformsData();
+  };
 
   // Handle search
   const filteredPlatforms = platforms.filter(platform => 
@@ -172,13 +194,20 @@ const PlatformsPage = () => {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  // Format currency
+  // Format currency with revenue source indicator
   const formatCurrency = (amount) => {
+    if (amount === undefined || amount === null) return 'N/A';
+    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'GHS',
       minimumFractionDigits: 2
     }).format(amount);
+  };
+
+  // Handle click on platform card
+  const handlePlatformClick = (platformId) => {
+    navigate(`/admin/platforms/${platformId}`);
   };
 
   return (
@@ -202,7 +231,21 @@ const PlatformsPage = () => {
                 <FaSearch />
               </div>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-4">
+              {lastUpdated && (
+                <span className="text-xs text-gray-500">
+                  Last updated: {formatDate(lastUpdated)}
+                </span>
+              )}
+              <button 
+                onClick={handleRefreshData}
+                className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700"
+                title="Refresh data"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
               <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white">
                 O
               </div>
@@ -232,7 +275,11 @@ const PlatformsPage = () => {
             {filteredPlatforms.length > 0 ? (
               <div className="divide-y divide-gray-200">
                 {filteredPlatforms.map((platform) => (
-                  <div key={platform._id} className="p-4 hover:bg-gray-50">
+                  <div 
+                    key={platform._id} 
+                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => handlePlatformClick(platform._id)}
+                  >
                     <div className="flex justify-between items-start">
                       <div className="flex">
                         <img
@@ -260,7 +307,13 @@ const PlatformsPage = () => {
                           <p className="text-sm text-gray-500 mt-1">{platform.description}</p>
                           <div className="flex items-center mt-2 text-sm text-gray-500">
                             <FaLink className="mr-1" />
-                            <a href={`https://${platform.domain}`} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">
+                            <a 
+                              href={`https://${platform.domain}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-purple-600 hover:underline"
+                              onClick={(e) => e.stopPropagation()} // Prevent card click when clicking link
+                            >
                               {platform.domain}
                             </a>
                           </div>
@@ -272,13 +325,19 @@ const PlatformsPage = () => {
                       <div className="space-x-2">
                         <button
                           className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-                          onClick={() => handleEditPlatform(platform)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click
+                            handleEditPlatform(platform);
+                          }}
                         >
                           <FaEdit className="inline mr-1" /> Edit
                         </button>
                         <button
                           className="px-3 py-1 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
-                          onClick={() => handleDeletePlatform(platform)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click
+                            handleDeletePlatform(platform);
+                          }}
                         >
                           <FaTrash className="inline mr-1" /> Delete
                         </button>
@@ -296,7 +355,12 @@ const PlatformsPage = () => {
                       </div>
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <div className="text-sm font-medium text-gray-500">Revenue</div>
-                        <div className="text-lg font-semibold text-green-600">{formatCurrency(platform.revenue || 0)}</div>
+                        <div className="text-lg font-semibold text-green-600">
+                          {formatCurrency(platform.revenue || 0)}
+                          <span className="block text-xs text-gray-500 font-normal">
+                            (From product orders)
+                          </span>
+                        </div>
                       </div>
                     </div>
                     

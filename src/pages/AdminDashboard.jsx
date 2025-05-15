@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import Sidebar from '../components/admin/Sidebar';
-import { FaUsers, FaShoppingCart, FaComments, FaMoneyBill, FaExclamationTriangle, FaEdit } from 'react-icons/fa';
+import { FaUsers, FaShoppingCart, FaComments, FaMoneyBill, FaExclamationTriangle, FaEdit, FaTimes } from 'react-icons/fa';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
@@ -50,6 +50,10 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({});
   const { collapsed } = useSidebar();
+  
+  // New states for product editing
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
   
   // Get customer count from store instead of API
   const { totalCustomers, customers, fetchCustomers } = useCustomersStore();
@@ -186,6 +190,117 @@ const AdminDashboard = () => {
     if (stock === 0) return 'bg-red-100 text-red-800 border-red-300';
     if (stock <= CRITICAL_STOCK_THRESHOLD) return 'bg-orange-100 text-orange-800 border-orange-300';
     return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+  };
+
+  // Handle opening the edit modal
+  const handleEditProductOpen = (product) => {
+    // Format the product data to match the form state
+    const productForEdit = {
+      _id: product._id,
+      name: product.name,
+      basePrice: product.basePrice,
+      salePrice: product.salePrice || '',
+      description: product.description,
+      category: product.category,
+      details: product.details?.length > 0 ? product.details : [''],
+      variants: product.variants?.length > 0 ? product.variants.map(variant => ({
+        ...variant,
+        price: variant.price || ''
+      })) : [{ 
+        color: '#000000', 
+        colorName: 'Black',
+        price: '',
+        additionalImages: ['']
+      }],
+      sizes: product.sizes || ['XS', 'S', 'M', 'L', 'XL'],
+      stock: product.stock || 0,
+      slug: product.slug,
+      sku: product.sku,
+      collectionId: product.collectionId || '',
+      platformId: product.platformId || '',
+      isFeatured: !!product.isFeatured
+    };
+    
+    // Set the editing product
+    setEditingProduct(productForEdit);
+    
+    // Open the modal
+    setShowEditModal(true);
+  };
+  
+  // Close edit modal
+  const handleEditProductClose = () => {
+    setShowEditModal(false);
+    setEditingProduct(null);
+  };
+  
+  // Update existing product
+  const handleUpdateProduct = async () => {
+    try {
+      // Start loading state
+      setLoading(true);
+      
+      // Validate required fields
+      if (!editingProduct.name || !editingProduct.basePrice || !editingProduct.description || !editingProduct.category) {
+        alert('Please fill in all required fields');
+        setLoading(false);
+        return;
+      }
+      
+      // Format data for API
+      const productData = {
+        ...editingProduct,
+        basePrice: parseFloat(editingProduct.basePrice),
+        salePrice: editingProduct.salePrice ? parseFloat(editingProduct.salePrice) : 0,
+        stock: parseInt(editingProduct.stock),
+        slug: editingProduct.slug, // Preserve original slug
+        sku: editingProduct.sku, // Preserve original SKU
+        isFeatured: !!editingProduct.isFeatured
+      };
+      
+      // Send data to API
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        alert('You must be logged in to update products');
+        setLoading(false);
+        return;
+      }
+      
+      const response = await axios.put(
+        `${apiConfig.baseURL}/products/${editingProduct._id}`,
+        productData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (response.data.success) {
+        // Update the product in the store
+        productStore.addProduct(response.data.data);
+        
+        // Update stockAlerts list
+        const updatedStockAlerts = stockAlerts.map(p => 
+          p._id === response.data.data._id ? response.data.data : p
+        );
+        
+        // Show success message
+        alert('Product stock updated successfully!');
+        
+        // Close modal
+        handleEditProductClose();
+      } else {
+        throw new Error(response.data.error || 'Failed to update product');
+      }
+    } catch (error) {
+      console.error('Error updating product:', error);
+      alert(error.response?.data?.error || 'Failed to update product. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -373,14 +488,14 @@ const AdminDashboard = () => {
                         </span>
                       </td>
                       <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-right text-xs md:text-sm font-medium">
-                        <Link 
-                          to={`/admin/products/edit/${product._id}`} 
+                        <button 
+                          onClick={() => handleEditProductOpen(product)}
                           className="text-blue-600 hover:text-blue-900 inline-flex items-center"
                         >
                           <FaEdit className="mr-1" /> 
                           <span className="hidden sm:inline">Update Stock</span>
                           <span className="sm:hidden">Update</span>
-                        </Link>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -396,6 +511,95 @@ const AdminDashboard = () => {
           )}
         </div>
       </div>
+      
+      {/* Edit Product Modal - Simplified for stock update only */}
+      {showEditModal && editingProduct && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => handleEditProductClose()}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-semibold text-gray-900">Update Stock</h2>
+              <button 
+                onClick={() => handleEditProductClose()}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-6">
+                <div className="flex items-center mb-4">
+                  <div className="h-12 w-12 flex-shrink-0 mr-4">
+                    <img 
+                      className="h-12 w-12 rounded-md object-cover" 
+                      src={editingProduct.variants?.[0]?.additionalImages?.[0] || '/placeholder.png'} 
+                      alt={editingProduct.name}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/50?text=No+Image';
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">{editingProduct.name}</h3>
+                    <p className="text-sm text-gray-500">{editingProduct.category}</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6">
+                  <label htmlFor="stock" className="block text-sm font-medium text-gray-700 mb-2">
+                    Stock Quantity <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="stock"
+                    value={editingProduct.stock}
+                    onChange={(e) => setEditingProduct({...editingProduct, stock: e.target.value})}
+                    className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    min="0"
+                    required
+                  />
+                </div>
+                
+                <div className="bg-yellow-50 p-4 rounded-lg mb-6">
+                  <div className="flex items-start">
+                    <FaExclamationTriangle className="text-yellow-600 mt-0.5 mr-3" />
+                    <div>
+                      <h4 className="text-sm font-medium text-yellow-800">Current Stock Status</h4>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        {editingProduct.stock === 0 ? 'This product is out of stock.' : 
+                         editingProduct.stock <= CRITICAL_STOCK_THRESHOLD ? 'Stock level is critical.' : 
+                         'Stock level is low.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={handleEditProductClose}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateProduct}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Update Stock
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

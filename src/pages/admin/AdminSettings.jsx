@@ -287,6 +287,9 @@ const AdminSettings = () => {
     console.log(`📝 [AdminSettings] Updated shipping method ${index}, field: ${name}`, updatedMethods[index]);
     
     setLocalShippingMethods(updatedMethods);
+    
+    // Update the store immediately to reflect changes in real-time
+    updateShippingMethods(updatedMethods);
   };
 
   // Enhanced handling of default tax rate changes
@@ -375,7 +378,12 @@ const AdminSettings = () => {
       return;
     }
 
-    setLocalShippingMethods([...localShippingMethods, newShippingMethod]);
+    const updatedMethods = [...localShippingMethods, newShippingMethod];
+    setLocalShippingMethods(updatedMethods);
+    
+    // Update the store immediately to reflect changes in real-time
+    updateShippingMethods(updatedMethods);
+    
     setNewShippingMethod({
       id: '',
       name: '',
@@ -386,6 +394,7 @@ const AdminSettings = () => {
       isActive: true
     });
     setShowNewShippingForm(false);
+    setSuccess('Shipping method added successfully! Changes will appear immediately in checkout.');
   };
 
   const addNewTaxRate = () => {
@@ -415,6 +424,11 @@ const AdminSettings = () => {
     const updatedMethods = [...localShippingMethods];
     updatedMethods.splice(index, 1);
     setLocalShippingMethods(updatedMethods);
+    
+    // Update the store immediately to reflect changes in real-time
+    updateShippingMethods(updatedMethods);
+    
+    setSuccess('Shipping method removed successfully! Changes will appear immediately in checkout.');
   };
 
   const removeTaxRate = (index) => {
@@ -1158,6 +1172,23 @@ const AdminSettings = () => {
     }
   };
 
+  // Save shipping method changes and update store in real-time
+  const saveShippingMethodChanges = () => {
+    // Validate the shipping method
+    const method = localShippingMethods[editingShipping];
+    const validation = validateShippingMethod(method, editingShipping);
+    if (!validation.isValid) {
+      setError(validation.message);
+      return;
+    }
+    
+    // Update the store immediately
+    updateShippingMethods(localShippingMethods);
+    
+    setSuccess('Shipping method updated successfully! Changes will appear immediately in checkout.');
+    setEditingShipping(null);
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -1450,6 +1481,123 @@ const AdminSettings = () => {
                       </tbody>
                     </table>
                   </div>
+                  
+                  {/* Edit Shipping Method Form */}
+                  {editingShipping !== null && (
+                    <div className="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-medium">Edit Shipping Method</h4>
+                        <button 
+                          type="button" 
+                          onClick={() => setEditingShipping(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <FaTimes />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">ID</label>
+                          <input
+                            type="text"
+                            name="id"
+                            value={localShippingMethods[editingShipping].id}
+                            onChange={(e) => handleShippingInputChange(e, editingShipping)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="e.g. express"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                          <input
+                            type="text"
+                            name="name"
+                            value={localShippingMethods[editingShipping].name}
+                            onChange={(e) => handleShippingInputChange(e, editingShipping)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="e.g. Express Shipping"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                          <input
+                            type="text"
+                            name="description"
+                            value={localShippingMethods[editingShipping].description}
+                            onChange={(e) => handleShippingInputChange(e, editingShipping)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="e.g. 1-2 business days"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Price (GH₵)</label>
+                          <input
+                            type="number"
+                            name="price"
+                            value={localShippingMethods[editingShipping].price}
+                            onChange={(e) => handleShippingInputChange(e, editingShipping)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            step="0.01"
+                            min="0"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Carrier</label>
+                          <input
+                            type="text"
+                            name="carrier"
+                            value={localShippingMethods[editingShipping].carrier}
+                            onChange={(e) => handleShippingInputChange(e, editingShipping)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="e.g. DHL"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Est. Delivery</label>
+                          <input
+                            type="text"
+                            name="estimatedDelivery"
+                            value={localShippingMethods[editingShipping].estimatedDelivery}
+                            onChange={(e) => handleShippingInputChange(e, editingShipping)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                            placeholder="e.g. 2-5 days"
+                          />
+                        </div>
+                        <div className="md:col-span-2 flex items-center">
+                          <input
+                            type="checkbox"
+                            id="editShippingActive"
+                            name="isActive"
+                            checked={localShippingMethods[editingShipping].isActive}
+                            onChange={(e) => handleShippingInputChange(e, editingShipping)}
+                            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="editShippingActive" className="ml-2 block text-sm text-gray-700">
+                            Active
+                          </label>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end space-x-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditingShipping(null)}
+                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveShippingMethodChanges}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               

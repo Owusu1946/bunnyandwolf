@@ -353,6 +353,40 @@ export const usePlatformsStore = create(
           });
           throw error;
         }
+      },
+      
+      // Fetch platform products from API
+      fetchPlatformProducts: async (platformId) => {
+        try {
+          set({ loading: true, error: null });
+          
+          const token = localStorage.getItem('token');
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          
+          const response = await fetch(`${apiConfig.baseURL}/platforms/${platformId}/products`, {
+            headers
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch platform products');
+          }
+          
+          const data = await response.json();
+          
+          if (data.status === 'success') {
+            set({ loading: false });
+            return data.data;
+          } else {
+            throw new Error(data.message || 'Failed to fetch platform products');
+          }
+        } catch (error) {
+          console.error('Error fetching platform products:', error);
+          set({ 
+            error: error.message,
+            loading: false
+          });
+          throw error;
+        }
       }
     }),
     {

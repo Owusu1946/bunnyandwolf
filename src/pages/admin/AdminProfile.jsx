@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaUser, FaEnvelope, FaEdit, FaKey, FaCheck, FaSearch } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaEdit, FaKey, FaCheck, FaSearch, FaTimes, FaInfoCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
@@ -11,6 +11,18 @@ const AdminProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordsMatch, setPasswordsMatch] = useState(true);
+  const [passwordStrength, setPasswordStrength] = useState({
+    score: 0,
+    hasMinLength: false,
+    hasUpperCase: false,
+    hasLowerCase: false,
+    hasNumber: false,
+    hasSpecialChar: false
+  });
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -57,6 +69,70 @@ const AdminProfile = () => {
       ...prev,
       [name]: value
     }));
+
+    // Update password strength when newPassword changes
+    if (name === 'newPassword') {
+      checkPasswordStrength(value);
+      
+      // Check if passwords match
+      if (formData.confirmPassword) {
+        setPasswordsMatch(value === formData.confirmPassword);
+      }
+    }
+    
+    // Check if passwords match when confirmPassword changes
+    if (name === 'confirmPassword') {
+      setPasswordsMatch(value === formData.newPassword);
+    }
+  };
+
+  const checkPasswordStrength = (password) => {
+    const hasMinLength = password.length >= 6;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    // Calculate score based on criteria (0-4)
+    let score = 0;
+    if (hasMinLength) score++;
+    if (hasUpperCase) score++;
+    if (hasLowerCase) score++;
+    if (hasNumber) score++;
+    if (hasSpecialChar) score++;
+    
+    // Normalize score to 0-4 range
+    score = Math.min(4, Math.floor(score * 0.8));
+    
+    setPasswordStrength({
+      score,
+      hasMinLength,
+      hasUpperCase,
+      hasLowerCase,
+      hasNumber,
+      hasSpecialChar
+    });
+  };
+
+  // Get color for password strength meter
+  const getStrengthColor = () => {
+    const { score } = passwordStrength;
+    if (score <= 1) return 'bg-red-500';
+    if (score === 2) return 'bg-yellow-500';
+    if (score === 3) return 'bg-yellow-400';
+    if (score >= 4) return 'bg-green-500';
+    return 'bg-gray-200';
+  };
+
+  // Get text description for password strength
+  const getStrengthText = () => {
+    const { score } = passwordStrength;
+    if (score === 0) return 'Very Weak';
+    if (score === 1) return 'Weak';
+    if (score === 2) return 'Fair';
+    if (score === 3) return 'Good';
+    if (score >= 4) return 'Strong';
+    return '';
   };
 
   const handleSubmit = async (e) => {
@@ -99,8 +175,28 @@ const AdminProfile = () => {
       return;
     }
 
+    // Password validation
+    if (formData.newPassword.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+
+    // Check password strength
+    const hasUpperCase = /[A-Z]/.test(formData.newPassword);
+    const hasLowerCase = /[a-z]/.test(formData.newPassword);
+    const hasNumbers = /\d/.test(formData.newPassword);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(formData.newPassword);
+    
+    if (!(hasUpperCase && hasLowerCase && (hasNumbers || hasSpecialChar))) {
+      setError('Password must contain uppercase, lowercase, and at least one number or special character');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await axios.put(`${apiConfig.baseURL}/admin/change-password`, {
+      // Fixed endpoint to match backend route
+      await axios.put(`${apiConfig.baseURL}/admin/update-password`, {
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
       }, {
@@ -287,45 +383,155 @@ const AdminProfile = () => {
                       <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
                         Current Password
                       </label>
-                      <input
-                        type="password"
-                        id="currentPassword"
-                        name="currentPassword"
-                        value={formData.currentPassword}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type={showCurrentPassword ? "text" : "password"}
+                          id="currentPassword"
+                          name="currentPassword"
+                          value={formData.currentPassword}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 pr-10"
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        >
+                          {showCurrentPassword ? (
+                            <FaEyeSlash className="text-gray-500" />
+                          ) : (
+                            <FaEye className="text-gray-500" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     
                     <div>
                       <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
                         New Password
                       </label>
-                      <input
-                        type="password"
-                        id="newPassword"
-                        name="newPassword"
-                        value={formData.newPassword}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type={showNewPassword ? "text" : "password"}
+                          id="newPassword"
+                          name="newPassword"
+                          value={formData.newPassword}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 pr-10"
+                          required
+                          minLength="6"
+                        />
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? (
+                            <FaEyeSlash className="text-gray-500" />
+                          ) : (
+                            <FaEye className="text-gray-500" />
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Password strength meter */}
+                      {formData.newPassword && (
+                        <div className="mt-2">
+                          <div className="flex items-center mb-1">
+                            <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                              <div 
+                                className={`h-2.5 rounded-full ${getStrengthColor()}`} 
+                                style={{ width: `${passwordStrength.score * 25}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-xs">{getStrengthText()}</span>
+                          </div>
+                          
+                          {/* Password requirements */}
+                          <div className="text-xs text-gray-600 space-y-1 mt-2">
+                            <div className="flex items-center">
+                              {passwordStrength.hasMinLength ? 
+                                <FaCheck className="text-green-500 mr-1" /> : 
+                                <FaTimes className="text-red-500 mr-1" />}
+                              At least 6 characters
+                            </div>
+                            <div className="flex items-center">
+                              {passwordStrength.hasUpperCase ? 
+                                <FaCheck className="text-green-500 mr-1" /> : 
+                                <FaTimes className="text-red-500 mr-1" />}
+                              Uppercase letter
+                            </div>
+                            <div className="flex items-center">
+                              {passwordStrength.hasLowerCase ? 
+                                <FaCheck className="text-green-500 mr-1" /> : 
+                                <FaTimes className="text-red-500 mr-1" />}
+                              Lowercase letter
+                            </div>
+                            <div className="flex items-center">
+                              {passwordStrength.hasNumber ? 
+                                <FaCheck className="text-green-500 mr-1" /> : 
+                                <FaTimes className="text-red-500 mr-1" />}
+                              Number
+                            </div>
+                            <div className="flex items-center">
+                              {passwordStrength.hasSpecialChar ? 
+                                <FaCheck className="text-green-500 mr-1" /> : 
+                                <FaTimes className="text-red-500 mr-1" />}
+                              Special character
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
                     <div>
                       <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                         Confirm New Password
                       </label>
-                      <input
-                        type="password"
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          value={formData.confirmPassword}
+                          onChange={handleInputChange}
+                          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 pr-10 ${
+                            formData.confirmPassword && !passwordsMatch 
+                              ? 'border-red-500' 
+                              : formData.confirmPassword && passwordsMatch
+                                ? 'border-green-500'
+                                : 'border-gray-300'
+                          }`}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? (
+                            <FaEyeSlash className="text-gray-500" />
+                          ) : (
+                            <FaEye className="text-gray-500" />
+                          )}
+                        </button>
+                      </div>
+                      {formData.confirmPassword && (
+                        <div className="mt-1 text-xs flex items-center">
+                          {passwordsMatch ? (
+                            <>
+                              <FaCheck className="text-green-500 mr-1" />
+                              <span className="text-green-500">Passwords match</span>
+                            </>
+                          ) : (
+                            <>
+                              <FaTimes className="text-red-500 mr-1" />
+                              <span className="text-red-500">Passwords do not match</span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="pt-4">

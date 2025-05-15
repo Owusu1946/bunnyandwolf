@@ -5,10 +5,13 @@ import apiConfig from '../config/apiConfig';
 
 // Time constants for cache expiration (in milliseconds)
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const BACKGROUND_REFRESH_THRESHOLD = 4 * 60 * 1000; // 4 minutes
 
+// Debounce helper to prevent multiple API calls
 let fetchDebounceTimer = null;
 let fetchInProgress = false;
 
+// Custom logger to track API operations
 const logApiOperation = (operation, message, data = null, isError = false) => {
   const timestamp = new Date().toISOString();
   const logMethod = isError ? console.error : console.log;
@@ -22,6 +25,38 @@ const logApiOperation = (operation, message, data = null, isError = false) => {
       console.log(`${prefix} Details:`, data);
     }
   }
+};
+
+// Helper functions for caching
+function filterCampaigns(campaigns, searchTerm) {
+  if (!searchTerm) return campaigns;
+  
+  const term = searchTerm.toLowerCase();
+  return campaigns.filter(campaign => 
+    (campaign.title && campaign.title.toLowerCase().includes(term)) ||
+    (campaign.subject && campaign.subject.toLowerCase().includes(term))
+  );
+}
+
+function paginateResults(results, page, limit) {
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+  return results.slice(startIndex, endIndex);
+}
+
+// Create a custom axios instance to prevent global interceptors from auto-logging out
+const createCustomAxios = () => {
+  const token = localStorage.getItem('token');
+  const instance = axios.create({
+    baseURL: apiConfig.baseURL,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
+  });
+  
+  // Don't add interceptors that trigger logout
+  return instance;
 };
 
 export const useCampaignStore = create(
@@ -80,30 +115,67 @@ export const useCampaignStore = create(
               logApiOperation('API', `Making API request to ${apiConfig.baseURL}/campaigns`);
               const requestStartTime = Date.now();
               
-              const response = await axios.get(`${apiConfig.baseURL}/campaigns`, {
-                params: {
-                  page,
-                  limit,
-                  search: search || undefined
-                },
-                headers: {
-                  Authorization: `Bearer ${localStorage.getItem('token')}`
+              // Use custom axios instance to prevent logout on 401
+              const customAxios = createCustomAxios();
+              
+              try {
+                const response = await customAxios.get(`${apiConfig.baseURL}/campaigns`, {
+                  params: {
+                    page,
+                    limit,
+                    search: search || undefined
+                  },
+                  headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                  }
+                });
+                
+                const requestDuration = Date.now() - requestStartTime;
+                logApiOperation('API', `Request succeeded in ${requestDuration}ms, received ${response.data.data.length} campaigns`);
+                
+                set({ 
+                  campaigns: response.data.data,
+                  totalCampaigns: response.data.total,
+                  totalPages: response.data.pages || Math.ceil(response.data.total / limit),
+                  currentPage: page,
+                  isLoading: false,
+                  lastFetchTime: Date.now(),
+                });
+                
+                resolve(response.data.data);
+              } catch (apiErr) {
+                // Handle 401 errors gracefully here without triggering logout
+                if (apiErr.response?.status === 401) {
+                  logApiOperation('AUTH', `Authentication error (401) but preventing auto-logout`, apiErr, true);
+                  
+                  // Return cached data if we have it
+                  if (cachedCampaigns.length > 0) {
+                    const filteredCache = filterCampaigns(cachedCampaigns, search);
+                    const paginatedResults = paginateResults(filteredCache, page, limit);
+                    
+                    set({
+                      isLoading: false,
+                      error: 'Authentication error - please check your login status',
+                      currentPage: page,
+                      totalPages: Math.ceil(filteredCache.length / limit),
+                    });
+                    
+                    resolve(paginatedResults);
+                    return;
+                  }
+                  
+                  // Otherwise, set error but don't throw
+                  set({
+                    isLoading: false,
+                    error: 'Authentication error - please check your login status'
+                  });
+                  
+                  resolve([]);
+                  return;
                 }
-              });
-              
-              const requestDuration = Date.now() - requestStartTime;
-              logApiOperation('API', `Request succeeded in ${requestDuration}ms, received ${response.data.data.length} campaigns`);
-              
-              set({ 
-                campaigns: response.data.data,
-                totalCampaigns: response.data.total,
-                totalPages: response.data.pages || Math.ceil(response.data.total / limit),
-                currentPage: page,
-                isLoading: false,
-                lastFetchTime: Date.now(),
-              });
-              
-              resolve(response.data.data);
+                
+                throw apiErr; // Re-throw for other errors
+              }
             } catch (err) {
               logApiOperation('ERROR', `API request failed: ${err.message}`, err, true);
               
@@ -197,31 +269,43 @@ export const useCampaignStore = create(
       
       // Create a new campaign
       createCampaign: async (campaignData) => {
-        logApiOperation('CREATE', `Creating new campaign`, campaignData);
-        
         try {
           set({ isLoading: true, error: null });
           
-          const response = await axios.post(`${apiConfig.baseURL}/campaigns`, campaignData, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
+          const customAxios = createCustomAxios();
+          
+          try {
+            const response = await customAxios.post(`${apiConfig.baseURL}/campaigns`, campaignData, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            set({
+              campaigns: [response.data.data, ...get().campaigns],
+              totalCampaigns: get().totalCampaigns + 1,
+              isLoading: false
+            });
+            
+            return response.data.data;
+          } catch (apiErr) {
+            // Handle 401 errors gracefully
+            if (apiErr.response?.status === 401) {
+              logApiOperation('AUTH', `Authentication error (401) creating campaign, but preventing auto-logout`, apiErr, true);
+              
+              set({
+                isLoading: false,
+                error: 'Authentication error - please check your login status'
+              });
+              
+              throw new Error('Authentication error - please check your login status');
             }
-          });
-          
-          const newCampaign = response.data.data;
-          
-          set({ 
-            campaigns: [newCampaign, ...get().campaigns],
-            totalCampaigns: get().totalCampaigns + 1,
-            isLoading: false 
-          });
-          
-          logApiOperation('CREATE', `Campaign created successfully: ${newCampaign._id}`);
-          return newCampaign;
+            
+            throw apiErr; // Re-throw other errors
+          }
         } catch (err) {
-          logApiOperation('ERROR', `Failed to create campaign: ${err.message}`, err, true);
           set({ 
-            error: err.response?.data?.message || 'Failed to create campaign',
+            error: err.response?.data?.message || err.message || 'Failed to create campaign',
             isLoading: false 
           });
           throw err;
@@ -235,27 +319,45 @@ export const useCampaignStore = create(
         try {
           set({ isLoading: true, error: null });
           
-          const response = await axios.put(`${apiConfig.baseURL}/campaigns/${id}`, campaignData, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
+          const customAxios = createCustomAxios();
+          
+          try {
+            const response = await customAxios.put(`${apiConfig.baseURL}/campaigns/${id}`, campaignData, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            const updatedCampaigns = get().campaigns.map(campaign => 
+              campaign._id === id ? { ...campaign, ...response.data.data } : campaign
+            );
+            
+            set({
+              campaigns: updatedCampaigns,
+              isLoading: false,
+              // If this is the selected campaign, update it too
+              selectedCampaign: get().selectedCampaign?._id === id 
+                ? { ...get().selectedCampaign, ...response.data.data }
+                : get().selectedCampaign
+            });
+            
+            logApiOperation('UPDATE', `Campaign ${id} updated successfully`);
+            return response.data.data;
+          } catch (apiErr) {
+            // Handle 401 errors gracefully
+            if (apiErr.response?.status === 401) {
+              logApiOperation('AUTH', `Authentication error (401) updating campaign ${id}, but preventing auto-logout`, apiErr, true);
+              
+              set({
+                isLoading: false,
+                error: 'Authentication error - please check your login status'
+              });
+              
+              throw new Error('Authentication error - please check your login status');
             }
-          });
-          
-          const updatedCampaign = response.data.data;
-          const updatedCampaigns = get().campaigns.map(campaign => 
-            campaign._id === id ? updatedCampaign : campaign
-          );
-          
-          set({ 
-            campaigns: updatedCampaigns,
-            isLoading: false,
-            selectedCampaign: get().selectedCampaign?._id === id 
-              ? updatedCampaign
-              : get().selectedCampaign
-          });
-          
-          logApiOperation('UPDATE', `Campaign ${id} updated successfully`);
-          return updatedCampaign;
+            
+            throw apiErr; // Re-throw other errors
+          }
         } catch (err) {
           logApiOperation('ERROR', `Failed to update campaign ${id}: ${err.message}`, err, true);
           set({ 
@@ -273,22 +375,40 @@ export const useCampaignStore = create(
         try {
           set({ isLoading: true, error: null });
           
-          await axios.delete(`${apiConfig.baseURL}/campaigns/${id}`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
+          const customAxios = createCustomAxios();
+          
+          try {
+            await customAxios.delete(`${apiConfig.baseURL}/campaigns/${id}`, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            set({
+              campaigns: get().campaigns.filter(campaign => campaign._id !== id),
+              totalCampaigns: get().totalCampaigns - 1,
+              isLoading: false,
+              // If this was the selected campaign, clear it
+              selectedCampaign: get().selectedCampaign?._id === id ? null : get().selectedCampaign
+            });
+            
+            logApiOperation('DELETE', `Campaign ${id} successfully deleted`);
+            return true;
+          } catch (apiErr) {
+            // Handle 401 errors gracefully
+            if (apiErr.response?.status === 401) {
+              logApiOperation('AUTH', `Authentication error (401) deleting campaign ${id}, but preventing auto-logout`, apiErr, true);
+              
+              set({
+                isLoading: false,
+                error: 'Authentication error - please check your login status'
+              });
+              
+              throw new Error('Authentication error - please check your login status');
             }
-          });
-          
-          const updatedCampaigns = get().campaigns.filter(campaign => campaign._id !== id);
-          set({ 
-            campaigns: updatedCampaigns,
-            totalCampaigns: get().totalCampaigns - 1,
-            isLoading: false,
-            selectedCampaign: get().selectedCampaign?._id === id ? null : get().selectedCampaign
-          });
-          
-          logApiOperation('DELETE', `Campaign ${id} successfully deleted`);
-          return true;
+            
+            throw apiErr; // Re-throw other errors
+          }
         } catch (err) {
           logApiOperation('ERROR', `Failed to delete campaign ${id}: ${err.message}`, err, true);
           set({ 
@@ -306,32 +426,50 @@ export const useCampaignStore = create(
         try {
           set({ isLoading: true, error: null });
           
-          const response = await axios.post(`${apiConfig.baseURL}/campaigns/${id}/send`, 
-            { recipientType },
-            {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem('token')}`
+          const customAxios = createCustomAxios();
+          
+          try {
+            const response = await customAxios.post(`${apiConfig.baseURL}/campaigns/${id}/send`, 
+              { recipientType },
+              {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem('token')}`
+                }
               }
+            );
+            
+            // Update campaign status in cache
+            const updatedCampaigns = get().campaigns.map(campaign => 
+              campaign._id === id 
+                ? { ...campaign, status: 'sent', sentAt: new Date().toISOString() } 
+                : campaign
+            );
+            
+            set({ 
+              campaigns: updatedCampaigns,
+              isLoading: false,
+              selectedCampaign: get().selectedCampaign?._id === id 
+                ? { ...get().selectedCampaign, status: 'sent', sentAt: new Date().toISOString() }
+                : get().selectedCampaign
+            });
+            
+            logApiOperation('SEND', `Campaign ${id} sent successfully to ${response.data.recipientCount} recipients`);
+            return response.data;
+          } catch (apiErr) {
+            // Handle 401 errors gracefully
+            if (apiErr.response?.status === 401) {
+              logApiOperation('AUTH', `Authentication error (401) sending campaign ${id}, but preventing auto-logout`, apiErr, true);
+              
+              set({
+                isLoading: false,
+                error: 'Authentication error - please check your login status'
+              });
+              
+              throw new Error('Authentication error - please check your login status');
             }
-          );
-          
-          // Update campaign status in cache
-          const updatedCampaigns = get().campaigns.map(campaign => 
-            campaign._id === id 
-              ? { ...campaign, status: 'sent', sentAt: new Date().toISOString() } 
-              : campaign
-          );
-          
-          set({ 
-            campaigns: updatedCampaigns,
-            isLoading: false,
-            selectedCampaign: get().selectedCampaign?._id === id 
-              ? { ...get().selectedCampaign, status: 'sent', sentAt: new Date().toISOString() }
-              : get().selectedCampaign
-          });
-          
-          logApiOperation('SEND', `Campaign ${id} sent successfully to ${response.data.recipientCount} recipients`);
-          return response.data;
+            
+            throw apiErr; // Re-throw other errors
+          }
         } catch (err) {
           logApiOperation('ERROR', `Failed to send campaign ${id}: ${err.message}`, err, true);
           set({ 
@@ -366,6 +504,107 @@ export const useCampaignStore = create(
           selectedCampaign: null,
           lastFetchTime: null
         });
+      },
+      
+      // Get campaign statistics
+      getCampaignStats: async () => {
+        logApiOperation('STATS', `Fetching campaign statistics`);
+        
+        try {
+          const token = localStorage.getItem('token');
+          
+          // If no token is available, return default stats from current campaigns
+          if (!token) {
+            logApiOperation('STATS', `No auth token, using client-side calculations`);
+            const campaigns = get().campaigns;
+            
+            // Calculate basic stats from cached data
+            const sentCampaigns = campaigns.filter(c => c.status === 'sent').length;
+            const totalRecipients = campaigns.reduce((total, c) => total + (c.recipientCount || 0), 0);
+            const totalOpens = campaigns.reduce((total, c) => total + (c.opened || 0), 0);
+            const totalClicks = campaigns.reduce((total, c) => total + (c.clicked || 0), 0);
+            
+            // Calculate open and click rates
+            const avgOpenRate = totalRecipients > 0 ? (totalOpens / totalRecipients) * 100 : 0;
+            const avgClickRate = totalOpens > 0 ? (totalClicks / totalOpens) * 100 : 0;
+            
+            const stats = {
+              totalCampaigns: campaigns.length,
+              sentCampaigns,
+              totalRecipients,
+              totalOpens,
+              totalClicks,
+              avgOpenRate,
+              avgClickRate
+            };
+            
+            logApiOperation('STATS', `Generated client-side stats`);
+            return stats;
+          }
+          
+          // If we have a token, fetch from API
+          const customAxios = createCustomAxios();
+          
+          try {
+            const response = await customAxios.get(`${apiConfig.baseURL}/campaigns/stats`, {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
+            
+            logApiOperation('STATS', `Fetched campaign stats from API`);
+            return response.data.data;
+          } catch (apiErr) {
+            // Handle 401 errors gracefully
+            if (apiErr.response?.status === 401) {
+              logApiOperation('AUTH', `Authentication error (401) fetching campaign stats, but preventing auto-logout`, apiErr, true);
+              
+              // Fall back to client-side stats
+              const campaigns = get().campaigns;
+              
+              // Calculate basic stats from cached data
+              const sentCampaigns = campaigns.filter(c => c.status === 'sent').length;
+              const totalRecipients = campaigns.reduce((total, c) => total + (c.recipientCount || 0), 0);
+              const totalOpens = campaigns.reduce((total, c) => total + (c.opened || 0), 0);
+              const totalClicks = campaigns.reduce((total, c) => total + (c.clicked || 0), 0);
+              
+              // Calculate open and click rates
+              const avgOpenRate = totalRecipients > 0 ? (totalOpens / totalRecipients) * 100 : 0;
+              const avgClickRate = totalOpens > 0 ? (totalClicks / totalOpens) * 100 : 0;
+              
+              const stats = {
+                totalCampaigns: campaigns.length,
+                sentCampaigns,
+                totalRecipients,
+                totalOpens,
+                totalClicks,
+                avgOpenRate,
+                avgClickRate
+              };
+              
+              logApiOperation('STATS', `Generated client-side stats as fallback for auth error`);
+              return stats;
+            }
+            
+            throw apiErr; // Re-throw other errors
+          }
+        } catch (err) {
+          logApiOperation('ERROR', `Failed to fetch campaign stats: ${err.message}`, err, true);
+          
+          // Calculate basic stats as fallback
+          const campaigns = get().campaigns;
+          const sentCampaigns = campaigns.filter(c => c.status === 'sent').length;
+          
+          return {
+            totalCampaigns: campaigns.length,
+            sentCampaigns,
+            totalRecipients: 0,
+            totalOpens: 0,
+            totalClicks: 0,
+            avgOpenRate: 0,
+            avgClickRate: 0
+          };
+        }
       }
     }),
     {
@@ -381,23 +620,4 @@ export const useCampaignStore = create(
       })
     }
   )
-);
-
-// Helper function to filter campaigns by search term
-function filterCampaigns(campaigns, searchTerm) {
-  if (!searchTerm) return campaigns;
-  
-  const term = searchTerm.toLowerCase();
-  return campaigns.filter(campaign => 
-    (campaign.title && campaign.title.toLowerCase().includes(term)) ||
-    (campaign.subject && campaign.subject.toLowerCase().includes(term)) ||
-    (campaign.type && campaign.type.toLowerCase().includes(term))
-  );
-}
-
-// Helper function to paginate results
-function paginateResults(results, page, limit) {
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
-  return results.slice(startIndex, endIndex);
-} 
+); 

@@ -95,32 +95,123 @@ const CampaignsPage = () => {
   });
   const [isSending, setIsSending] = useState(false);
   const [sendingSuccess, setSendingSuccess] = useState(false);
+  const [customerDataError, setCustomerDataError] = useState(null);
+  const [campaignDataError, setCampaignDataError] = useState(null);
 
-  // Add useEffect to load user data
+  // Modified useEffect to load user data and check authentication
   useEffect(() => {
-    if (!user) {
-      loadUser();
-    }
+    const checkAuth = async () => {
+      if (!user) {
+        try {
+          await loadUser();
+        } catch (err) {
+          console.log('User not authenticated, but not forcing logout');
+          // We don't need to do anything here - just prevent the auto logout
+        }
+      }
+    };
+    
+    checkAuth();
   }, [loadUser, user]);
 
-  // Fetch campaigns and customers on component mount
+  // Modified function to fetch campaigns and customers
   useEffect(() => {
     const loadData = async () => {
-      await fetchCampaigns();
-      await fetchCustomers(1, 1000); // Fetch a good number of customers for campaigns
-      
       try {
-        const stats = await getCampaignStats();
-        if (stats) {
-          setCampaignStats(stats);
+        // Check for token before making requests
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.log('No authentication token found, not fetching data');
+          return;
+        }
+        
+        // Safely fetch campaigns with error handling
+        try {
+          await fetchCampaigns();
+          // Clear any previous error if successful
+          setCampaignDataError(null);
+        } catch (err) {
+          console.error('Error fetching campaigns:', err);
+          // Store the error message to display to the user
+          setCampaignDataError('Unable to load campaign data. You may need to log in again.');
+          // Don't throw, just log the error
+        }
+        
+        // Safely fetch customers with error handling
+        try {
+          await fetchCustomers(1, 1000);
+          // Clear any previous error if successful
+          setCustomerDataError(null);
+        } catch (err) {
+          console.error('Error fetching customers:', err);
+          // Store the error message to display to the user
+          setCustomerDataError('Unable to load customer data. You may need to log in again.');
+          // Don't rethrow the error to prevent automatic logout
+        }
+        
+        // Safely fetch campaign stats with error handling
+        try {
+          if (typeof getCampaignStats === 'function') {
+            const stats = await getCampaignStats();
+            if (stats) {
+              setCampaignStats(stats);
+            }
+          } else {
+            console.warn('getCampaignStats function is not available');
+            // Set default stats to prevent errors
+            setCampaignStats({
+              totalCampaigns: campaigns?.length || 0,
+              sentCampaigns: campaigns?.filter(c => c.status === 'sent')?.length || 0,
+              totalRecipients: 0,
+              totalOpens: 0,
+              totalClicks: 0,
+              avgOpenRate: 0,
+              avgClickRate: 0
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching campaign stats:', err);
+          // Set default stats on error
+          setCampaignStats({
+            totalCampaigns: campaigns?.length || 0,
+            sentCampaigns: campaigns?.filter(c => c.status === 'sent')?.length || 0,
+            totalRecipients: 0,
+            totalOpens: 0,
+            totalClicks: 0,
+            avgOpenRate: 0,
+            avgClickRate: 0
+          });
         }
       } catch (err) {
-        console.error('Error fetching campaign stats:', err);
+        console.error('Error in loadData:', err);
+        // Don't throw errors that would trigger the axios interceptor
       }
     };
     
     loadData();
-  }, [fetchCampaigns, fetchCustomers, getCampaignStats]);
+  }, [fetchCampaigns, fetchCustomers, getCampaignStats, campaigns]);
+
+  // Add a retry function for customer data
+  const handleRetryCustomerData = async () => {
+    try {
+      setCustomerDataError(null);
+      await fetchCustomers(1, 1000, '', true);
+    } catch (err) {
+      console.error('Error retrying customer data fetch:', err);
+      setCustomerDataError('Unable to load customer data. Please try again later.');
+    }
+  };
+
+  // Add a retry function for campaign data
+  const handleRetryCampaignData = async () => {
+    try {
+      setCampaignDataError(null);
+      await fetchCampaigns(1, 10, '', true);
+    } catch (err) {
+      console.error('Error retrying campaign data fetch:', err);
+      setCampaignDataError('Unable to load campaign data. Please try again later.');
+    }
+  };
 
   // Filter campaigns based on search and filter settings
   useEffect(() => {
@@ -413,11 +504,21 @@ const CampaignsPage = () => {
           </div>
         </div>
 
-        {/* Display error message if any */}
-        {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
-            <p className="font-medium">Error loading campaigns</p>
-            <p>{error}</p>
+        {/* Display errors if any */}
+        {campaignDataError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6 flex justify-between items-center">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span>{campaignDataError}</span>
+            </div>
+            <button 
+              onClick={handleRetryCampaignData}
+              className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-sm"
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -837,21 +938,33 @@ const CampaignsPage = () => {
                     <div className="bg-white rounded-lg border p-3">
                       <div className="flex items-center text-sm">
                         <FaUserFriends className="text-gray-400 mr-2" />
-                        <span>
-                          {customersLoading ? (
-                            <span className="flex items-center">
-                              <FaSpinner className="animate-spin mr-1" /> Loading customer data...
-                            </span>
-                          ) : campaignFormData.recipientType === 'all' ? (
-                            `All customers (${totalCustomers || 0})`
-                          ) : campaignFormData.recipientType === 'active' ? (
-                            `Active customers (approximately ${Math.round((totalCustomers || 0) * 0.6)})`
-                          ) : campaignFormData.recipientType === 'recent' ? (
-                            `New customers (approximately ${Math.round((totalCustomers || 0) * 0.2)})`
-                          ) : (
-                            `Dormant customers (approximately ${Math.round((totalCustomers || 0) * 0.3)})`
-                          )}
-                        </span>
+                        {customerDataError ? (
+                          <div className="text-red-500 flex flex-col">
+                            <span>{customerDataError}</span>
+                            <button 
+                              onClick={handleRetryCustomerData}
+                              className="text-blue-500 underline text-xs mt-1 text-left"
+                            >
+                              Retry loading customer data
+                            </button>
+                          </div>
+                        ) : (
+                          <span>
+                            {customersLoading ? (
+                              <span className="flex items-center">
+                                <FaSpinner className="animate-spin mr-1" /> Loading customer data...
+                              </span>
+                            ) : campaignFormData.recipientType === 'all' ? (
+                              `All customers (${totalCustomers || 0})`
+                            ) : campaignFormData.recipientType === 'active' ? (
+                              `Active customers (approximately ${Math.round((totalCustomers || 0) * 0.6)})`
+                            ) : campaignFormData.recipientType === 'recent' ? (
+                              `New customers (approximately ${Math.round((totalCustomers || 0) * 0.2)})`
+                            ) : (
+                              `Dormant customers (approximately ${Math.round((totalCustomers || 0) * 0.3)})`
+                            )}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -886,7 +999,7 @@ const CampaignsPage = () => {
                     <div>
                       <span className="text-sm text-gray-500">Title:</span>
                       <p>{selectedCampaign.title}</p>
-              </div>
+                </div>
                     <div>
                       <span className="text-sm text-gray-500">Subject:</span>
                       <p>{selectedCampaign.subject}</p>
@@ -937,7 +1050,7 @@ const CampaignsPage = () => {
                             className="bg-green-600 h-2.5 rounded-full" 
                             style={{ width: `${getOpenRate(selectedCampaign)}%` }}
                           ></div>
-                </div>
+                        </div>
                         <div className="text-right text-xs text-gray-500 mt-1">{getOpenRate(selectedCampaign)}%</div>
               </div>
                       <div>

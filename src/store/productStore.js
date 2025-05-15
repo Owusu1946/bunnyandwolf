@@ -7,16 +7,24 @@ export const useProductStore = create(
     (set, get) => ({
       products: [], // All products
       featuredProducts: [], // Products marked as featured
+      sampleProducts: [], // Products marked as sample
       categories: [], // Available product categories
       filteredProducts: [], // Products filtered by category or search
       platformProducts: {}, // Products organized by platform ID
+      loading: false, // Loading state
       
       // Set all products
       setProducts: (products) => {
         set({ products });
         
         // Update derived state
-        const featuredProducts = products.filter(p => p.isFeatured);
+        const featuredProducts = products.filter(p => p.isFeatured === true);
+        const sampleProducts = products.filter(p => p.isSample === true);
+        
+        console.log(`ProductStore: Products loaded - ${products.length} total`);
+        console.log(`ProductStore: ${featuredProducts.length} featured products`);
+        console.log(`ProductStore: ${sampleProducts.length} sample products`);
+        
         const categories = [...new Set(products.map(p => p.category))];
         
         // Organize products by platform
@@ -32,6 +40,7 @@ export const useProductStore = create(
         
         set({ 
           featuredProducts,
+          sampleProducts,
           categories,
           platformProducts
         });
@@ -63,7 +72,8 @@ export const useProductStore = create(
           ? products.map(p => p._id === product._id ? product : p)
           : [product, ...products];
           
-        const featuredProducts = allProducts.filter(p => p.isFeatured);
+        const featuredProducts = allProducts.filter(p => p.isFeatured === true);
+        const sampleProducts = allProducts.filter(p => p.isSample === true);
         const categories = [...new Set(allProducts.map(p => p.category))];
         
         // Update platform products mapping
@@ -104,14 +114,21 @@ export const useProductStore = create(
         }
         
         // Log featured product status
-        if (product.isFeatured) {
+        if (product.isFeatured === true) {
           console.log(`⭐ ProductStore: Product "${product.name}" is marked as featured`);
         }
         
+        // Log sample product status
+        if (product.isSample === true) {
+          console.log(`🔍 ProductStore: Product "${product.name}" is marked as sample`);
+        }
+        
         console.log(`✨ ProductStore: Total featured products: ${featuredProducts.length}`);
+        console.log(`✨ ProductStore: Total sample products: ${sampleProducts.length}`);
         
         set({ 
           featuredProducts,
+          sampleProducts,
           categories,
           platformProducts: updatedPlatformProducts
         });
@@ -122,6 +139,9 @@ export const useProductStore = create(
       
       // Get featured products
       getFeaturedProducts: () => get().featuredProducts,
+      
+      // Get sample products
+      getSampleProducts: () => get().sampleProducts,
       
       // Get product by ID
       getProductById: (id) => {
@@ -229,11 +249,13 @@ export const useProductStore = create(
         });
         
         // Update derived state
-        const featuredProducts = updatedProducts.filter(p => p.isFeatured);
+        const featuredProducts = updatedProducts.filter(p => p.isFeatured === true);
+        const sampleProducts = updatedProducts.filter(p => p.isSample === true);
         const categories = [...new Set(updatedProducts.map(p => p.category))];
         
         set({ 
           featuredProducts,
+          sampleProducts,
           categories
         });
       },
@@ -242,6 +264,7 @@ export const useProductStore = create(
       clearProducts: () => set({ 
         products: [],
         featuredProducts: [],
+        sampleProducts: [],
         categories: [],
         filteredProducts: [],
         platformProducts: {}
@@ -291,8 +314,9 @@ export const useProductStore = create(
           set({ products: updatedProducts });
           
           // Update derived state
-          const featuredProducts = updatedProducts.filter(p => p.isFeatured);
-          set({ featuredProducts });
+          const featuredProducts = updatedProducts.filter(p => p.isFeatured === true);
+          const sampleProducts = updatedProducts.filter(p => p.isSample === true);
+          set({ featuredProducts, sampleProducts });
           
           // Re-organize products by platform
           const platformProducts = {};
@@ -311,6 +335,7 @@ export const useProductStore = create(
       
       // Fetch products from API
       fetchProductsFromAPI: async () => {
+        set({ loading: true });
         console.log('🔄 ProductStore: Fetching products from API');
         try {
           const response = await fetch(`${apiConfig.baseURL}/products?limit=100`);
@@ -321,8 +346,14 @@ export const useProductStore = create(
             set({ products: data.data });
             
             // Update derived state
-            const featuredProducts = data.data.filter(p => p.isFeatured);
+            const featuredProducts = data.data.filter(p => p.isFeatured === true);
+            const sampleProducts = data.data.filter(p => p.isSample === true);
             const categories = [...new Set(data.data.map(p => p.category))];
+            
+            // Ensure no products are in both categories unintentionally
+            if (featuredProducts.some(p => p.isSample === true)) {
+              console.warn('⚠️ ProductStore: Some products are marked as both featured and sample');
+            }
             
             // Organize products by platform
             const platformProducts = {};
@@ -350,19 +381,31 @@ export const useProductStore = create(
               });
             }
             
+            console.log(`✨ ProductStore: Found ${sampleProducts.length} sample products`);
+            if (sampleProducts.length > 0) {
+              sampleProducts.forEach(p => {
+                console.log(`  - Sample: ${p.name} (ID: ${p._id})`);
+                console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
+              });
+            }
+            
             console.log(`📊 ProductStore: Categories found: ${categories.join(', ')}`);
             
             set({ 
               featuredProducts,
+              sampleProducts,
               categories,
               filteredProducts: data.data,
-              platformProducts
+              platformProducts,
+              loading: false
             });
           } else {
             console.error('❌ ProductStore: API request failed', data);
+            set({ loading: false });
           }
         } catch (error) {
           console.error('❌ ProductStore: Error fetching products:', error);
+          set({ loading: false });
         }
       },
       
@@ -398,6 +441,7 @@ export const useProductStore = create(
       
       // Fetch only featured products from API
       fetchFeaturedProducts: async () => {
+        set({ loading: true });
         console.log('🌟 ProductStore: Fetching featured products from API');
         try {
           const response = await fetch(`${apiConfig.baseURL}/products?featured=true&limit=20`);
@@ -407,7 +451,7 @@ export const useProductStore = create(
             console.log(`✅ ProductStore: Successfully fetched ${data.data.length} featured products from API`);
             
             // Update featured products in store
-            set({ featuredProducts: data.data });
+            set({ featuredProducts: data.data, loading: false });
             
             // Log featured products
             data.data.forEach(p => {
@@ -421,10 +465,48 @@ export const useProductStore = create(
             return data.data;
           } else {
             console.error('❌ ProductStore: API request for featured products failed', data);
+            set({ loading: false });
             return [];
           }
         } catch (error) {
           console.error('❌ ProductStore: Error fetching featured products:', error);
+          set({ loading: false });
+          return [];
+        }
+      },
+      
+      // Fetch only sample products from API
+      fetchSampleProducts: async () => {
+        set({ loading: true });
+        console.log('🔍 ProductStore: Fetching sample products from API');
+        try {
+          const response = await fetch(`${apiConfig.baseURL}/products?isSample=true&limit=6`);
+          const data = await response.json();
+          
+          if (data.success) {
+            console.log(`✅ ProductStore: Successfully fetched ${data.data.length} sample products from API`);
+            
+            // Ensure we only get products marked as sample
+            const sampleProductsOnly = data.data.filter(product => product.isSample === true);
+            
+            // Update sample products in store
+            set({ sampleProducts: sampleProductsOnly, loading: false });
+            
+            // Log sample products
+            sampleProductsOnly.forEach(p => {
+              console.log(`  - Sample: ${p.name} (ID: ${p._id})`);
+              console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
+            });
+            
+            return sampleProductsOnly;
+          } else {
+            console.error('❌ ProductStore: API request for sample products failed', data);
+            set({ loading: false });
+            return [];
+          }
+        } catch (error) {
+          console.error('❌ ProductStore: Error fetching sample products:', error);
+          set({ loading: false });
           return [];
         }
       }

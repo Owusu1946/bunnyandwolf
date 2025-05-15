@@ -11,15 +11,46 @@ import KeyFeatures from '../components/KeyFeatures';
 import WhyChooseUs from '../components/WhyChooseUs';
 import CTAFooter from '../components/CTAFooter';
 import { usePlatformsStore } from '../store/platformsStore';
+import { useProductStore } from '../store/productStore';
+import { useReviewStore } from '../store/reviewStore';
 
 const Home = () => {
   // Get platforms data for stores section
   const { fetchPlatformsFromAPI, activePlatforms, loading: platformsLoading } = usePlatformsStore();
   
+  // Get products from store
+  const { 
+    fetchProductsFromAPI, 
+    fetchSampleProducts, 
+    sampleProducts, 
+    loading: productsLoading 
+  } = useProductStore();
+  
+  // Get review store for review stats
+  const { reviewStats } = useReviewStore();
+  
   // Fetch platforms when component mounts
   useEffect(() => {
     fetchPlatformsFromAPI();
   }, [fetchPlatformsFromAPI]);
+  
+  // Fetch sample products when component mounts
+  useEffect(() => {
+    // Fetch products if not already loaded
+    fetchProductsFromAPI();
+    
+    // Fetch sample products
+    fetchSampleProducts();
+    
+    // Add console logging to verify sample products
+    console.log('Sample products fetch initiated');
+  }, [fetchProductsFromAPI, fetchSampleProducts]);
+  
+  // Log whenever sample products change
+  useEffect(() => {
+    console.log(`Loaded ${sampleProducts.length} sample products:`, 
+      sampleProducts.map(p => `${p.name} (isSample: ${p.isSample}, isFeatured: ${p.isFeatured})`));
+  }, [sampleProducts]);
   
   // Fallback platforms data if no platforms are available from the store
   const fallbackPlatforms = [
@@ -53,6 +84,59 @@ const Home = () => {
     }
   ];
   
+  // Fallback sample products if no sample products are loaded
+  const fallbackSampleProducts = [
+    {
+      name: 'Compressed Sofas',
+      description: 'High-quality space-saving furniture solutions for your home.',
+      image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
+      link: '/products/sofas',
+      price: '$599',
+      rating: 4.7
+    },
+    {
+      name: 'Bamboo Furniture',
+      description: 'Sustainable and elegant furniture made from eco-friendly bamboo.',
+      image: 'https://images.unsplash.com/photo-1540638349517-3abd5afc5847?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
+      link: '/products/bamboo',
+      price: '$399',
+      rating: 4.9
+    },
+    {
+      name: 'Smart Gadgets',
+      description: 'Cutting-edge technology to simplify and enhance your lifestyle.',
+      image: 'https://images.unsplash.com/photo-1546054454-aa26e2b734c7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
+      link: '/products/gadgets',
+      price: '$299',
+      rating: 4.5
+    }
+  ];
+  
+  // Format sample products for the product explorer
+  const formattedSampleProducts = sampleProducts.length > 0 
+    ? sampleProducts.map(product => {
+        // Get product review data if available
+        let reviewCount = product.reviewCount || 0;
+        let avgRating = product.avgRating || 4.5;
+        
+        // Use review stats if available for this product
+        if (reviewStats && reviewStats[product._id]) {
+          reviewCount = reviewStats[product._id].count || reviewCount;
+          avgRating = reviewStats[product._id].avgRating || avgRating;
+        }
+        
+        return {
+          name: product.name,
+          description: product.description,
+          image: product.variants?.[0]?.additionalImages?.[0] || 'https://via.placeholder.com/400x400?text=No+Image',
+          link: `/product/${product.slug}`,
+          price: `GH₵ ${product.basePrice?.toFixed(2) || "0.00"}`,
+          rating: avgRating,
+          reviewCount: reviewCount
+        };
+      })
+    : fallbackSampleProducts;
+  
   // Display active platforms or fallback if none available
   const platformsToDisplay = activePlatforms.length > 0 ? activePlatforms : fallbackPlatforms;
 
@@ -67,7 +151,7 @@ const Home = () => {
         id: 1,
             title: "Connecting you to China's best products to revolutionise your business",
             description: "Discover the diverse range of store fronts under Sinosply, offering unique and exclusive products tailored to your needs.",
-            linkTo: "/contact",
+            linkTo: "/quote",
             linkText: "Request any product today",
             bgImage: "https://images.unsplash.com/photo-1553413077-190dd305871c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1920&q=80"
       },
@@ -93,32 +177,9 @@ const Home = () => {
       {/* Product Explorer */}
       <ProductExplorer 
         title="Sample Products"
-        products={[
-          {
-            name: 'Compressed Sofas',
-            description: 'High-quality space-saving furniture solutions for your home.',
-            image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
-            link: '/products/sofas',
-            price: '$599',
-            rating: 4.7
-          },
-          {
-            name: 'Bamboo Furniture',
-            description: 'Sustainable and elegant furniture made from eco-friendly bamboo.',
-            image: 'https://images.unsplash.com/photo-1540638349517-3abd5afc5847?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
-            link: '/products/bamboo',
-            price: '$399',
-            rating: 4.9
-          },
-          {
-            name: 'Smart Gadgets',
-            description: 'Cutting-edge technology to simplify and enhance your lifestyle.',
-            image: 'https://images.unsplash.com/photo-1546054454-aa26e2b734c7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
-            link: '/products/gadgets',
-            price: '$299',
-            rating: 4.5
-          }
-        ]}
+        products={formattedSampleProducts}
+        loading={productsLoading}
+        disableExploreButton={true}
       />
 
       {/* Key Features Section */}

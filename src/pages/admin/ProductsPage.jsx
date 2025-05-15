@@ -15,6 +15,7 @@ const ProductsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
+  const [showSampleOnly, setShowSampleOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -59,12 +60,13 @@ const ProductsPage = () => {
     stock: 0,
     collectionId: '',
     platformId: '',
-    isFeatured: false
+    isFeatured: false,
+    isSample: false
   });
 
   useEffect(() => {
     fetchProducts();
-  }, [currentPage, categoryFilter, showFeaturedOnly]);
+  }, [currentPage, categoryFilter, showFeaturedOnly, showSampleOnly]);
 
   // Initialize products from store or fetch if empty
   useEffect(() => {
@@ -96,7 +98,8 @@ const ProductsPage = () => {
           limit: 10,
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
           search: searchTerm || undefined,
-          featured: showFeaturedOnly ? true : undefined
+          featured: showFeaturedOnly ? true : undefined,
+          isSample: showSampleOnly ? true : undefined
         },
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -175,6 +178,11 @@ const ProductsPage = () => {
     setCurrentPage(1); // Reset to first page when filter changes
   };
   
+  const toggleSampleFilter = () => {
+    setShowSampleOnly(!showSampleOnly);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+  
   // Add new product handlers
   const handleAddProductOpen = () => {
     setShowAddModal(true);
@@ -185,11 +193,20 @@ const ProductsPage = () => {
   };
   
   const handleNewProductChange = (e) => {
-    const { name, value } = e.target;
-    setNewProduct(prev => ({
+    const { name, value, type, checked } = e.target;
+    const newValue = type === 'checkbox' ? checked : value;
+    
+    setNewProduct(prev => {
+      // Add console logging for sample product checkbox
+      if (name === 'isSample') {
+        console.log(`Setting product as sample: ${newValue}`);
+      }
+      
+      return {
       ...prev,
-      [name]: value
-    }));
+        [name]: newValue
+      };
+    });
   };
   
   const handleVariantChange = (index, field, value) => {
@@ -329,6 +346,11 @@ const ProductsPage = () => {
         return;
       }
       
+      // Log if product is being marked as sample
+      if (newProduct.isSample) {
+        console.log(`Product "${newProduct.name}" is being created as a sample product`);
+      }
+      
       // Make sure each variant has at least one image
       const hasInvalidVariants = newProduct.variants.some(
         variant => !variant.color || !variant.colorName || !variant.additionalImages[0]
@@ -343,8 +365,8 @@ const ProductsPage = () => {
       // Format data for API
       const productData = {
         ...newProduct,
-        basePrice: parseFloat(newProduct.basePrice),
-        salePrice: newProduct.salePrice ? parseFloat(newProduct.salePrice) : 0,
+        basePrice: Number(newProduct.basePrice),
+        salePrice: newProduct.salePrice ? Number(newProduct.salePrice) : 0,
         stock: parseInt(newProduct.stock)
       };
       
@@ -420,7 +442,8 @@ const ProductsPage = () => {
           stock: 0,
           collectionId: '',
           platformId: '',
-          isFeatured: false
+          isFeatured: false,
+          isSample: false
         });
         
         // Refresh products list
@@ -572,14 +595,14 @@ const ProductsPage = () => {
     const productForEdit = {
       _id: product._id,
       name: product.name,
-      basePrice: product.basePrice,
-      salePrice: product.salePrice || '',
+      basePrice: String(product.basePrice),
+      salePrice: product.salePrice ? String(product.salePrice) : '',
       description: product.description,
       category: product.category,
       details: product.details?.length > 0 ? product.details : [''],
       variants: product.variants?.length > 0 ? product.variants.map(variant => ({
         ...variant,
-        price: variant.price || ''
+        price: variant.price ? String(variant.price) : ''
       })) : [{ 
         color: '#000000', 
         colorName: 'Black',
@@ -592,8 +615,15 @@ const ProductsPage = () => {
       sku: product.sku,
       collectionId: product.collectionId || '',
       platformId: product.platformId || '',
-      isFeatured: !!product.isFeatured
+      isFeatured: !!product.isFeatured,
+      isSample: !!product.isSample
     };
+    
+    // Log the converted price values for debugging
+    console.log('Edit form populated with prices:', {
+      basePrice: productForEdit.basePrice,
+      salePrice: productForEdit.salePrice
+    });
     
     // Set the editing product
     setEditingProduct(productForEdit);
@@ -630,7 +660,8 @@ const ProductsPage = () => {
       stock: 0,
       collectionId: '',
       platformId: '',
-      isFeatured: false
+      isFeatured: false,
+      isSample: false
     });
   };
   
@@ -647,6 +678,12 @@ const ProductsPage = () => {
         return;
       }
       
+      // Log if product's sample status is being updated
+      const originalProduct = products.find(p => p._id === editingProduct._id);
+      if (originalProduct && originalProduct.isSample !== newProduct.isSample) {
+        console.log(`Product "${newProduct.name}" sample status changing from ${originalProduct.isSample} to ${newProduct.isSample}`);
+      }
+      
       // Make sure each variant has at least one image
       const hasInvalidVariants = newProduct.variants.some(
         variant => !variant.color || !variant.colorName || !variant.additionalImages[0]
@@ -658,16 +695,27 @@ const ProductsPage = () => {
         return;
       }
       
+      // Log price values before conversion for debugging
+      console.log('Before conversion - basePrice:', newProduct.basePrice, 'type:', typeof newProduct.basePrice);
+      console.log('Before conversion - salePrice:', newProduct.salePrice, 'type:', typeof newProduct.salePrice);
+      
       // Format data for API
       const productData = {
         ...newProduct,
-        basePrice: parseFloat(newProduct.basePrice),
-        salePrice: newProduct.salePrice ? parseFloat(newProduct.salePrice) : 0,
+        basePrice: Number(newProduct.basePrice),
+        salePrice: newProduct.salePrice ? Number(newProduct.salePrice) : 0,
         stock: parseInt(newProduct.stock),
         slug: newProduct.slug, // Preserve original slug
         sku: newProduct.sku, // Preserve original SKU
-        isFeatured: !!newProduct.isFeatured
+        isFeatured: !!newProduct.isFeatured,
+        isSample: !!newProduct.isSample
       };
+      
+      // Log the formatted data for debugging
+      console.log('After conversion - productData prices:', {
+        basePrice: productData.basePrice,
+        salePrice: productData.salePrice
+      });
       
       // Send data to API
       const token = localStorage.getItem('token');
@@ -690,6 +738,8 @@ const ProductsPage = () => {
       );
       
       if (response.data.success) {
+        console.log('API Response data:', response.data.data);
+        
         // Update the product in the store
         productStore.addProduct(response.data.data);
         
@@ -835,6 +885,17 @@ const ProductsPage = () => {
                   <FaStar className="mr-2" /> 
                   {showFeaturedOnly ? 'Show All Products' : 'Show Featured Only'}
                 </button>
+                <button
+                  onClick={toggleSampleFilter}
+                  className={`flex items-center px-4 py-2 border rounded-lg ${
+                    showSampleOnly 
+                      ? 'text-green-600 border-green-300 bg-green-50' 
+                      : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <FaImage className="mr-2" /> 
+                  {showSampleOnly ? 'Show All Products' : 'Show Sample Only'}
+                </button>
               </div>
               <button
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center relative z-10"
@@ -896,6 +957,11 @@ const ProductsPage = () => {
                               {product.isFeatured && (
                                 <span title="Featured product" className="ml-2 text-yellow-500">
                                   <FaStar size={14} />
+                                </span>
+                              )}
+                              {product.isSample && (
+                                <span title="Sample product" className="ml-2 text-blue-500">
+                                  <FaImage size={14} />
                                 </span>
                               )}
                             </div>
@@ -1126,7 +1192,7 @@ const ProductsPage = () => {
                             value={newProduct.basePrice}
                             onChange={handleNewProductChange}
                             className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
-                            step="0.01"
+                            step="any"
                             required
                           />
                         </div>
@@ -1147,7 +1213,7 @@ const ProductsPage = () => {
                             value={newProduct.salePrice}
                             onChange={handleNewProductChange}
                             className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
-                            step="0.01"
+                            step="any"
                           />
                         </div>
                       </div>
@@ -1191,6 +1257,33 @@ const ProductsPage = () => {
                           </label>
                           <p className="text-yellow-700 text-sm">
                             Featured products will be highlighted on the homepage and in featured sections
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Sample Product Flag Section */}
+                  <div className="mb-8">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <input
+                          id="isSample"
+                          name="isSample"
+                          type="checkbox"
+                          className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-blue-300 rounded"
+                          checked={newProduct.isSample}
+                          onChange={(e) => setNewProduct(prev => ({
+                            ...prev,
+                            isSample: e.target.checked
+                          }))}
+                        />
+                        <div className="ml-3">
+                          <label htmlFor="isSample" className="font-medium text-blue-800 flex items-center">
+                            <FaImage className="text-blue-500 mr-1" /> Mark as sample product
+                          </label>
+                          <p className="text-blue-700 text-sm">
+                            Sample products will be displayed in the sample products section on the homepage
                           </p>
                         </div>
                       </div>
@@ -1373,7 +1466,7 @@ const ProductsPage = () => {
                                   onChange={(e) => handleVariantChange(variantIndex, 'price', e.target.value)}
                                   placeholder="Leave empty to use base price"
                                   className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
-                                  step="0.01"
+                                  step="any"
                                 />
                               </div>
                             </div>
@@ -1601,7 +1694,7 @@ const ProductsPage = () => {
                             value={newProduct.basePrice}
                             onChange={handleNewProductChange}
                             className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
-                            step="0.01"
+                            step="any"
                             required
                           />
                         </div>
@@ -1622,7 +1715,7 @@ const ProductsPage = () => {
                             value={newProduct.salePrice}
                             onChange={handleNewProductChange}
                             className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
-                            step="0.01"
+                            step="any"
                           />
                         </div>
                       </div>
@@ -1666,6 +1759,33 @@ const ProductsPage = () => {
                           </label>
                           <p className="text-yellow-700 text-sm">
                             Featured products will be highlighted on the homepage and in featured sections
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Sample Product Flag Section */}
+                  <div className="mb-8">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <input
+                          id="edit-isSample"
+                          name="isSample"
+                          type="checkbox"
+                          className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-blue-300 rounded"
+                          checked={newProduct.isSample}
+                          onChange={(e) => setNewProduct(prev => ({
+                            ...prev,
+                            isSample: e.target.checked
+                          }))}
+                        />
+                        <div className="ml-3">
+                          <label htmlFor="edit-isSample" className="font-medium text-blue-800 flex items-center">
+                            <FaImage className="text-blue-500 mr-1" /> Mark as sample product
+                          </label>
+                          <p className="text-blue-700 text-sm">
+                            Sample products will be displayed in the sample products section on the homepage
                           </p>
                         </div>
                       </div>
@@ -1848,7 +1968,7 @@ const ProductsPage = () => {
                                   onChange={(e) => handleVariantChange(variantIndex, 'price', e.target.value)}
                                   placeholder="Leave empty to use base price"
                                   className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
-                                  step="0.01"
+                                  step="any"
                                 />
                               </div>
                             </div>

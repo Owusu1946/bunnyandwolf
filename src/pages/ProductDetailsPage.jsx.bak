@@ -42,11 +42,6 @@ const ProductDetailsPage = () => {
   const { cartNotification, success, error, wishlistNotification, info } = useToast();
   const { isAuthenticated } = useAuth();
   
-  // Scroll to top when component mounts
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-  
   // Get products from product store
   const { products, fetchProductsFromAPI } = useProductStore();
   
@@ -697,15 +692,14 @@ const ProductDetailsPage = () => {
                   <Star
                     key={i}
                     className={`w-4 h-4 ${
-                      i < Math.floor(getReviewStats().avgRating || 0) 
+                      i < Math.floor(product.rating || 0) 
                         ? 'text-yellow-400 fill-current' 
                         : 'text-gray-300'
                     }`}
                   />
                 ))}
               </div>
-              <span className="ml-2 text-sm text-gray-600">
-              {getReviewStats().reviewCount || 0} ({getReviewStats().reviewCount === 1 ? 'review' : 'reviews'})</span>
+              <span className="ml-2 text-sm text-gray-600">{product.rating || 0} ({product.reviewCount || 0} reviews)</span>
             </div>
             
             <div className="mt-4">
@@ -1363,8 +1357,8 @@ const ProductDetailsPage = () => {
                     )}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
         
@@ -1524,7 +1518,7 @@ const ProductDetailsPage = () => {
                 </div>
               </div>
               
-              <div className="mb-6 sm:mb-8">
+              <div className="mb-6">
                 <h4 className="text-base font-medium text-gray-900 mb-4">Product Specific Sizing Notes</h4>
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
                   <div className="flex">

@@ -38,7 +38,6 @@
   /* Banner Overlay Styling */
   .modern-overlay {
     background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%);
-    backdrop-filter: blur(2px);
   }
   
   /* Text Elements */
@@ -87,7 +86,6 @@
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease-out;
-    backdrop-filter: blur(5px);
     letter-spacing: 0.5px;
     z-index: 1;
   }
@@ -202,12 +200,10 @@
   .hero-image {
     transform: scale(1.05);
     transition: transform 7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    filter: brightness(0.95);
   }
   
   .slick-active .hero-image {
     transform: scale(1);
-    filter: brightness(1);
   }
   
   /* Navigation Arrows */

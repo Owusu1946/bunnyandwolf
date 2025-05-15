@@ -37,6 +37,35 @@ const Profile = () => {
   // Use a ref to track if orders have already been loaded
   const ordersLoaded = useRef(false);
 
+  // Subscribe to order updates from the store
+  useEffect(() => {
+    // Subscribe to order updates
+    const unsubscribe = orderStore.subscribeToOrderUpdates((updatedOrder) => {
+      console.log('Profile - Received order update:', updatedOrder);
+      
+      // Only process if user is logged in and the updated order belongs to this user
+      if (user && updatedOrder && 
+          (updatedOrder.user === user._id || updatedOrder.userId === user._id)) {
+        
+        setOrders(prevOrders => {
+          // Replace the updated order in the array
+          const newOrders = prevOrders.map(order => 
+            order._id === updatedOrder._id ? updatedOrder : order
+          );
+          return newOrders;
+        });
+        
+        // Also update selectedOrder if it's the one that was updated
+        if (selectedOrder && selectedOrder._id === updatedOrder._id) {
+          setSelectedOrder(updatedOrder);
+        }
+      }
+    });
+    
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [user, selectedOrder, orderStore]);
+
   // Load orders from store
   useEffect(() => {
     if (!user) {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FaCheckCircle, 
   FaInfoCircle, 
@@ -38,11 +38,11 @@ const Quote = () => {
   const [files, setFiles] = useState([]);
   const [formStatus, setFormStatus] = useState(null); // null, 'success', 'error'
   const [errors, setErrors] = useState({});
-  // Add new state for file preview and upload progress
   const [previewFile, setPreviewFile] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Function to get file icon based on type
   const getFileIcon = (file) => {
@@ -98,6 +98,35 @@ const Quote = () => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
   
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+  
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+  
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  }, [isDragging]);
+  
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setFiles(prevFiles => [...prevFiles, ...Array.from(e.dataTransfer.files)]);
+    }
+  }, []);
+  
   const validateForm = () => {
     const newErrors = {};
     
@@ -106,6 +135,10 @@ const Quote = () => {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
+    }
+    
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
     }
     
     if (!formData.productType.trim()) newErrors.productType = 'Product type is required';
@@ -177,6 +210,19 @@ const Quote = () => {
       opacity: 1,
       y: 0,
       transition: { duration: 0.4 }
+    }
+  };
+
+  const uploadAreaVariants = {
+    idle: {
+      backgroundColor: "rgba(249, 250, 251, 1)",
+      borderColor: "rgba(229, 231, 235, 1)"
+    },
+    dragging: {
+      backgroundColor: "rgba(236, 253, 245, 1)",
+      borderColor: "rgba(110, 231, 183, 1)",
+      scale: 1.01,
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
     }
   };
   
@@ -318,7 +364,7 @@ const Quote = () => {
                       
                       <div>
                         <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                          Phone Number
+                          Phone Number <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="tel"
@@ -326,8 +372,14 @@ const Quote = () => {
                           name="phone"
                           value={formData.phone}
                           onChange={handleChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                          required
+                          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors ${
+                            errors.phone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
                         />
+                        {errors.phone && (
+                          <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -457,60 +509,113 @@ const Quote = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Upload Files (Optional)
                         </label>
-                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-red-500 transition-colors">
-                          <div className="space-y-1 text-center">
-                            <FaCloudUploadAlt className="mx-auto h-12 w-12 text-gray-400" />
-                            <div className="flex text-sm text-gray-600">
-                              <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none">
-                                <span>Upload files</span>
-                                <input
-                                  id="file-upload"
-                                  name="file-upload"
-                                  type="file"
-                                  className="sr-only"
-                                  multiple
-                                  onChange={handleFileChange}
-                                />
-                              </label>
-                              <p className="pl-1">or drag and drop</p>
+                        <motion.div 
+                          className="relative cursor-pointer"
+                          variants={uploadAreaVariants}
+                          animate={isDragging ? "dragging" : "idle"}
+                          onClick={() => document.getElementById('file-upload').click()}
+                          onDragEnter={handleDragEnter}
+                          onDragLeave={handleDragLeave}
+                          onDragOver={handleDragOver}
+                          onDrop={handleDrop}
+                        >
+                          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-lg transition-colors">
+                            <div className="space-y-1 text-center">
+                              <motion.div
+                                animate={{
+                                  y: isDragging ? [-10, 0, -10] : 0,
+                                  transition: {
+                                    y: {
+                                      repeat: Infinity,
+                                      duration: isDragging ? 1 : 0,
+                                      ease: "easeInOut",
+                                    },
+                                  },
+                                }}
+                              >
+                                <FaCloudUploadAlt className={`mx-auto h-12 w-12 ${isDragging ? 'text-green-500' : 'text-gray-400'}`} />
+                              </motion.div>
+                              <div className="flex text-sm text-gray-600">
+                                <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none">
+                                  <span>Upload files</span>
+                                  <input
+                                    id="file-upload"
+                                    name="file-upload"
+                                    type="file"
+                                    className="sr-only"
+                                    multiple
+                                    onChange={handleFileChange}
+                                  />
+                                </label>
+                                <p className="pl-1">or drag and drop</p>
+                              </div>
+                              <p className="text-xs text-gray-500">PNG, JPG, PDF up to 10MB</p>
+                              
+                              {isDragging && (
+                                <motion.div 
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  className="text-sm font-medium text-green-600 mt-2"
+                                >
+                                  Drop files here to upload
+                                </motion.div>
+                              )}
                             </div>
-                            <p className="text-xs text-gray-500">PNG, JPG, PDF up to 10MB</p>
                           </div>
-                        </div>
+                        </motion.div>
                         
-                        {files.length > 0 && (
-                          <ul className="mt-3 divide-y divide-gray-200 border border-gray-200 rounded-lg">
-                            {files.map((file, index) => (
-                              <li key={index} className="flex items-center justify-between py-3 px-4 text-sm">
-                                <div className="flex items-center">
-                                  {getFileIcon(file)}
-                                  <span className="truncate max-w-xs ml-2">{file.name}</span>
-                                  <span className="ml-2 text-gray-500 text-xs">({(file.size / 1024).toFixed(1)} KB)</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  {isPreviewable(file) && (
-                                    <button
+                        <AnimatePresence>
+                          {files.length > 0 && (
+                            <motion.ul 
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="mt-3 divide-y divide-gray-200 border border-gray-200 rounded-lg"
+                            >
+                              {files.map((file, index) => (
+                                <motion.li 
+                                  key={index} 
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0, x: 20 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="flex items-center justify-between py-3 px-4 text-sm"
+                                >
+                                  <div className="flex items-center">
+                                    {getFileIcon(file)}
+                                    <span className="truncate max-w-xs ml-2">{file.name}</span>
+                                    <span className="ml-2 text-gray-500 text-xs">({(file.size / 1024).toFixed(1)} KB)</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    {isPreviewable(file) && (
+                                      <motion.button
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        type="button"
+                                        onClick={() => openFilePreview(file)}
+                                        className="text-blue-600 hover:text-blue-800"
+                                        title="Preview"
+                                      >
+                                        <FaEye />
+                                      </motion.button>
+                                    )}
+                                    <motion.button
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.95 }}
                                       type="button"
-                                      onClick={() => openFilePreview(file)}
-                                      className="text-blue-600 hover:text-blue-800"
-                                      title="Preview"
+                                      onClick={() => removeFile(index)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Remove"
                                     >
-                                      <FaEye />
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => removeFile(index)}
-                                    className="text-red-600 hover:text-red-800"
-                                    title="Remove"
-                                  >
-                                    <FaTimes />
-                                  </button>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                                      <FaTimes />
+                                    </motion.button>
+                                  </div>
+                                </motion.li>
+                              ))}
+                            </motion.ul>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </motion.div>
@@ -532,15 +637,17 @@ const Quote = () => {
                       </div>
                     )}
 
-                    <button
+                    <motion.button
                       type="submit"
                       disabled={isLoading || isUploading}
-                      className={`w-full py-3 px-6 bg-gradient-to-r from-red-600 to-black text-white rounded-lg transform transition-all ${
-                        isLoading || isUploading ? 'opacity-75 cursor-not-allowed' : 'hover:-translate-y-1 hover:shadow-xl'
+                      whileHover={{ y: -4, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)" }}
+                      whileTap={{ y: 0 }}
+                      className={`w-full py-3 px-6 bg-gradient-to-r from-red-600 to-black text-white rounded-lg transition-all ${
+                        isLoading || isUploading ? 'opacity-75 cursor-not-allowed' : ''
                       }`}
                     >
                       {isLoading || isUploading ? 'Submitting...' : 'Submit Quote Request'}
-                    </button>
+                    </motion.button>
                     <p className="text-sm text-gray-500 mt-3 text-center">
                       We typically respond to quote requests within 24 hours on business days.
                     </p>
@@ -622,44 +729,58 @@ const Quote = () => {
       </div>
       
       {/* File Preview Modal */}
-      {showPreviewModal && previewFile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-medium text-gray-900 truncate max-w-[400px]">
-                {previewFile.name}
-              </h3>
-              <button 
-                onClick={closeFilePreview}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <FaTimes className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-center justify-center">
-              {previewFile.type.includes('image') ? (
-                <img 
-                  src={URL.createObjectURL(previewFile)} 
-                  alt={previewFile.name}
-                  className="max-w-full max-h-[70vh] object-contain"
-                />
-              ) : previewFile.type.includes('pdf') ? (
-                <iframe
-                  src={URL.createObjectURL(previewFile) + '#view=FitH'}
-                  title={previewFile.name}
-                  className="w-full h-[70vh]"
-                />
-              ) : (
-                <div className="text-center p-8 bg-white rounded shadow-inner">
-                  <FaFileAlt className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-700">This file type cannot be previewed.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showPreviewModal && previewFile && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+            >
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-lg font-medium text-gray-900 truncate max-w-[400px]">
+                  {previewFile.name}
+                </h3>
+                <motion.button 
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={closeFilePreview}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <FaTimes className="w-5 h-5" />
+                </motion.button>
+              </div>
+              
+              <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-center justify-center">
+                {previewFile.type.includes('image') ? (
+                  <img 
+                    src={URL.createObjectURL(previewFile)} 
+                    alt={previewFile.name}
+                    className="max-w-full max-h-[70vh] object-contain"
+                  />
+                ) : previewFile.type.includes('pdf') ? (
+                  <iframe
+                    src={URL.createObjectURL(previewFile) + '#view=FitH'}
+                    title={previewFile.name}
+                    className="w-full h-[70vh]"
+                  />
+                ) : (
+                  <div className="text-center p-8 bg-white rounded shadow-inner">
+                    <FaFileAlt className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-700">This file type cannot be previewed.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       <Footer />
     </div>

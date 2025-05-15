@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaSort, FaFilter, FaEye, FaPencilAlt, FaInfoCircle, FaTimes, FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaSave, FaCheck, FaSync, FaFileInvoiceDollar, FaExternalLinkAlt, FaDownload, FaSearchPlus, FaSearchMinus } from 'react-icons/fa';
+import { FaSearch, FaSort, FaFilter, FaEye, FaPencilAlt, FaInfoCircle, FaTimes, FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaSave, FaCheck, FaSync, FaFileInvoiceDollar, FaExternalLinkAlt, FaDownload, FaSearchPlus, FaSearchMinus, FaBell } from 'react-icons/fa';
 import { useOrderStore } from '../../store/orderStore';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import axios from 'axios';
 import apiConfig from '../../config/apiConfig';
+import NotificationTester from '../../components/admin/NotificationTester';
+import { useNotificationStore } from '../../store/notificationStore';
 
 // Skeleton loader for order rows
 const OrderRowSkeleton = () => {
@@ -81,6 +83,8 @@ const AdminOrders = () => {
   const [receiptViewerOpen, setReceiptViewerOpen] = useState(false);
   const [currentReceiptImage, setCurrentReceiptImage] = useState('');
   const [imageZoomLevel, setImageZoomLevel] = useState(100);
+  // Add new state for the notification tester
+  const [showNotificationTester, setShowNotificationTester] = useState(false);
 
   // Status options for the dropdown
   const ORDER_STATUSES = [
@@ -106,6 +110,9 @@ const AdminOrders = () => {
     updateOrderStatus,
     fetchOrders
   } = useOrderStore();
+
+  // Add this line with the other hook calls
+  const { addOrderStatusNotification } = useNotificationStore();
 
   // Check viewport width on resize
   useEffect(() => {
@@ -410,16 +417,50 @@ const AdminOrders = () => {
   // Handle status change
   const handleStatusChange = (orderId, newStatus) => {
     setIsLoading(true);
+    console.log(`[AdminOrders] Changing order ${orderId} status to ${newStatus}`);
+    
     try {
-      updateOrderStatus(orderId, newStatus);
+      // Use the enhanced updateOrderStatus which syncs with server
+      console.log(`[AdminOrders] Calling updateOrderStatus(${orderId}, ${newStatus})`);
+      const updatedOrder = updateOrderStatus(orderId, newStatus);
+      
+      if (updatedOrder) {
+        console.log(`[AdminOrders] Successfully updated order status:`, updatedOrder);
       setSuccessMessage(`Order status updated to ${newStatus}!`);
       setTimeout(() => setSuccessMessage(''), 3000);
+        
+        // Log the update
+        console.log(`[AdminOrders] Updated order ${orderId} status to ${newStatus}`);
+        
+        // Manually trigger notification without using require
+        try {
+          console.log('[AdminOrders] Manually triggering notification for order status update');
+          addOrderStatusNotification(updatedOrder);
+          
+          // Also dispatch an event for the notification service
+          if (window.dispatchEvent && CustomEvent) {
+            const event = new CustomEvent('order-status-updated', { 
+              detail: { order: updatedOrder } 
+            });
+            window.dispatchEvent(event);
+            console.log('[AdminOrders] Dispatched order-status-updated event');
+          }
+        } catch (e) {
+          console.error('[AdminOrders] Failed to manually trigger notification:', e);
+        }
+        
+      } else {
+        console.error(`[AdminOrders] Failed to update order ${orderId} status to ${newStatus}`);
+        setError('Failed to update order status');
+      }
+      
       // Close dropdown
       setShowStatusDropdown(prev => ({
         ...prev,
         [orderId]: false
       }));
     } catch (err) {
+      console.error('[AdminOrders] Error updating status:', err);
       setError(`Error updating status: ${err.message}`);
     } finally {
       setIsLoading(false);
@@ -619,6 +660,88 @@ const AdminOrders = () => {
     );
   };
 
+  // Toggle notification tester
+  const toggleNotificationTester = () => {
+    setShowNotificationTester(prev => !prev);
+  };
+
+  // Test notification system on component mount
+  useEffect(() => {
+    console.log('[AdminOrders] Testing notification system');
+    
+    // 1. Check if notification store is available
+    if (addOrderStatusNotification) {
+      console.log('[AdminOrders] Notification store is available');
+      
+      // Wait 2 seconds before sending test notification
+      const timer = setTimeout(() => {
+        try {
+          const testOrder = {
+            _id: `test-${Date.now()}`,
+            orderNumber: `TEST-${Math.floor(1000 + Math.random() * 9000)}`,
+            status: 'Processing',
+            items: [{ name: 'Test Product' }],
+            totalAmount: 99.99
+          };
+          
+          console.log('[AdminOrders] Sending test notification for order:', testOrder);
+          addOrderStatusNotification(testOrder);
+          console.log('[AdminOrders] Test notification sent');
+        } catch (err) {
+          console.error('[AdminOrders] Error sending test notification:', err);
+        }
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    } else {
+      console.error('[AdminOrders] Notification store is not available');
+    }
+  }, [addOrderStatusNotification]);
+
+  // Create a custom button to manually trigger a test notification
+  const triggerTestNotification = () => {
+    try {
+      console.log('[AdminOrders] Manually triggering test notification');
+      const testOrder = {
+        _id: `manual-test-${Date.now()}`,
+        orderNumber: `MANUAL-${Math.floor(1000 + Math.random() * 9000)}`,
+        status: 'Shipped',
+        items: [{ name: 'Manual Test Product' }],
+        totalAmount: 149.99
+      };
+      
+      // Create notification
+      const notification = addOrderStatusNotification(testOrder);
+      console.log('[AdminOrders] Manual test notification created:', notification);
+      
+      // Also try the global test function if available
+      try {
+        if (useNotificationStore.getState().addTestNotification) {
+          console.log('[AdminOrders] Calling addTestNotification directly');
+          useNotificationStore.getState().addTestNotification();
+        }
+      } catch (e) {
+        console.error('[AdminOrders] Error calling addTestNotification:', e);
+      }
+      
+      // Also try to dispatch a custom event
+      try {
+        const event = new CustomEvent('order-status-updated', {
+          detail: { order: testOrder }
+        });
+        window.dispatchEvent(event);
+        console.log('[AdminOrders] Dispatched custom event');
+      } catch (e) {
+        console.error('[AdminOrders] Error dispatching event:', e);
+      }
+      
+      alert('Test notification triggered. Check the notification bell and console.');
+    } catch (err) {
+      console.error('[AdminOrders] Failed to trigger test notification:', err);
+      alert('Failed to trigger notification. See console for details.');
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <div className="hidden md:block md:fixed md:w-64 md:h-full">
@@ -630,9 +753,36 @@ const AdminOrders = () => {
         
         <div className="p-3 sm:p-6">
           <div className="mb-4 sm:mb-8">
+            <div className="flex justify-between items-center">
             <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Orders Management</h1>
+              
+              {/* Tools buttons */}
+              <div className="flex space-x-2">
+                <button 
+                  onClick={toggleNotificationTester}
+                  className="text-sm px-3 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md transition-colors"
+                >
+                  {showNotificationTester ? 'Hide Notification Tester' : 'Show Notification Tester'}
+                </button>
+                
+                <button 
+                  onClick={triggerTestNotification}
+                  className="text-sm px-3 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-md transition-colors"
+                >
+                  <FaBell className="inline mr-1" />
+                  Test Notification
+                </button>
+              </div>
+            </div>
             <p className="text-sm sm:text-base text-gray-600">View and manage all customer orders</p>
           </div>
+          
+          {/* Notification Tester */}
+          {showNotificationTester && (
+            <div className="mb-6">
+              <NotificationTester />
+            </div>
+          )}
           
           {/* Stats Cards */}
           <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">

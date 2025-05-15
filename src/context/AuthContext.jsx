@@ -88,7 +88,20 @@ export const AuthProvider = ({ children }) => {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          logout();
+          // Only logout for auth-specific endpoints or if the server explicitly says token is invalid
+          // This prevents logout on every 401 error
+          const isAuthEndpoint = error.config?.url?.includes('/auth/');
+          const isVerifyEndpoint = error.config?.url?.includes('/auth/verify');
+          const tokenInvalidMessage = error.response?.data?.message?.toLowerCase()?.includes('invalid token') ||
+                                      error.response?.data?.message?.toLowerCase()?.includes('jwt expired');
+          
+          if (isAuthEndpoint || isVerifyEndpoint || tokenInvalidMessage) {
+            console.log('🔒 [AuthContext] Auth endpoint returned 401, logging out');
+            logout();
+          } else {
+            // For other 401 errors, just log it but don't automatically logout
+            console.warn('⚠️ [AuthContext] Non-auth endpoint returned 401, not logging out');
+          }
         }
         return Promise.reject(error);
       }

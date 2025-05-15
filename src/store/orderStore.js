@@ -3,6 +3,27 @@ import { persist } from 'zustand/middleware';
 import axios from 'axios';
 import apiConfig from '../config/apiConfig.js';
 
+// Add detailed logging to the order update notification system
+const orderUpdateListeners = new Set();
+
+// Function to notify all listeners about order updates
+const notifyOrderUpdate = (updatedOrder) => {
+  console.log(`[OrderStore] Notifying ${orderUpdateListeners.size} listeners about order update:`, updatedOrder.orderNumber, updatedOrder.status);
+  
+  if (orderUpdateListeners.size === 0) {
+    console.warn('[OrderStore] No listeners registered for order updates');
+  }
+  
+  orderUpdateListeners.forEach(listener => {
+    try {
+      console.log('[OrderStore] Calling listener with updated order');
+      listener(updatedOrder);
+    } catch (err) {
+      console.error('[OrderStore] Error in order update listener:', err);
+    }
+  });
+};
+
 export const useOrderStore = create(
   persist(
     (set, get) => ({
@@ -11,6 +32,25 @@ export const useOrderStore = create(
       trackingInfo: null,
       orders: [], // Store user orders
       selectedOrder: null, // Track the currently selected order for view/edit
+      
+      // New methods for update notification
+      subscribeToOrderUpdates: (callback) => {
+        if (typeof callback !== 'function') {
+          console.error('[OrderStore] Attempted to subscribe with invalid callback:', callback);
+          return () => {}; // Return no-op unsubscribe
+        }
+        
+        console.log('[OrderStore] Adding new order update listener');
+        orderUpdateListeners.add(callback);
+        console.log(`[OrderStore] Current listener count: ${orderUpdateListeners.size}`);
+        
+        // Return unsubscribe function
+        return () => {
+          console.log('[OrderStore] Removing order update listener');
+          orderUpdateListeners.delete(callback);
+          console.log(`[OrderStore] Remaining listener count: ${orderUpdateListeners.size}`);
+        };
+      },
       
       // Fetch all orders from the API
       fetchOrders: async () => {
@@ -340,6 +380,10 @@ export const useOrderStore = create(
             const updatedOrder = deepMerge(order, updatedData);
             // Always update the timestamp
             updatedOrder.updatedAt = new Date().toISOString();
+            
+            // Trigger notifications about this update
+            notifyOrderUpdate(updatedOrder);
+            
             return updatedOrder;
           }
           return order;
@@ -362,7 +406,49 @@ export const useOrderStore = create(
 
       // Convenience function to just update status
       updateOrderStatus: (orderId, newStatus) => {
-        return get().updateOrder(orderId, { status: newStatus });
+        console.log(`[OrderStore] Updating order status for order ${orderId} to ${newStatus}`);
+        
+        // Update order in store
+        const updatedOrder = get().updateOrder(orderId, { status: newStatus });
+        if (!updatedOrder) {
+          console.error(`[OrderStore] Failed to update order ${orderId} status to ${newStatus}`);
+          return null;
+        }
+        
+        console.log(`[OrderStore] Order ${orderId} status updated to ${newStatus} in store`);
+        
+        // Log notification count - for debugging
+        console.log(`[OrderStore] Notifying subscribers about order status change`);
+        
+        // Try to update on server if possible - don't wait for response
+        const syncToServer = async () => {
+          try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+              console.warn('[OrderStore] No auth token found, cannot sync to server');
+              return false;
+            }
+            
+            console.log(`[OrderStore] Syncing order status to server: ${orderId} -> ${newStatus}`);
+            
+            await axios.put(
+              `${apiConfig.baseURL}/orders/${orderId}/status`,
+              { status: newStatus },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            console.log(`[OrderStore] Order status synced to server successfully: ${orderId} -> ${newStatus}`);
+            return true;
+          } catch (error) {
+            console.error('[OrderStore] Failed to sync order status to server:', error);
+            return false;
+          }
+        };
+        
+        // Fire and forget - don't block UI
+        syncToServer();
+        
+        return updatedOrder;
       },
     }),
     {

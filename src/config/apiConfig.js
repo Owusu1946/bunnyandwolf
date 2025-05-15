@@ -1,12 +1,49 @@
-// API configuration for production and development environments
+/**
+ * API Configuration
+ * 
+ * This file contains configuration for API endpoints.
+ * It handles different environments (development, production)
+ * and provides a consistent baseURL for API requests.
+ */
+
+const getBaseURL = () => {
+  // Check if we have a VITE_API_URL in environment variables
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Fall back to default URLs based on environment
+  if (import.meta.env.PROD) {
+    // For production
+    return 'https://api.sinosply.com/api/v1';
+  } else {
+    // For development
+    return 'http://localhost:5000/api/v1';
+  }
+};
+
 const apiConfig = {
-  // Base API URL - use production URL when deployed, localhost for development
-  baseURL: import.meta.env.PROD 
-    ? 'https://sinosply-backend.onrender.com/api/v1'
-    : 'http://localhost:5000/api/v1',
-    
-  // Request timeout in milliseconds - increased to prevent timeout errors
-  timeout: 30000,
+  baseURL: getBaseURL(),
+  
+  // Default request timeout
+  timeout: 30000, // 30 seconds
+  
+  // Rate limiting settings (requests per minute)
+  rateLimit: 60,
+  
+  // Endpoints
+  endpoints: {
+    auth: '/auth',
+    products: '/products',
+    orders: '/orders',
+    users: '/users',
+    cart: '/cart',
+    wishlist: '/wishlist',
+    contact: '/contact',
+    quote: '/quote',
+    search: '/search',
+    aiSearch: '/search/ai'
+  },
   
   // Default headers for all requests
   headers: {

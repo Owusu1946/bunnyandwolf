@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import ForgotPassword from './pages/ForgotPassword'
@@ -14,6 +15,7 @@ import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
 import FAQ from './pages/FAQ'
 import Contact from './pages/Contact'
+import SinosplyContact from './pages/sinosplyContact'
 import PaymentPage from './pages/PaymentPage'
 import CheckoutPage from './pages/CheckoutPage'
 import CartPage from './pages/CartPage'
@@ -34,12 +36,16 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import CollectionsPage from './pages/admin/CollectionsPage'
 import PlatformsPage from './pages/admin/PlatformsPage'
+import PlatformDetailsPage from './pages/admin/PlatformDetailsPage'
 import QuotesPage from './pages/admin/QuotesPage'
 import FeaturedCollectionPage from './pages/FeaturedCollectionPage'
 import BunnyAndWolf from './pages/BunnyAndWolf'
 import Stores from './pages/Stores'
 import Quote from './pages/Quote'
 import Products from './pages/Products'
+import Services from './pages/Services'
+import About from './pages/About'
+import SearchResults from './pages/SearchResults'
 // Import category pages
 import NewArrivalsPage from './pages/NewArrivalsPage'
 import BestSellersPage from './pages/BestSellersPage'
@@ -47,6 +53,10 @@ import DressesPage from './pages/DressesPage'
 import TopsPage from './pages/TopsPage'
 import BottomsPage from './pages/BottomsPage'
 import BackInStockPage from './pages/BackInStockPage'
+import { useOrderStore } from './store/orderStore'
+import { useNotificationStore } from './store/notificationStore'
+// Import NotificationService to ensure it's initialized
+import './services/NotificationService'
 
 // Wrap AdminRoute components with SidebarProvider
 const AdminRouteWithSidebar = ({ children }) => (
@@ -57,14 +67,78 @@ const AdminRouteWithSidebar = ({ children }) => (
   </SidebarProvider>
 );
 
-function App() {
+// App wrapper component to handle global effects
+const AppWrapper = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { subscribeToOrderUpdates } = useOrderStore();
+  const { addOrderStatusNotification } = useNotificationStore();
+  
+  // Log page navigation for debugging
+  useEffect(() => {
+    console.log('[App] Page changed:', location.pathname);
+  }, [location]);
+  
+  // Set up global notification listener
+  useEffect(() => {
+    console.log('[App] Setting up global notification listener');
+    
+    // First, initialize notification service in global context
+    try {
+      // Import and initialize notification service directly
+      import('./services/NotificationService')
+        .then(module => {
+          const notificationService = module.default;
+          console.log('[App] NotificationService initialized:', !!notificationService);
+          
+          // Add to window for debugging
+          window.notificationService = notificationService;
+        })
+        .catch(err => {
+          console.error('[App] Failed to load NotificationService:', err);
+        });
+    } catch (err) {
+      console.error('[App] Error initializing NotificationService:', err);
+    }
+    
+    // Connect OrderStore updates to browser notifications
+    const unsubscribe = subscribeToOrderUpdates((order) => {
+      console.log('[App] Received order update in global handler:', order);
+      
+      if (order && order.status) {
+        // Add notification to store
+        const notification = addOrderStatusNotification(order);
+        console.log('[App] Created notification:', notification);
+        
+        // Dispatch custom event for NotificationService
+        try {
+          const customEvent = new CustomEvent('order-status-updated', { 
+            detail: { order } 
+          });
+          console.log('[App] Dispatching order-status-updated event');
+          window.dispatchEvent(customEvent);
+        } catch (err) {
+          console.error('[App] Error dispatching custom event:', err);
+        }
+      }
+    });
+    
+    // Log initial notification count
+    console.log('[App] Initial notification count:', addOrderStatusNotification ? 'Ready' : 'Not available');
+    
+    return () => {
+      console.log('[App] Cleaning up global notification listener');
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [subscribeToOrderUpdates, addOrderStatusNotification]);
+  
+  // App component tree
   return (
-    <Router>
+    <>
       <AuthProvider>
         <ToastProvider>
           <CartProvider>
             <WishlistProvider>
-              {/* <Navbar /> */}
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
@@ -84,6 +158,9 @@ function App() {
                 <Route path="/collections/:collectionId" element={<FeaturedCollectionPage />} />
                 <Route path="/stores" element={<Stores />} />
                 <Route path="/quote" element={<Quote />} />
+                <Route path="/services" element={<Services />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/search" element={<SearchResults />} />
 
                 
                 {/* Category Pages */}
@@ -169,15 +246,30 @@ function App() {
                     <PlatformsPage />
                   </AdminRouteWithSidebar>
                 } />
+                <Route path="/admin/platforms/:id" element={
+                  <AdminRouteWithSidebar>
+                    <PlatformDetailsPage />
+                  </AdminRouteWithSidebar>
+                } />
                 <Route path="/faq" element={<FAQ />} />
-                <Route path="/contact" element={<Contact />} />
+                <Route path="/sinosply-contact" element={<SinosplyContact />} />
               </Routes>
             </WishlistProvider>
           </CartProvider>
         </ToastProvider>
       </AuthProvider>
+    </>
+  );
+};
+
+function App() {
+  console.log('[App] Initializing application');
+  
+  return (
+    <Router>
+      <AppWrapper />
     </Router>
-  )
+  );
 }
 
 export default App

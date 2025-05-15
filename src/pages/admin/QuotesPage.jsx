@@ -23,7 +23,8 @@ import {
   FaFileImage,
   FaFileWord,
   FaFileExcel,
-  FaFilePowerpoint
+  FaFilePowerpoint,
+  FaInfoCircle
 } from 'react-icons/fa';
 import { format, parseISO } from 'date-fns';
 import useQuoteStore from '../../store/quoteStore';
@@ -32,6 +33,34 @@ import Spinner from '../../components/ui/Spinner';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import apiConfig from '../../config/apiConfig';
 
+// Helper to highlight search terms in text
+const HighlightText = ({ text, searchTerms }) => {
+  if (!searchTerms || searchTerms.length === 0 || !text) {
+    return <span>{text}</span>;
+  }
+
+  const regex = new RegExp(`(${searchTerms.join('|')})`, 'gi');
+  const parts = text.split(regex);
+
+  return (
+    <span>
+      {parts.map((part, i) => {
+        // Check if this part matches any search term (case-insensitive)
+        const isMatch = searchTerms.some(term => 
+          part.toLowerCase() === term.toLowerCase()
+        );
+        
+        return isMatch ? (
+          <span key={i} className="bg-yellow-100 text-yellow-800 font-medium">
+            {part}
+          </span>
+        ) : (
+          <span key={i}>{part}</span>
+        );
+      })}
+    </span>
+  );
+};
 
 const QuotesPage = () => {
   console.log("QuotesPage - Component rendering start");
@@ -69,6 +98,9 @@ const QuotesPage = () => {
   // State for file preview modal
   const [previewFile, setPreviewFile] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  
+  const [searchTimeout, setSearchTimeout] = useState(null);
+  const [searchTerms, setSearchTerms] = useState([]);
   
   // Format date function
   const formatDate = (dateString) => {
@@ -128,11 +160,59 @@ const QuotesPage = () => {
     fetchQuotes(newPage, pagination.pageSize);
   };
   
+  // Handle search input with debounce
+  const handleSearchInput = (e) => {
+    const searchValue = e.target.value;
+    
+    // Clear any existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // Update search field immediately for UI responsiveness
+    updateFilters({ search: searchValue });
+    
+    // Extract search terms for highlighting
+    const terms = searchValue.trim().split(/\s+/).filter(term => term.length > 1);
+    setSearchTerms(terms);
+    
+    // Debounce the actual search request - only trigger after typing stops
+    const timeoutId = setTimeout(() => {
+      console.log("QuotesPage: Searching for", searchValue);
+      // No need to set isLoading manually, fetchQuotes will handle it
+      fetchQuotes(1, pagination.pageSize)
+        .then(() => {
+          console.log("Search complete");
+        })
+        .catch(err => {
+          console.error("Search error:", err);
+        });
+    }, 500); // 500ms debounce
+    
+    setSearchTimeout(timeoutId);
+  };
+  
   // Apply filters
   const applyFilters = () => {
     console.log("QuotesPage: Applying filters", filters);
-    fetchQuotes(1); // Reset to first page when filters change
+    
+    // If there's a search term, update the search terms array for highlighting
+    if (filters.search && filters.search.trim() !== '') {
+      const terms = filters.search.trim().split(/\s+/).filter(term => term.length > 1);
+      setSearchTerms(terms);
+    } else {
+      setSearchTerms([]);
+    }
+    
+    fetchQuotes(1, pagination.pageSize); // Reset to first page when filters change
     setShowFilterModal(false);
+  };
+  
+  // Reset all filters and search
+  const handleResetAllFilters = () => {
+    resetFilters();
+    setSearchTerms([]);
+    fetchQuotes(1, pagination.pageSize);
   };
   
   // Open delete confirmation modal
@@ -352,19 +432,29 @@ const QuotesPage = () => {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search quotes..."
+              placeholder="Search by name, email, product..."
               value={filters.search}
-              onChange={(e) => updateFilters({ search: e.target.value })}
-              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full sm:w-64"
+              onChange={handleSearchInput}
+              className="pl-9 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full sm:w-80"
             />
             <FaSearch className="absolute left-3 top-3 text-gray-400" />
             {filters.search && (
               <button
-                onClick={() => updateFilters({ search: '' })}
+                onClick={() => {
+                  updateFilters({ search: '' });
+                  setSearchTerms([]);
+                  fetchQuotes(1, pagination.pageSize);
+                }}
                 className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                title="Clear search"
               >
                 <FaTimes className="w-4 h-4" />
               </button>
+            )}
+            {isLoading && filters.search && (
+              <span className="absolute right-10 top-3">
+                <FaSyncAlt className="w-4 h-4 text-purple-500 animate-spin" />
+              </span>
             )}
           </div>
           
@@ -383,10 +473,7 @@ const QuotesPage = () => {
           {/* Reset Filters Button */}
           {(filters.status || filters.search || filters.dateRange.startDate || filters.dateRange.endDate) && (
             <button
-              onClick={() => {
-                resetFilters();
-                fetchQuotes(1);
-              }}
+              onClick={handleResetAllFilters}
               className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
             >
               <FaTimes className="mr-2" />
@@ -395,6 +482,100 @@ const QuotesPage = () => {
           )}
         </div>
       </div>
+      
+      {/* Active Filters Display */}
+      {(filters.status || filters.search || filters.dateRange.startDate || filters.dateRange.endDate) && (
+        <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+          <span className="text-sm font-medium text-gray-700">Active filters:</span>
+          
+          {filters.status && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              Status: {getStatusLabel(filters.status)}
+              <button 
+                onClick={() => {
+                  updateFilters({ status: '' });
+                  setSearchTerms([]);
+                  fetchQuotes(1);
+                }}
+                className="ml-1 text-purple-600 hover:text-purple-800"
+              >
+                <FaTimes className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          
+          {filters.search && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              Search: "{filters.search}"
+              <button 
+                onClick={() => {
+                  updateFilters({ search: '' });
+                  setSearchTerms([]);
+                  fetchQuotes(1);
+                }}
+                className="ml-1 text-blue-600 hover:text-blue-800"
+              >
+                <FaTimes className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          
+          {filters.dateRange.startDate && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              From: {filters.dateRange.startDate}
+              <button 
+                onClick={() => {
+                  updateFilters({ dateRange: { ...filters.dateRange, startDate: null } });
+                  setSearchTerms([]);
+                  fetchQuotes(1);
+                }}
+                className="ml-1 text-green-600 hover:text-green-800"
+              >
+                <FaTimes className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          
+          {filters.dateRange.endDate && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              To: {filters.dateRange.endDate}
+              <button 
+                onClick={() => {
+                  updateFilters({ dateRange: { ...filters.dateRange, endDate: null } });
+                  setSearchTerms([]);
+                  fetchQuotes(1);
+                }}
+                className="ml-1 text-green-600 hover:text-green-800"
+              >
+                <FaTimes className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          
+          <button
+            onClick={handleResetAllFilters}
+            className="text-xs text-gray-500 hover:text-gray-700 underline ml-2"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+      
+      {/* Search instructions for better UX */}
+      {filters.search && !isLoading && quotes.length === 0 && (
+        <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 flex items-start">
+          <FaInfoCircle className="text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+          <div>
+            <p className="text-sm text-blue-700 font-medium">Search tips:</p>
+            <ul className="text-sm text-blue-600 mt-1 list-disc pl-5">
+              <li>Try using shorter, more general terms</li>
+              <li>Check for typos in your search</li>
+              <li>Search matches names, emails, company names, product types, and descriptions</li>
+              <li>Multiple search terms will find any quotes containing any of those terms</li>
+            </ul>
+          </div>
+        </div>
+      )}
       
       {/* Error message */}
       {error && (
@@ -442,20 +623,26 @@ const QuotesPage = () => {
                       <span className="text-purple-700 font-medium">{quote.name.substring(0, 2).toUpperCase()}</span>
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">{quote.name}</h3>
-                      <p className="text-sm text-gray-500">{quote.email}</p>
+                      <h3 className="font-medium text-gray-900">
+                        <HighlightText text={quote.name} searchTerms={searchTerms} />
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        <HighlightText text={quote.email} searchTerms={searchTerms} />
+                      </p>
                     </div>
                   </div>
                   <div className="mb-2">
-                    <span className={`px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800`}>
-                      {quote.status || 'Pending'}
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(quote.status)}`}>
+                      {getStatusLabel(quote.status || 'pending')}
                     </span>
                   </div>
                   <p className="text-sm text-gray-700 mb-2">
-                    <span className="font-medium">Product:</span> {quote.productType}
+                    <span className="font-medium">Product:</span>{' '}
+                    <HighlightText text={quote.productType} searchTerms={searchTerms} />
                   </p>
                   <p className="text-sm text-gray-700">
-                    <span className="font-medium">Quantity:</span> {quote.quantity}
+                    <span className="font-medium">Quantity:</span>{' '}
+                    <HighlightText text={quote.quantity} searchTerms={searchTerms} />
                   </p>
                   
                   {/* Display uploaded files */}
@@ -468,7 +655,7 @@ const QuotesPage = () => {
                             <div className="flex items-center overflow-hidden">
                               {getFileIcon(file.mimetype)}
                               <p className="text-xs text-gray-600 ml-2 truncate max-w-[100px]">
-                                {file.originalname}
+                                <HighlightText text={file.originalname} searchTerms={searchTerms} />
                               </p>
                               <span className="ml-1 text-xs text-gray-400">
                                 ({(file.size / 1024).toFixed(0)} KB)
@@ -521,6 +708,82 @@ const QuotesPage = () => {
                 </div>
               ))}
             </div>
+            
+            {/* Pagination Controls */}
+            {pagination.totalPages > 1 && (
+              <div className="flex justify-center mt-8">
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => handlePageChange(Math.max(1, pagination.currentPage - 1))}
+                    disabled={pagination.currentPage === 1}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium 
+                      ${pagination.currentPage === 1 
+                        ? 'text-gray-300 cursor-not-allowed' 
+                        : 'text-gray-500 hover:bg-gray-50'}`}
+                  >
+                    <span className="sr-only">Previous</span>
+                    <FaChevronLeft className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  
+                  {/* Page numbers */}
+                  {[...Array(pagination.totalPages).keys()].map(pageIndex => {
+                    const pageNumber = pageIndex + 1;
+                    const isCurrentPage = pageNumber === pagination.currentPage;
+                    
+                    // Only show a reasonable number of page links
+                    if (
+                      pagination.totalPages <= 7 ||
+                      pageNumber === 1 ||
+                      pageNumber === pagination.totalPages ||
+                      (pageNumber >= pagination.currentPage - 1 && pageNumber <= pagination.currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => handlePageChange(pageNumber)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium
+                            ${isCurrentPage
+                              ? 'z-10 bg-purple-50 border-purple-500 text-purple-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                          aria-current={isCurrentPage ? 'page' : undefined}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    }
+                    
+                    // Show ellipsis for skipped pages
+                    if (
+                      (pageNumber === 2 && pagination.currentPage > 3) ||
+                      (pageNumber === pagination.totalPages - 1 && pagination.currentPage < pagination.totalPages - 2)
+                    ) {
+                      return (
+                        <span
+                          key={`ellipsis-${pageNumber}`}
+                          className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+                    
+                    return null;
+                  })}
+                  
+                  <button
+                    onClick={() => handlePageChange(Math.min(pagination.totalPages, pagination.currentPage + 1))}
+                    disabled={pagination.currentPage === pagination.totalPages}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium
+                      ${pagination.currentPage === pagination.totalPages 
+                        ? 'text-gray-300 cursor-not-allowed' 
+                        : 'text-gray-500 hover:bg-gray-50'}`}
+                  >
+                    <span className="sr-only">Next</span>
+                    <FaChevronRight className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </nav>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -537,6 +800,126 @@ const QuotesPage = () => {
           {pageContent}
         </div>
       </div>
+      
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-medium text-gray-900">Filter Quote Requests</h3>
+              <button 
+                onClick={() => setShowFilterModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select 
+                  value={filters.status} 
+                  onChange={(e) => updateFilters({ status: e.target.value })}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="reviewing">Reviewing</option>
+                  <option value="quoted">Quoted</option>
+                  <option value="negotiating">Negotiating</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              
+              {/* Date Range Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Start Date</label>
+                    <input 
+                      type="date" 
+                      value={filters.dateRange.startDate || ''} 
+                      onChange={(e) => updateFilters({ 
+                        dateRange: { 
+                          ...filters.dateRange, 
+                          startDate: e.target.value || null
+                        } 
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">End Date</label>
+                    <input 
+                      type="date" 
+                      value={filters.dateRange.endDate || ''} 
+                      onChange={(e) => updateFilters({ 
+                        dateRange: { 
+                          ...filters.dateRange, 
+                          endDate: e.target.value || null
+                        } 
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Sort Options */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <select 
+                    value={filters.sortBy} 
+                    onChange={(e) => updateFilters({ sortBy: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="createdAt">Date Created</option>
+                    <option value="name">Customer Name</option>
+                    <option value="status">Status</option>
+                    <option value="quantity">Quantity</option>
+                  </select>
+                  
+                  <select 
+                    value={filters.sortOrder} 
+                    onChange={(e) => updateFilters({ sortOrder: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-between">
+              <button
+                onClick={() => {
+                  handleResetAllFilters();
+                  setShowFilterModal(false);
+                }}
+                className="py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                Reset Filters
+              </button>
+              <button
+                onClick={() => {
+                  applyFilters();
+                  setShowFilterModal(false);
+                }}
+                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* File Preview Modal */}
       {showPreviewModal && previewFile && (

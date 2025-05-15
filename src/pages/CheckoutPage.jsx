@@ -154,6 +154,27 @@ const CheckoutPage = () => {
     fetchTaxRates();
   }, [fetchShippingMethods, fetchTaxRates]);
   
+  // Refresh shipping methods whenever the shipping step is active
+  useEffect(() => {
+    if (step === 3) {
+      console.log('🔄 [CheckoutPage] Refreshing shipping methods for delivery step');
+      fetchShippingMethods().then(refreshedMethods => {
+        // If we have a currently selected shipping method, verify it still exists
+        if (shippingMethod) {
+          const methodStillExists = refreshedMethods && 
+            refreshedMethods.some(method => method.id === shippingMethod);
+          
+          if (!methodStillExists) {
+            console.log('⚠️ [CheckoutPage] Selected shipping method no longer exists, resetting selection');
+            setShippingMethod('');
+            setShippingCost(0);
+            setEstimatedDelivery('');
+          }
+        }
+      });
+    }
+  }, [step, fetchShippingMethods, shippingMethod]);
+  
   // Use shipping methods from store or fallback to defaults
   const availableShippingMethods = storeShippingMethods.length > 0 
     ? storeShippingMethods 
@@ -252,6 +273,15 @@ const CheckoutPage = () => {
     const method = availableShippingMethods.find(m => m.id === methodId);
     
     if (method) {
+      // If there was a free shipping coupon applied, reset it when changing shipping methods
+      if (appliedCoupon && appliedCoupon.code === 'FREESHIP') {
+        console.log('🛑 [CheckoutPage] Resetting free shipping coupon as shipping method changed');
+        setCouponSuccess('');
+        setCouponCode('');
+        setAppliedCoupon(null);
+        clearActiveCoupon();
+      }
+      
       setShippingCost(method.price);
       setEstimatedDelivery(method.estimatedDelivery);
       console.log(`Selected shipping method: ${method.name}, price: ${method.price}`);
@@ -974,37 +1004,43 @@ const CheckoutPage = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {availableShippingMethods.map((method) => (
-              <div 
-                key={method.id}
-                onClick={() => handleShippingMethodSelect(method.id)}
-                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                  shippingMethod === method.id 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-start">
-                  <div className={`w-5 h-5 rounded-full border flex-shrink-0 mr-3 mt-0.5 flex items-center justify-center ${
-                    shippingMethod === method.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                  }`}>
-                    {shippingMethod === method.id && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium">{method.name}</h4>
-                        <p className="text-sm text-gray-500 mt-1">{method.description}</p>
-                        {method.carrier && (
-                          <p className="text-xs text-gray-400 mt-1">via {method.carrier}</p>
-                        )}
+            {availableShippingMethods.length === 0 ? (
+              <div className="p-4 text-center">
+                <p className="text-sm text-gray-500">No shipping methods available. Please try again later.</p>
+              </div>
+            ) : (
+              availableShippingMethods.map((method) => (
+                <div 
+                  key={method.id}
+                  onClick={() => handleShippingMethodSelect(method.id)}
+                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                    shippingMethod === method.id 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-start">
+                    <div className={`w-5 h-5 rounded-full border flex-shrink-0 mr-3 mt-0.5 flex items-center justify-center ${
+                      shippingMethod === method.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                    }`}>
+                      {shippingMethod === method.id && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium">{method.name}</h4>
+                          <p className="text-sm text-gray-500 mt-1">{method.description}</p>
+                          {method.carrier && (
+                            <p className="text-xs text-gray-400 mt-1">via {method.carrier}</p>
+                          )}
+                        </div>
+                        <span className="font-medium">GH₵{method.price.toFixed(2)}</span>
                       </div>
-                      <span className="font-medium">GH₵{method.price.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
       </div>

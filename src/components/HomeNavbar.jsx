@@ -1,20 +1,44 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaSearch, FaUserCircle, FaShoppingCart, FaBars, FaTimes } from 'react-icons/fa';
+import { 
+  FaSearch, 
+  FaUserCircle, 
+  FaShoppingCart, 
+  FaBars, 
+  FaTimes, 
+  FaRobot, 
+  FaHome, 
+  FaBoxOpen, 
+  FaCog, 
+  FaInfoCircle, 
+  FaEnvelope, 
+  FaQuoteRight, 
+  FaChevronRight,
+  FaAngleDown
+} from 'react-icons/fa';
+import axios from 'axios';
+import apiConfig from '../config/apiConfig';
 
 const HomeNavbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [isAISearch, setIsAISearch] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [expandedMobileSearch, setExpandedMobileSearch] = useState(false);
+  const searchRef = useRef(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Navigation links
+  // Navigation links with icons
   const navLinks = [
-    { title: 'Home', path: '/' },
-    { title: 'Products', path: '/products' },
-    { title: 'Services', path: '/services' },
-    { title: 'About', path: '/about' },
-    { title: 'Contact', path: '/contact' }
+    { title: 'Home', path: '/', icon: <FaHome className="w-5 h-5" /> },
+    { title: 'Products', path: '/products', icon: <FaBoxOpen className="w-5 h-5" /> },
+    { title: 'Services', path: '/services', icon: <FaCog className="w-5 h-5" /> },
+    { title: 'About', path: '/about', icon: <FaInfoCircle className="w-5 h-5" /> },
+    { title: 'Contact', path: '/sinosply-contact', icon: <FaEnvelope className="w-5 h-5" /> }
   ];
 
   // Handle scroll event to change navbar style
@@ -31,9 +55,72 @@ const HomeNavbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Close search when clicked outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchActive(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
+
   // Toggle mobile menu
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  // Toggle AI search on/off
+  const toggleAISearch = () => {
+    setIsAISearch(!isAISearch);
+  };
+
+  // Toggle mobile search expansion
+  const toggleMobileSearch = () => {
+    setExpandedMobileSearch(!expandedMobileSearch);
+  };
+
+  // Handle search submission
+  const handleSearchSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    
+    try {
+      if (isAISearch) {
+        navigate(`/search?q=${encodeURIComponent(searchQuery)}&ai=true`);
+      } else {
+        navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+      setIsSearchActive(false);
+      setIsMobileMenuOpen(false);
+      setExpandedMobileSearch(false);
+    }
   };
 
   // Check if a navigation link should be active (handle nested routes)
@@ -42,6 +129,44 @@ const HomeNavbar = () => {
       return location.pathname === '/' || location.pathname === '/home';
     }
     return location.pathname.startsWith(path);
+  };
+
+  // Mobile menu animation variants
+  const mobileMenuVariants = {
+    closed: {
+      opacity: 0,
+      height: 0,
+      transition: {
+        duration: 0.3,
+        when: "afterChildren",
+        staggerChildren: 0.05,
+        staggerDirection: -1
+      }
+    },
+    open: {
+      opacity: 1,
+      height: "auto",
+      transition: {
+        duration: 0.4,
+        when: "beforeChildren",
+        staggerChildren: 0.05,
+        staggerDirection: 1
+      }
+    }
+  };
+
+  // Mobile menu item animation variants
+  const menuItemVariants = {
+    closed: {
+      opacity: 0,
+      y: -10,
+      transition: { duration: 0.2 }
+    },
+    open: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.3 }
+    }
   };
 
   return (
@@ -111,11 +236,69 @@ const HomeNavbar = () => {
               transition={{ duration: 0.3, delay: 0.5 }}
               className="flex items-center"
             >
-              <button className={`p-2 rounded-full transition-colors ${
-                isScrolled ? 'text-gray-600 hover:text-red-600' : 'text-white/90 hover:text-white'
-              }`}>
-                <FaSearch className="w-5 h-5" />
-              </button>
+              {/* Enhanced Search Component */}
+              <div ref={searchRef} className="relative">
+                <button 
+                  onClick={() => setIsSearchActive(!isSearchActive)}
+                  className={`p-2 rounded-full transition-colors ${
+                    isScrolled ? 'text-gray-600 hover:text-red-600' : 'text-white/90 hover:text-white'
+                  }`}
+                  aria-label="Search"
+                >
+                  <FaSearch className="w-5 h-5" />
+                </button>
+                
+                <AnimatePresence>
+                  {isSearchActive && (
+                    <motion.div 
+                      initial={{ opacity: 0, width: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, width: '300px', scale: 1 }}
+                      exit={{ opacity: 0, width: 0, scale: 0.9 }}
+                      transition={{ duration: 0.2 }}
+                      className={`absolute right-0 top-full mt-2 rounded-lg shadow-lg overflow-hidden ${isScrolled ? 'bg-white' : 'bg-black/80 backdrop-blur-md'}`}
+                    >
+                      <form onSubmit={handleSearchSubmit} className="flex flex-col">
+                        <div className="flex items-center p-2 border-b border-gray-200 dark:border-gray-700">
+                          <FaSearch className={`w-5 h-5 mx-2 ${isScrolled ? 'text-gray-500' : 'text-white/80'}`} />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            placeholder="Search products, services..."
+                            className={`w-full p-2 outline-none ${isScrolled ? 'bg-white text-gray-800' : 'bg-transparent text-white placeholder-white/60'}`}
+                          />
+                        </div>
+                        <div className={`flex items-center justify-between px-4 py-2 ${isScrolled ? 'bg-gray-50' : 'bg-black/50'}`}>
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id="ai-search"
+                              checked={isAISearch}
+                              onChange={toggleAISearch}
+                              className="rounded text-red-600 focus:ring-red-500 mr-2"
+                            />
+                            <label 
+                              htmlFor="ai-search" 
+                              className={`text-sm flex items-center ${isScrolled ? 'text-gray-700' : 'text-white/90'}`}
+                            >
+                              <FaRobot className="mr-1" />
+                              AI Search
+                            </label>
+                          </div>
+                          <button
+                            type="submit"
+                            disabled={isSearching}
+                            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                          >
+                            {isSearching ? 'Searching...' : 'Search'}
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+{/* 
               <Link to="/cart" className={`p-2 rounded-full transition-colors ${
                 isScrolled ? 'text-gray-600 hover:text-red-600' : 'text-white/90 hover:text-white'
               }`}>
@@ -125,7 +308,7 @@ const HomeNavbar = () => {
                 isScrolled ? 'text-gray-600 hover:text-red-600' : 'text-white/90 hover:text-white'
               }`}>
                 <FaUserCircle className="w-5 h-5" />
-              </Link>
+              </Link> */}
             </motion.div>
 
             <motion.div
@@ -150,9 +333,10 @@ const HomeNavbar = () => {
           <div className="md:hidden flex items-center">
             <button
               onClick={toggleMobileMenu}
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-lg transition-all duration-300 ${
                 isScrolled ? 'text-gray-700' : 'text-white'
-              }`}
+              } ${isMobileMenuOpen ? 'rotate-90' : 'rotate-0'}`}
+              aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
             >
               {isMobileMenuOpen ? (
                 <FaTimes className="h-6 w-6" />
@@ -164,40 +348,120 @@ const HomeNavbar = () => {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu - Enhanced version */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="md:hidden bg-white shadow-lg overflow-hidden"
+            initial="closed"
+            animate="open"
+            exit="closed"
+            variants={mobileMenuVariants}
+            className="md:hidden fixed top-[60px] left-0 right-0 bottom-0 bg-white z-40 overflow-y-auto shadow-xl"
           >
-            <div className="px-4 pt-2 pb-4 space-y-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  className={`block px-4 py-3 rounded-lg text-base font-medium ${
-                    location.pathname === link.path
-                      ? 'bg-red-50 text-red-600'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-red-600'
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
+            <div className="flex flex-col h-full">
+              {/* Mobile search header */}
+              <motion.div 
+                variants={menuItemVariants}
+                className="sticky top-0 z-10 bg-white"
+              >
+                <div 
+                  className="flex items-center justify-between px-4 py-3 border-b border-gray-100 cursor-pointer"
+                  onClick={toggleMobileSearch}
                 >
-                  {link.title}
-                </Link>
-              ))}
-              <div className="pt-2 pb-1">
+                  <div className="flex items-center">
+                    <FaSearch className="text-red-600 mr-3" />
+                    <span className="font-medium">Search Products & Services</span>
+                  </div>
+                  <FaAngleDown className={`text-gray-500 transition-transform duration-300 ${expandedMobileSearch ? 'rotate-180' : ''}`} />
+                </div>
+
+                <AnimatePresence>
+                  {expandedMobileSearch && (
+                    <motion.form 
+                      onSubmit={handleSearchSubmit}
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="px-4 py-3 bg-gray-50"
+                    >
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white mb-3">
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={handleSearchChange}
+                          placeholder="Search products, services..."
+                          className="w-full p-3 outline-none text-gray-800"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isSearching}
+                          className="px-4 py-3 bg-red-600 text-white"
+                        >
+                          <FaSearch className="h-4 w-4" />
+                        </button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                        <div className="flex items-center">
+                          <FaRobot className="text-red-600 mr-2" />
+                          <span className="text-sm">AI-Powered Search</span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={isAISearch}
+                            onChange={toggleAISearch}
+                            className="sr-only peer" 
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                        </label>
+                      </div>
+                    </motion.form>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              {/* Navigation Links */}
+              <div className="py-2 flex-grow">
+                {navLinks.map((link) => (
+                  <motion.div 
+                    key={link.path}
+                    variants={menuItemVariants}
+                  >
+                    <Link
+                      to={link.path}
+                      className={`flex items-center px-4 py-4 text-base font-medium ${
+                        isActiveLink(link.path)
+                          ? 'bg-red-50 text-red-600'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-red-600'
+                      } border-b border-gray-100`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <div className={`mr-3 ${isActiveLink(link.path) ? 'text-red-600' : 'text-gray-500'}`}>
+                        {link.icon}
+                      </div>
+                      <span className="flex-grow">{link.title}</span>
+                      <FaChevronRight className="text-gray-400 text-sm" />
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Quote button */}
+              <motion.div 
+                variants={menuItemVariants}
+                className="p-4 border-t border-gray-200 bg-gray-50 mt-auto"
+              >
                 <Link
                   to="/quote"
-                  className="block w-full px-4 py-3 bg-gradient-to-r from-red-600 to-black text-white text-center rounded-lg font-medium"
+                  className="flex items-center justify-center py-4 bg-gradient-to-r from-red-600 to-black text-white text-center rounded-lg font-medium shadow-md"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
+                  <FaQuoteRight className="mr-2" />
                   Get a Quote
                 </Link>
-              </div>
+              </motion.div>
             </div>
           </motion.div>
         )}

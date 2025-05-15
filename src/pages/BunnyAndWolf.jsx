@@ -14,6 +14,8 @@ import { useCollectionsStore } from '../store/collectionsStore';
 import { usePlatformsStore } from '../store/platformsStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useInstagramStore } from '../store/instagramStore';
+import { useNotificationStore } from '../store/notificationStore';
+import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import './heroSlider.css';
 import '../styles/bannerOverlay.css';
@@ -24,7 +26,7 @@ const NextArrow = (props) => {
   const { className, style, onClick } = props;
   return (
     <div
-      className="absolute right-4 top-1/2 -translate-y-1/2 z-10 cursor-pointer bg-white bg-opacity-40 backdrop-blur-sm hover:bg-opacity-80 p-3 rounded-full transition-all duration-300 transform hover:scale-110 shadow-lg"
+      className="absolute right-4 top-1/2 -translate-y-1/2 z-10 cursor-pointer bg-white bg-opacity-40 hover:bg-opacity-80 p-3 rounded-full transition-all duration-300 transform hover:scale-110 shadow-lg"
       onClick={onClick}
     >
       <FaArrowRight className="text-black text-xl" />
@@ -36,7 +38,7 @@ const PrevArrow = (props) => {
   const { className, style, onClick } = props;
   return (
     <div
-      className="absolute left-4 top-1/2 -translate-y-1/2 z-10 cursor-pointer bg-white bg-opacity-40 backdrop-blur-sm hover:bg-opacity-80 p-3 rounded-full transition-all duration-300 transform hover:scale-110 shadow-lg"
+      className="absolute left-4 top-1/2 -translate-y-1/2 z-10 cursor-pointer bg-white bg-opacity-40 hover:bg-opacity-80 p-3 rounded-full transition-all duration-300 transform hover:scale-110 shadow-lg"
       onClick={onClick}
     >
       <FaArrowLeft className="text-black text-xl" />
@@ -167,6 +169,43 @@ const BunnyAndWolf = () => {
   const { fetchPlatformsFromAPI, activePlatforms, loading: platformsLoading } = usePlatformsStore();
   const { fetchBanners, banners, getBannerByType } = useSettingsStore();
   const { fetchInstagramImages, instagramImages, loading: instagramLoading } = useInstagramStore();
+  const { user } = useAuth();
+  const { initOrderUpdateListeners, notifications } = useNotificationStore();
+  
+  console.log('[BunnyAndWolf] Component mounted, user:', user?.email);
+  console.log('[BunnyAndWolf] Current notifications count:', notifications.length);
+  
+  // Initialize notification system for logged in users
+  useEffect(() => {
+    if (user) {
+      console.log('[BunnyAndWolf] User is logged in, initializing notification system');
+      
+      // Initialize order update listeners for notifications
+      const unsubscribe = initOrderUpdateListeners();
+      
+      // Load notification service
+      try {
+        // Replace require with dynamic import
+        import('../services/NotificationService')
+          .then(module => {
+            const notificationService = module.default;
+            console.log('[BunnyAndWolf] NotificationService loaded:', !!notificationService);
+          })
+          .catch(err => {
+            console.error('[BunnyAndWolf] Error loading notification service:', err);
+          });
+      } catch (err) {
+        console.error('[BunnyAndWolf] Error initializing NotificationService:', err);
+      }
+      
+      return () => {
+        console.log('[BunnyAndWolf] Cleaning up notification listeners');
+        unsubscribe && unsubscribe();
+      }
+    } else {
+      console.log('[BunnyAndWolf] User not logged in, skipping notification initialization');
+    }
+  }, [user, initOrderUpdateListeners]);
   
   // Fetch products when component mounts
   useEffect(() => {
@@ -873,7 +912,6 @@ const BunnyAndWolf = () => {
         /* Modern overlay styling */
         .modern-overlay {
           background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%);
-          backdrop-filter: blur(2px);
         }
         
         /* Hero content animation overrides */
