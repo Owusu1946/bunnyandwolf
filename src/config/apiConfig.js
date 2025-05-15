@@ -15,7 +15,7 @@ const getBaseURL = () => {
   // Fall back to default URLs based on environment
   if (import.meta.env.PROD) {
     // For production
-    return 'https://api.sinosply.com/api/v1';
+    return 'https://bunnyandwolf.vercel.app/api/v1';
   } else {
     // For development
     return 'http://localhost:5000/api/v1';
