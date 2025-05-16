@@ -10,9 +10,11 @@ import ProductExplorer from '../components/ProductExplorer';
 import KeyFeatures from '../components/KeyFeatures';
 import WhyChooseUs from '../components/WhyChooseUs';
 import CTAFooter from '../components/CTAFooter';
+import SEO from '../components/SEO';
 import { usePlatformsStore } from '../store/platformsStore';
 import { useProductStore } from '../store/productStore';
 import { useReviewStore } from '../store/reviewStore';
+import axios from 'axios';
 
 const Home = () => {
   // Get platforms data for stores section
@@ -28,6 +30,25 @@ const Home = () => {
   
   // Get review store for review stats
   const { reviewStats } = useReviewStore();
+  
+  // Fetch SEO data
+  useEffect(() => {
+    const fetchSEOData = async () => {
+      try {
+        const response = await axios.get('/api/v1/seo/generate-metadata?type=home');
+        
+        if (response.data.success) {
+          // SEO data is automatically handled by the SEO component
+          // No need to store it in a state since it's a static homepage
+        }
+      } catch (err) {
+        console.log('Error fetching homepage SEO data', err);
+        // Fall back to default SEO metadata in the SEO component
+      }
+    };
+    
+    fetchSEOData();
+  }, []);
   
   // Fetch platforms when component mounts
   useEffect(() => {
@@ -157,6 +178,14 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* SEO component with home page metadata */}
+      <SEO 
+        title="Sinosply - Connect to Premium Chinese Products"
+        description="Discover premium products directly from trusted Chinese suppliers with Sinosply. Your reliable partner for business growth and global sourcing."
+        image="https://sinosply.com/og-image.jpg"
+        type="website"
+      />
+      
       <HomeNavbar />
 
       {/* ElevenLabs Convai Widget */}

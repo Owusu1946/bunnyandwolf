@@ -9,6 +9,7 @@ import Footer from '../components/Footer';
 import FashionShop from './FashionShop';
 import ShopCategory from './ShopCategory';
 import CustomerSupportChat from '../components/CustomerSupportChat';
+import SEO from '../components/SEO';
 import { useProductStore } from '../store/productStore';
 import { useCollectionsStore } from '../store/collectionsStore';
 import { usePlatformsStore } from '../store/platformsStore';
@@ -20,6 +21,7 @@ import { Link } from 'react-router-dom';
 import './heroSlider.css';
 import '../styles/bannerOverlay.css';
 import '../styles/Bunny.css';
+import axios from 'axios';
 
 // Custom arrow components for the carousel
 const NextArrow = (props) => {
@@ -171,6 +173,48 @@ const BunnyAndWolf = () => {
   const { fetchInstagramImages, instagramImages, loading: instagramLoading } = useInstagramStore();
   const { user } = useAuth();
   const { initOrderUpdateListeners, notifications } = useNotificationStore();
+  
+  // SEO state for fashion store
+  const [seoData, setSeoData] = useState({
+    title: "Bunny & Wolf | Fashion Store | Sinosply",
+    description: "Discover the latest fashion trends at Bunny & Wolf. Shop our new arrivals, collections, and seasonal must-haves with fast shipping and easy returns.",
+    image: "https://sinosply.com/bunny-wolf-og-image.jpg",
+    type: "website"
+  });
+  
+  // Fetch SEO data for the fashion store
+  useEffect(() => {
+    const fetchFashionStoreSEO = async () => {
+      try {
+        // Try to get fashion store-specific SEO data
+        const response = await axios.get('/api/v1/seo/generate-metadata?type=platform&id=bunny-wolf');
+        
+        if (response.data.success) {
+          setSeoData(response.data.metadata);
+        }
+      } catch (err) {
+        console.log('Using default fashion store SEO data', err);
+        // Fall back to default SEO data set in state initialization
+      }
+    };
+    
+    fetchFashionStoreSEO();
+  }, []);
+  
+  // Update SEO when featured products change
+  useEffect(() => {
+    if (featuredProducts.length > 0) {
+      // Only update the image if we have featured products with images
+      const featuredImage = featuredProducts[0].variants?.[0]?.additionalImages?.[0] || 
+                           featuredProducts[0].image || 
+                           seoData.image;
+      
+      setSeoData(prev => ({
+        ...prev,
+        image: featuredImage
+      }));
+    }
+  }, [featuredProducts]);
   
   console.log('[BunnyAndWolf] Component mounted, user:', user?.email);
   console.log('[BunnyAndWolf] Current notifications count:', notifications.length);
@@ -410,6 +454,9 @@ const BunnyAndWolf = () => {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* SEO Component */}
+      <SEO {...seoData} />
+      
       <Navbar />
 
       {/* Hero Section with Carousel */}

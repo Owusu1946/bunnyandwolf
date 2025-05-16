@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import apiConfig from '../config/apiConfig';
 
@@ -7,31 +7,70 @@ const AuthContext = createContext();
 const API_URL = apiConfig.baseURL;
 
 export const AuthProvider = ({ children }) => {
+  // For debugging state issues
+  const initialLoadRef = useRef(true);
+  
+  // Initialize user state from localStorage
   const [user, setUser] = useState(() => {
-    // Initialize user state from localStorage
+    console.log('🔄 [AuthContext] Initializing user state from localStorage');
     const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
+    
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        console.log('📋 [AuthContext] Found user in localStorage:', JSON.stringify(parsedUser));
+        return parsedUser;
+      } catch (error) {
+        console.error('❌ [AuthContext] Error parsing user from localStorage:', error);
+        return null;
+      }
+    } else {
+      console.log('❓ [AuthContext] No user found in localStorage');
+      return null;
+    }
   });
+  
   const [loading, setLoading] = useState(true);
+
+  // Log auth state changes
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      console.log('🚀 [AuthContext] Initial render with user:', user?.role);
+      initialLoadRef.current = false;
+    } else {
+      console.log('👤 [AuthContext] User state changed:', user?.role);
+    }
+  }, [user]);
 
   // Enhanced setUser function to also store userId separately
   const handleSetUser = (userData) => {
     if (userData) {
+      console.log('[AuthContext] Setting user data:', userData);
+      
       // Store full user object in localStorage
       localStorage.setItem('user', JSON.stringify(userData));
       
       // Also store userId separately for easier access
-      if (userData._id) {
-        localStorage.setItem('userId', userData._id);
-        console.log('✅ [AuthContext] User ID stored separately:', userData._id);
+      if (userData._id || userData.id) {
+        const userId = userData._id || userData.id;
+        localStorage.setItem('userId', userId);
+        console.log('✅ [AuthContext] User ID stored separately:', userId);
+      }
+      
+      // Log permissions for staff users
+      if (userData.role === 'staff') {
+        console.log('✅ [AuthContext] Staff permissions:', userData.permissions);
       }
       
       // Update React state
       setUser(userData);
+      console.log('✅ [AuthContext] User state updated with:', userData.role);
     } else {
       // If userData is null, clear user data
+      console.log('🗑️ [AuthContext] Clearing user data');
       localStorage.removeItem('user');
       localStorage.removeItem('userId');
+      localStorage.removeItem('token');
       setUser(null);
     }
   };
@@ -39,8 +78,10 @@ export const AuthProvider = ({ children }) => {
   // Validate token on initial load
   useEffect(() => {
     const validateToken = async () => {
+      console.log('🔍 [AuthContext] Validating token');
       const token = localStorage.getItem('token');
       if (!token) {
+        console.log('❌ [AuthContext] No token found');
         setLoading(false);
         return;
       }
@@ -48,6 +89,7 @@ export const AuthProvider = ({ children }) => {
       try {
         // Add token to axios headers
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        console.log('🔑 [AuthContext] Added token to axios headers');
         
         // Verify token with backend
         const response = await axios.get(`${API_URL}/auth/verify`);
@@ -55,12 +97,17 @@ export const AuthProvider = ({ children }) => {
           console.log('✅ [AuthContext] Token verified successfully');
           const storedUser = localStorage.getItem('user');
           if (storedUser) {
-            const userData = JSON.parse(storedUser);
-            setUser(userData);
-            
-            // Also ensure userId is stored separately
-            if (userData._id) {
-              localStorage.setItem('userId', userData._id);
+            try {
+              const userData = JSON.parse(storedUser);
+              console.log('👤 [AuthContext] Loaded user from localStorage after token verification:', userData.role);
+              setUser(userData);
+              
+              // Also ensure userId is stored separately
+              if (userData._id) {
+                localStorage.setItem('userId', userData._id);
+              }
+            } catch (e) {
+              console.error('❌ [AuthContext] Error parsing user JSON:', e);
             }
           }
         } else {
@@ -140,9 +187,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   if (loading) {
+    console.log('⏳ [AuthContext] Still loading, returning loading indicator');
     return <div>Loading...</div>; // You can replace this with a proper loading component
   }
 
+  console.log('🔄 [AuthContext] Rendering with user:', user?.role);
   return (
     <AuthContext.Provider value={value}>
       {children}

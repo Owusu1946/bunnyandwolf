@@ -206,47 +206,10 @@ const Navbar = () => {
                 <>
                   {/* Notification Bell - Only shown for logged in users */}
                   <div className="icon-button relative">
-                    {/* Add user info debug */}
-                    {process.env.NODE_ENV === 'development' && (
-                      <div className="absolute -top-4 -left-4 bg-purple-500 text-white text-xs rounded-full px-1 py-0.5">
-                        User: {user.email.substring(0, 5)}...
-                      </div>
-                    )}
-                    
-                    {/* Show debug count if needed */}
-                    {process.env.NODE_ENV === 'development' && (
-                      <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        {notifications.length}
-                      </div>
-                    )}
                     <NotificationDropdown 
                       onClearAll={handleClearAllNotifications}
                       onClearNotification={handleClearNotification}
                     />
-                    
-                    {/* Force add notification button */}
-                    <button 
-                      onClick={() => {
-                        try {
-                          console.log('[Navbar] Forcing a test notification...');
-                          const { addTestNotification } = useNotificationStore.getState();
-                          if (addTestNotification) {
-                            const notification = addTestNotification();
-                            console.log('[Navbar] Test notification created:', notification);
-                            alert('Test notification created');
-                          } else {
-                            console.error('[Navbar] addTestNotification not found in store');
-                            alert('Error: addTestNotification not found');
-                          }
-                        } catch (err) {
-                          console.error('[Navbar] Error creating test notification:', err);
-                          alert('Error: ' + err.message);
-                        }
-                      }}
-                      className="absolute top-0 right-2 bg-yellow-500 text-white text-xs rounded px-1 py-0.5"
-                    >
-                      +Test
-                    </button>
                   </div>
                   
                 <div className="relative" onClick={toggleProfileDropdown}>

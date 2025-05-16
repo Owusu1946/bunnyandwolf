@@ -954,21 +954,37 @@ const AdminSettings = () => {
     if (selectedUser) {
       // For editing existing user
       const updatedUser = { ...selectedUser };
+      
+      // Initialize permissions array if it doesn't exist
+      if (!updatedUser.permissions) {
+        updatedUser.permissions = [];
+      }
+      
       if (updatedUser.permissions.includes(permission)) {
         updatedUser.permissions = updatedUser.permissions.filter(p => p !== permission);
       } else {
         updatedUser.permissions = [...updatedUser.permissions, permission];
       }
       setSelectedUser(updatedUser);
+      
+      console.log(`Updated permissions for ${updatedUser.firstName}:`, updatedUser.permissions);
     } else {
       // For creating new user
       const updatedNewUser = { ...newUser };
+      
+      // Initialize permissions array if it doesn't exist
+      if (!updatedNewUser.permissions) {
+        updatedNewUser.permissions = [];
+      }
+      
       if (updatedNewUser.permissions.includes(permission)) {
         updatedNewUser.permissions = updatedNewUser.permissions.filter(p => p !== permission);
       } else {
         updatedNewUser.permissions = [...updatedNewUser.permissions, permission];
       }
       setNewUser(updatedNewUser);
+      
+      console.log('New user permissions:', updatedNewUser.permissions);
     }
   };
 

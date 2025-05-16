@@ -31,7 +31,7 @@ const Contact = () => {
       // Create the submission data with original email and the forwarding address
       const submissionData = {
         ...formData,
-        forwardTo: 'kkenwynwejones@gmail.com', // Always send to this verified email
+        forwardTo: 'kenwynwejones@gmail.com', // Always send to this verified email
         originalEmail: formData.email // Keep track of the customer's email
       };
       
@@ -50,7 +50,7 @@ const Contact = () => {
         console.log('Attempting fallback email delivery via Resend...');
         await axios.post('https://api.resend.com/emails', {
           from: 'onboarding@resend.dev',
-          to: 'kkenwynwejones@gmail.com',
+          to: 'kenwynwejones@gmail.com',
           subject: `[SINOSPLY CONTACT] ${formData.subject}`,
           html: `
             <h2>New Contact Form Submission</h2>

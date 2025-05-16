@@ -12,6 +12,7 @@ import { SidebarProvider } from './context/SidebarContext'
 import ResetPassword from './pages/ResetPassword'
 import Profile from './pages/Profile'
 import AdminLogin from './pages/AdminLogin'
+import StaffLogin from './pages/StaffLogin'
 import AdminDashboard from './pages/AdminDashboard'
 import FAQ from './pages/FAQ'
 import Contact from './pages/Contact'
@@ -59,13 +60,17 @@ import { useNotificationStore } from './store/notificationStore'
 import './services/NotificationService'
 
 // Wrap AdminRoute components with SidebarProvider
-const AdminRouteWithSidebar = ({ children }) => (
-  <SidebarProvider>
-    <AdminRoute>
-      {children}
-    </AdminRoute>
-  </SidebarProvider>
-);
+const AdminRouteWithSidebar = ({ children }) => {
+  console.log('[App] Rendering AdminRouteWithSidebar');
+  
+  return (
+    <SidebarProvider>
+      <AdminRoute>
+        {children}
+      </AdminRoute>
+    </SidebarProvider>
+  );
+};
 
 // App wrapper component to handle global effects
 const AppWrapper = () => {
@@ -180,6 +185,7 @@ const AppWrapper = () => {
                   } 
                 />
                 <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/staff/login" element={<StaffLogin />} />
                 
                 {/* Admin Routes with SidebarProvider */}
                 <Route path="/admin/dashboard" element={

@@ -24,6 +24,7 @@ import {
 import { format } from 'date-fns';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import SEO from '../components/SEO';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '../components/ToastManager';
@@ -31,6 +32,8 @@ import ShareModal from '../components/ShareModal';
 import { useProductStore } from '../store/productStore';
 import { useReviewStore } from '../store/reviewStore';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
+import { generateProductSchema, generateBreadcrumbSchema } from '../utils/schemaHelper';
 
 // Import to use product store
 const ProductDetailsPage = () => {
@@ -64,6 +67,21 @@ const ProductDetailsPage = () => {
     addReply,
     voteOnReply
   } = useReviewStore();
+  
+  // Add SEO state
+  const [seoData, setSeoData] = useState({
+    title: 'Product Details | Sinosply',
+    description: 'View product details and specifications. Quality assured and fast shipping.',
+    image: 'https://sinosply.com/default-product.jpg',
+    type: 'product',
+    product: null
+  });
+  
+  // Add structured data state
+  const [structuredData, setStructuredData] = useState({
+    product: null,
+    breadcrumb: null
+  });
   
   // States
   const [product, setProduct] = useState(null);
@@ -122,6 +140,9 @@ const ProductDetailsPage = () => {
         if (storeProduct.sizes && storeProduct.sizes.length > 0) {
           setSelectedSize(storeProduct.sizes[0]);
         }
+        
+        // Update SEO data once we have the product
+        updateProductSEO(storeProduct, variantIndex);
     } else {
         // If product not found, show error and navigate back
         error('Product not found');
@@ -129,6 +150,170 @@ const ProductDetailsPage = () => {
     }
     }
   }, [id, products, location.state, navigate, error]);
+  
+  // Function to update SEO data for this product
+  const updateProductSEO = async (productData, variantIndex = 0) => {
+    try {
+      // Try to get SEO data from backend for better server-side rendering support
+      const response = await axios.get(`/api/v1/seo/generate-metadata?type=product&id=${productData._id}`);
+      
+      if (response.data.success) {
+        setSeoData(response.data.metadata);
+      } else {
+        // Fallback: generate SEO data locally
+        generateLocalSEO(productData, variantIndex);
+      }
+      
+      // Generate structured data for this product
+      updateStructuredData(productData);
+    } catch (err) {
+      console.log('Error fetching SEO data, generating locally', err);
+      // Generate SEO data locally if API fails
+      generateLocalSEO(productData, variantIndex);
+      
+      // Generate structured data for this product
+      updateStructuredData(productData);
+    }
+  };
+  
+  // Generate SEO data locally as fallback
+  const generateLocalSEO = (productData, variantIndex) => {
+    // Get primary image
+    const primaryImage = productData.variants && productData.variants.length > 0
+      ? productData.variants[variantIndex].image || productData.variants[variantIndex].additionalImages?.[0]
+      : productData.image;
+    
+    // Get all product images for enhanced sharing
+    const allProductImages = [];
+    
+    // Add primary image first
+    if (primaryImage) {
+      allProductImages.push(primaryImage);
+    }
+    
+    // Add additional images from the selected variant
+    if (productData.variants && productData.variants.length > 0 && 
+        productData.variants[variantIndex].additionalImages && 
+        productData.variants[variantIndex].additionalImages.length > 0) {
+      productData.variants[variantIndex].additionalImages.forEach(img => {
+        if (img !== primaryImage && !allProductImages.includes(img)) {
+          allProductImages.push(img);
+        }
+      });
+    }
+    
+    // Add images from other variants as well for more comprehensive sharing
+    if (productData.variants && productData.variants.length > 0) {
+      productData.variants.forEach((variant, idx) => {
+        if (idx !== variantIndex) {
+          if (variant.image && !allProductImages.includes(variant.image)) {
+            allProductImages.push(variant.image);
+          }
+          
+          if (variant.additionalImages && variant.additionalImages.length > 0) {
+            variant.additionalImages.forEach(img => {
+              if (!allProductImages.includes(img)) {
+                allProductImages.push(img);
+              }
+            });
+          }
+        }
+      });
+    }
+    
+    // Format price
+    const price = productData.variants && productData.variants.length > 0
+      ? productData.variants[variantIndex]?.price || productData.basePrice
+      : productData.basePrice;
+    
+    const formattedPrice = typeof price === 'number' 
+      ? price.toFixed(2) 
+      : price;
+    
+    // Check if product is in stock
+    const isInStock = productData.stock > 0;
+    
+    // Get color/variant information
+    const variantInfo = productData.variants && productData.variants.length > 0
+      ? {
+          color: productData.variants[variantIndex]?.color || null,
+          colorName: productData.variants[variantIndex]?.colorName || null,
+        }
+      : { color: null, colorName: null };
+    
+    // Create SEO data object with enhanced information
+    const newSeoData = {
+      title: `${productData.name} | Sinosply`,
+      description: productData.description && productData.description.length > 160 
+        ? `${productData.description.substring(0, 157)}...` 
+        : (productData.description || `Buy ${productData.name} at the best price from Sinosply. Fast shipping and top quality guaranteed.`),
+      image: allProductImages.length > 0 ? allProductImages : 'https://sinosply.com/default-product.jpg',
+      type: 'product',
+      product: {
+        name: productData.name,
+        image: allProductImages.length > 0 ? allProductImages : 'https://sinosply.com/default-product.jpg',
+        description: productData.description,
+        price: formattedPrice,
+        sku: productData._id,
+        inStock: isInStock,
+        reviewCount: productData.reviewCount || 0,
+        avgRating: (productData.rating || 0).toFixed(1),
+        // Additional data for enhanced sharing
+        color: variantInfo.colorName || '',
+        brand: 'Sinosply',
+        category: productData.category || '',
+        mpn: productData._id // Using ID as manufacturer part number
+      }
+    };
+    
+    setSeoData(newSeoData);
+  };
+  
+  // Generate structured data for the product
+  const updateStructuredData = (productData) => {
+    // Current URL
+    const currentUrl = window.location.href;
+    
+    // Get product image
+    const primaryImage = productData.variants && productData.variants.length > 0
+      ? productData.variants[selectedVariantIndex]?.image || productData.variants[selectedVariantIndex]?.additionalImages?.[0]
+      : productData.image;
+    
+    // Format price
+    const formattedPrice = typeof productData.basePrice === 'number' 
+      ? productData.basePrice 
+      : parseFloat(productData.basePrice || '0');
+    
+    // Prepare product data for schema
+    const schemaProduct = {
+      name: productData.name,
+      image: primaryImage || 'https://sinosply.com/default-product.jpg',
+      description: productData.description,
+      price: formattedPrice,
+      sku: productData._id,
+      inStock: productData.stock > 0,
+      reviewCount: productData.reviewCount || 0,
+      avgRating: (productData.rating || 0).toFixed(1)
+    };
+    
+    // Generate breadcrumb items
+    const breadcrumbItems = [
+      { name: 'Home', item: window.location.origin },
+      { name: 'Shop', item: `${window.location.origin}/shop` },
+      { name: productData.category || 'Products', item: `${window.location.origin}/shop/${productData.category || 'all'}` },
+      { name: productData.name, item: currentUrl }
+    ];
+    
+    // Generate schemas
+    const productSchema = generateProductSchema(schemaProduct, currentUrl);
+    const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
+    
+    // Update state
+    setStructuredData({
+      product: productSchema,
+      breadcrumb: breadcrumbSchema
+    });
+  };
   
   // Update main image when variant changes
   useEffect(() => {
@@ -634,6 +819,24 @@ const ProductDetailsPage = () => {
   
   return (
     <div className="min-h-screen bg-white">
+      {/* SEO component */}
+      <SEO {...seoData} />
+      
+      {/* JSON-LD Structured Data */}
+      {structuredData.product && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData.product) }}
+        />
+      )}
+      
+      {structuredData.breadcrumb && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData.breadcrumb) }}
+        />
+      )}
+      
       <Navbar />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">

@@ -1,20 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import LoadingOverlay from '../components/LoadingOverlay';
 import apiConfig from '../config/apiConfig';
-import { FaStore, FaSignInAlt, FaLock, FaEnvelope } from 'react-icons/fa';
+import { FaStore, FaSignInAlt, FaLock, FaEnvelope, FaUserTie } from 'react-icons/fa';
 
-const AdminLogin = () => {
+const StaffLogin = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
+
+  // Effect for navigation after successful login
+  useEffect(() => {
+    if (loginSuccess && user && user.role === 'staff') {
+      console.log('🚀 [StaffLogin] Navigation effect triggered, user:', user.role);
+      
+      // Add a slight delay to ensure state is fully updated
+      const timer = setTimeout(() => {
+        console.log('🔄 [StaffLogin] Navigating to dashboard after delay');
+        navigate('/admin/dashboard');
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loginSuccess, user, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -27,44 +43,48 @@ const AdminLogin = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setLoginSuccess(false);
     
     try {
-      console.log('Attempting admin login with API URL:', `${apiConfig.baseURL}/auth/admin/login`);
+      console.log('Attempting staff login with API URL:', `${apiConfig.baseURL}/auth/staff/login`);
       
-      const response = await axios.post(`${apiConfig.baseURL}/auth/admin/login`, {
+      const response = await axios.post(`${apiConfig.baseURL}/auth/staff/login`, {
         email: formData.email,
         password: formData.password
       });
 
       if (response.data.success) {
+        console.log('Staff login successful:', response.data);
+        
+        // Ensure permissions are included if they're missing
+        const userData = response.data.user;
+        if (userData.role === 'staff' && !userData.permissions) {
+          userData.permissions = ['dashboard']; // Add a default permission if missing
+          console.log('Adding default permissions:', userData.permissions);
+        }
+        
+        // Use a consistent pattern to store auth data
+        console.log('🔐 [StaffLogin] Setting token in localStorage');
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        setUser(response.data.user);
-        navigate('/admin/dashboard');
+        
+        console.log('👤 [StaffLogin] Setting user in localStorage');
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Update axios headers
+        console.log('🔑 [StaffLogin] Setting Authorization header');
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+        
+        // Set user in context
+        console.log('🔄 [StaffLogin] Setting user in context');
+        setUser(userData);
+        
+        // Set success state which will trigger navigation in the useEffect
+        console.log('✅ [StaffLogin] Setting loginSuccess flag');
+        setLoginSuccess(true);
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Staff login error:', error);
       setError(error.response?.data?.error || 'Invalid credentials');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const testApiConnection = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const testUrl = `${apiConfig.baseURL}/auth/test-connection`;
-      console.log('Testing API connection:', testUrl);
-      
-      const response = await fetch(testUrl);
-      const data = await response.json();
-      
-      console.log('API test response:', data);
-      alert(`API Connection Test: ${JSON.stringify(data)}`);
-    } catch (err) {
-      console.error('API test error:', err);
-      setError(`API Connection Failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -77,13 +97,13 @@ const AdminLogin = () => {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div className="flex flex-col items-center">
           <div className="bg-purple-600 text-white p-3 rounded-full mb-4">
-            <FaStore className="text-2xl" />
+            <FaUserTie className="text-2xl" />
           </div>
           <h2 className="text-center text-3xl font-bold text-gray-800">
-            Sinosply Admin
+            Sinosply Staff Portal
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Log in to access your administration dashboard
+            Log in to access your staff dashboard
           </p>
         </div>
 
@@ -112,7 +132,7 @@ const AdminLogin = () => {
                   type="email"
                   required
                   className="appearance-none rounded-lg relative block w-full pl-10 pr-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-                  placeholder="Admin email"
+                  placeholder="Staff email"
                   value={formData.email}
                   onChange={handleChange}
                 />
@@ -169,17 +189,7 @@ const AdminLogin = () => {
               <span className="absolute left-0 inset-y-0 flex items-center pl-3">
                 <FaSignInAlt className="h-5 w-5 text-purple-400 group-hover:text-purple-300" />
               </span>
-              Sign in as Admin
-            </button>
-          </div>
-          
-          <div>
-            <button
-              type="button"
-              onClick={testApiConnection}
-              className="w-full flex justify-center py-2 px-4 border border-purple-300 text-sm font-medium rounded-lg text-purple-600 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
-            >
-              Test API Connection
+              Sign in as Staff
             </button>
           </div>
         </form>
@@ -189,8 +199,8 @@ const AdminLogin = () => {
             Back to main store
           </Link>
           <div className="mt-2">
-            <Link to="/staff/login" className="text-sm text-purple-600 hover:text-purple-800">
-              Staff Login
+            <Link to="/admin/login" className="text-sm text-purple-600 hover:text-purple-800">
+              Admin Login
             </Link>
           </div>
         </div>
@@ -199,4 +209,4 @@ const AdminLogin = () => {
   );
 };
 
-export default AdminLogin; 
+export default StaffLogin; 
