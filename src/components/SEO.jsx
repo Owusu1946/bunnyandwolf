@@ -36,10 +36,27 @@ const SEO = ({
     // Update Open Graph tags
     updateMetaTag("property", "og:title", title);
     updateMetaTag("property", "og:description", description);
-    updateMetaTag("property", "og:image", image);
     updateMetaTag("property", "og:url", currentUrl);
     updateMetaTag("property", "og:type", type);
     updateMetaTag("property", "og:site_name", "Sinosply");
+    
+    // Handle image properly (could be string or array)
+    if (image) {
+      // If image is an array, use the first one as the main image
+      if (Array.isArray(image) && image.length > 0) {
+        updateMetaTag("property", "og:image", image[0]);
+        
+        // Add additional images if available
+        image.forEach((img, index) => {
+          if (index > 0) { // Skip first image as it's set above
+            updateMetaTag("property", `og:image:0${index + 1}`, img);
+          }
+        });
+      } else {
+        // If image is a string, use it directly
+        updateMetaTag("property", "og:image", image);
+      }
+    }
     
     // If it's a product, add product-specific OG tags
     if (type === 'product' && product) {
@@ -66,8 +83,16 @@ const SEO = ({
     updateMetaTag("name", "twitter:site", "@sinosply");
     updateMetaTag("name", "twitter:title", title);
     updateMetaTag("name", "twitter:description", description);
-    updateMetaTag("name", "twitter:image", image);
     updateMetaTag("name", "twitter:url", currentUrl);
+    
+    // Handle Twitter image the same way as Open Graph
+    if (image) {
+      if (Array.isArray(image) && image.length > 0) {
+        updateMetaTag("name", "twitter:image", image[0]);
+      } else {
+        updateMetaTag("name", "twitter:image", image);
+      }
+    }
     
     // Update canonical link
     const canonicalLink = document.getElementById('canonical-link');
