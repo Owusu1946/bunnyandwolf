@@ -161,6 +161,7 @@ const AppWrapper = () => {
                 <Route path="/services" element={<Services />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/search" element={<SearchResults />} />
+                <Route path="/contact" element={<Contact />} />
 
                 
                 {/* Category Pages */}

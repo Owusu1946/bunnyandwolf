@@ -44,14 +44,53 @@ const SinosplyContact = () => {
     setStatus({ type: '', message: '' });
 
     try {
-      const response = await axios.post(`${apiConfig.baseURL}/contact`, formData);
+      // Create the submission data with original email and the forwarding address
+      const submissionData = {
+        ...formData,
+        forwardTo: 'kkenwynwejones@gmail.com', // Always send to this verified email
+        originalEmail: formData.email // Keep track of the customer's email
+      };
+      
+      console.log('Sending contact form submission to:', `${apiConfig.baseURL}/contact`);
+      console.log('Form data:', submissionData);
+      
+      const response = await axios.post(`${apiConfig.baseURL}/contact`, submissionData);
+      
       setStatus({ type: 'success', message: 'Message sent successfully! We will get back to you soon.' });
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
     } catch (error) {
-      setStatus({ 
-        type: 'error', 
-        message: error.response?.data?.message || 'Something went wrong. Please try again later.'
-      });
+      console.error('Contact form submission error:', error);
+      
+      // For development: try sending to a test endpoint if API fails
+      try {
+        console.log('Attempting fallback email delivery...');
+        await axios.post('https://api.resend.com/emails', {
+          from: 'onboarding@resend.dev',
+          to: 'kkenwynwejones@gmail.com',
+          subject: `[CONTACT FORM] ${formData.subject}`,
+          html: `
+            <h2>New Contact Form Submission</h2>
+            <p><strong>Name:</strong> ${formData.name}</p>
+            <p><strong>Email:</strong> ${formData.email}</p>
+            <p><strong>Phone:</strong> ${formData.phone}</p>
+            <p><strong>Subject:</strong> ${formData.subject}</p>
+            <p><strong>Message:</strong> ${formData.message}</p>
+          `
+        }, {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_RESEND_API_KEY || 'your-resend-api-key'}`
+          }
+        });
+        
+        setStatus({ type: 'success', message: 'Message sent successfully! We will get back to you soon.' });
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      } catch (fallbackError) {
+        console.error('Fallback email delivery failed:', fallbackError);
+        setStatus({ 
+          type: 'error', 
+          message: 'Unable to send your message at this time. Please try again later or contact us directly at info@sinosply.com.'
+        });
+      }
     } finally {
       setLoading(false);
     }
