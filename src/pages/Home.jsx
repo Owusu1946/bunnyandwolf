@@ -190,7 +190,7 @@ const Home = () => {
 
       {/* ElevenLabs Convai Widget */}
       <div className="elevenlabs-convai-widget">
-        <elevenlabs-convai agent-id="agent_01jvb63bk2enctk0p327qkzndv"></elevenlabs-convai>
+        <elevenlabs-convai agent-id="agent_01jvcqbx3kesp876edf3f3ksnx"></elevenlabs-convai>
       </div>
 
       {/* Header Section */}
