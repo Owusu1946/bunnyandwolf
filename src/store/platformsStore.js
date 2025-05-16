@@ -132,6 +132,42 @@ export const usePlatformsStore = create(
       
       // Fetch platforms from API
       fetchPlatformsFromAPI: async () => {
+        // Fallback platforms data to use when API fails
+        const fallbackPlatforms = [
+          {
+            _id: '1',
+            name: 'SHOP PARTY LOOKS',
+            logoUrl: 'https://us.princesspolly.com/cdn/shop/files/Group_4341_128edd21-c0ce-4241-9d87-1c8a80d3874a_665x.progressive.jpg?v=1740628902',
+            domain: '#',
+            description: 'Discover our exclusive collection of party outfits',
+            isActive: true
+          },
+          {
+            _id: '2',
+            name: 'BEACH DRESSES',
+            logoUrl: 'https://us.princesspolly.com/cdn/shop/files/1-modelinfo-nika-us2_14a23d51-fcbc-4fdf-8aca-051bae50e83f_450x610_crop_center.jpg?v=1728428305',
+            domain: '#',
+            description: 'Perfect dresses for your beach vacation',
+            isActive: true
+          },
+          {
+            _id: '3',
+            name: 'THE SPRING SHOP',
+            logoUrl: 'https://www.princesspolly.com.au/cdn/shop/files/1-modelinfo-nat-us2_4fe34236-40a0-47e5-89b1-1315a0b2076f_450x610_crop_center.jpg?v=1739307217',
+            domain: '#',
+            description: 'Fresh styles for the new season',
+            isActive: true
+          },
+          {
+            _id: '4',
+            name: 'TRENDING DUO: BLUE & BROWN',
+            logoUrl: 'https://us.princesspolly.com/cdn/shop/files/1-modelinfo-josephine-us2_3ec262cf-5af1-4637-a7c0-ce1ef00b3da3_450x610_crop_center.jpg?v=1722315009',
+            domain: '#',
+            description: 'The color combination that\'s taking over this season',
+            isActive: true
+          }
+        ];
+        
         try {
           set({ loading: true, error: null });
           
@@ -167,9 +203,12 @@ export const usePlatformsStore = create(
           }
         } catch (error) {
           console.error('Error fetching platforms:', error);
+          console.log('Using fallback platforms instead');
           set({ 
             error: error.message,
-            loading: false
+            loading: false,
+            platforms: fallbackPlatforms,
+            activePlatforms: fallbackPlatforms
           });
         }
       },

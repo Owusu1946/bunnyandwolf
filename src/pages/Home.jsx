@@ -52,6 +52,21 @@ const Home = () => {
       sampleProducts.map(p => `${p.name} (isSample: ${p.isSample}, isFeatured: ${p.isFeatured})`));
   }, [sampleProducts]);
   
+  // Add ElevenLabs Convai widget script to the page
+  useEffect(() => {
+    // Create script element for ElevenLabs Convai widget
+    const script = document.createElement('script');
+    script.src = 'https://elevenlabs.io/convai-widget/index.js';
+    script.async = true;
+    script.type = 'text/javascript';
+    document.body.appendChild(script);
+    
+    // Clean up on component unmount
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+  
   // Fallback platforms data if no platforms are available from the store
   const fallbackPlatforms = [
     {
@@ -143,6 +158,11 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-white">
       <HomeNavbar />
+
+      {/* ElevenLabs Convai Widget */}
+      <div className="elevenlabs-convai-widget">
+        <elevenlabs-convai agent-id="agent_01jvb63bk2enctk0p327qkzndv"></elevenlabs-convai>
+      </div>
 
       {/* Header Section */}
       <HeroSection 

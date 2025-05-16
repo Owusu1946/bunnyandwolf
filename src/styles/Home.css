@@ -123,3 +123,11 @@
   -webkit-text-fill-color: transparent;
   background-image: var(--gradient-primary);
 }
+
+/* Add CSS for the ElevenLabs Convai widget */
+.elevenlabs-convai-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}

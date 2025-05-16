@@ -479,6 +479,50 @@ export const useProductStore = create(
       fetchSampleProducts: async () => {
         set({ loading: true });
         console.log('🔍 ProductStore: Fetching sample products from API');
+        
+        // Fallback sample products to use when API fails
+        const fallbackSampleProducts = [
+          {
+            _id: 'sample1',
+            name: 'Compressed Sofas',
+            description: 'High-quality space-saving furniture solutions for your home.',
+            basePrice: 599,
+            variants: [{
+              additionalImages: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80']
+            }],
+            slug: 'compressed-sofas',
+            avgRating: 4.7,
+            reviewCount: 12,
+            isSample: true
+          },
+          {
+            _id: 'sample2',
+            name: 'Bamboo Furniture',
+            description: 'Sustainable and elegant furniture made from eco-friendly bamboo.',
+            basePrice: 399,
+            variants: [{
+              additionalImages: ['https://images.unsplash.com/photo-1540638349517-3abd5afc5847?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80']
+            }],
+            slug: 'bamboo-furniture',
+            avgRating: 4.9,
+            reviewCount: 8,
+            isSample: true
+          },
+          {
+            _id: 'sample3',
+            name: 'Smart Gadgets',
+            description: 'Cutting-edge technology to simplify and enhance your lifestyle.',
+            basePrice: 299,
+            variants: [{
+              additionalImages: ['https://images.unsplash.com/photo-1546054454-aa26e2b734c7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80']
+            }],
+            slug: 'smart-gadgets',
+            avgRating: 4.5,
+            reviewCount: 15,
+            isSample: true
+          }
+        ];
+        
         try {
           const response = await fetch(`${apiConfig.baseURL}/products?isSample=true&limit=6`);
           const data = await response.json();
@@ -501,13 +545,15 @@ export const useProductStore = create(
             return sampleProductsOnly;
           } else {
             console.error('❌ ProductStore: API request for sample products failed', data);
-            set({ loading: false });
-            return [];
+            console.log('Using fallback sample products instead');
+            set({ sampleProducts: fallbackSampleProducts, loading: false });
+            return fallbackSampleProducts;
           }
         } catch (error) {
           console.error('❌ ProductStore: Error fetching sample products:', error);
-          set({ loading: false });
-          return [];
+          console.log('Using fallback sample products instead');
+          set({ sampleProducts: fallbackSampleProducts, loading: false });
+          return fallbackSampleProducts;
         }
       }
     }),

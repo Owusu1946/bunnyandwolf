@@ -9,15 +9,22 @@
 const getBaseURL = () => {
   // Check if we have a VITE_API_URL in environment variables
   if (import.meta.env.VITE_API_URL) {
+    console.log('Using API URL from environment:', import.meta.env.VITE_API_URL);
     return import.meta.env.VITE_API_URL;
   }
   
+  // Determine if we're in development or production
+  const isDevelopment = !import.meta.env.PROD;
+  console.log('Environment:', isDevelopment ? 'Development' : 'Production');
+  
   // Fall back to default URLs based on environment
-  if (import.meta.env.PROD) {
+  if (!isDevelopment) {
     // For production
+    console.log('Using production API URL: https://sinosply-backend.onrender.com/api/v1');
     return 'https://sinosply-backend.onrender.com/api/v1';
   } else {
     // For development
+    console.log('Using development API URL: http://localhost:5000/api/v1');
     return 'http://localhost:5000/api/v1';
   }
 };
