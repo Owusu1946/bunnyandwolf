@@ -17,9 +17,18 @@ const getBaseURL = () => {
   const isDevelopment = !import.meta.env.PROD;
   console.log('Environment:', isDevelopment ? 'Development' : 'Production');
   
+  // Check if we're on the main domain
+  const isMainDomain = window.location.hostname === 'www.sinosply.com' || 
+                       window.location.hostname === 'sinosply.com';
+  
   // Fall back to default URLs based on environment
   if (!isDevelopment) {
-    // For production
+    if (isMainDomain) {
+      // For main domain
+      console.log('Using production API URL for main domain: https://sinosply-backend.onrender.com/api/v1');
+      return 'https://sinosply-backend.onrender.com/api/v1';
+    }
+    // For other production environments (like bunnyandwolf.vercel.app)
     console.log('Using production API URL: https://sinosply-backend.onrender.com/api/v1');
     return 'https://sinosply-backend.onrender.com/api/v1';
   } else {

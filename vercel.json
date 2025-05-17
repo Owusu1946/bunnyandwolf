@@ -16,5 +16,10 @@
         }
       ]
     }
+  ],
+  "domains": [
+    "www.sinosply.com",
+    "sinosply.com",
+    "bunnyandwolf.vercel.app"
   ]
 } 

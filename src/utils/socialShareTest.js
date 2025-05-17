@@ -107,7 +107,13 @@ const testSocialSharing = async (productId) => {
   try {
     console.log('Test 3: Simulating social crawler request...');
     
-    const productUrl = `https://bunnyandwolf.vercel.app/product/${productId}`;
+    // Determine which domain we're on
+    const isMainDomain = window.location.hostname === 'www.sinosply.com' || 
+                        window.location.hostname === 'sinosply.com';
+    
+    // Use appropriate URL based on current domain
+    const domain = isMainDomain ? 'https://www.sinosply.com' : 'https://bunnyandwolf.vercel.app';
+    const productUrl = `${domain}/product/${productId}`;
     
     console.log(`To fully test, open this URL in the WhatsApp Link Preview Debug Tool:`);
     console.log(`https://providers.chat/whatsapp-link-preview-debugger/?url=${encodeURIComponent(productUrl)}`);
