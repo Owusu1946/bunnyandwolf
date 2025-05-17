@@ -106,7 +106,7 @@ const testSocialSharing = async (productId) => {
   // Test 3: Simulate social crawler
   try {
     console.log('Test 3: Simulating social crawler request...');
-    
+    //deploy
     // Determine which domain we're on
     const isMainDomain = window.location.hostname === 'www.sinosply.com' || 
                         window.location.hostname === 'sinosply.com';
