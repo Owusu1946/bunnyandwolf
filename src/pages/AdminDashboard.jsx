@@ -135,32 +135,65 @@ const AdminDashboard = () => {
       return;
     }
     
-    // Load customers from store if needed
-    if (customers.length === 0) {
-      fetchCustomers();
+    // First, set loading state if no cached data is available
+    if (customers.length === 0 || orders.length === 0) {
+      setLoading(true);
+    } else {
+      // If we have cached data, we can stay in non-loading state
+      setLoading(false);
     }
     
-    // Load all orders from API (or use sample if needed)
-    const loadOrders = async () => {
+    // Handler to load/refresh all data
+    const loadDashboardData = async () => {
       try {
-        console.log('Dashboard - Loading all orders...');
+        // Track if we need to update loading state at the end
+        let shouldSetLoading = customers.length === 0 || orders.length === 0;
+        
+        // Load customers from store if not available
+        if (customers.length === 0) {
+          console.log('Dashboard - Loading customers data...');
+          await fetchCustomers(1, 100, '', true);
+          console.log('Dashboard - Customers data loaded successfully');
+        } else {
+          // If we have cached customers data, refresh in background
+          console.log('Dashboard - Using cached customers data, refreshing in background');
+          fetchCustomers(1, 100, '', true).catch(err => 
+            console.error('Dashboard - Background customers refresh failed:', err)
+          );
+        }
+        
+        // Load orders if not available
+        if (orders.length === 0) {
+          console.log('Dashboard - Loading orders data...');
         const result = await fetchOrders();
         if (!result.success || orders.length === 0) {
           useOrderStore.getState().initializeWithSampleOrder();
+          }
+          console.log('Dashboard - Orders data loaded successfully');
+        } else {
+          // If we have cached orders data, refresh in background
+          console.log('Dashboard - Using cached orders data, refreshing in background');
+          fetchOrders(true).catch(err => 
+            console.error('Dashboard - Background orders refresh failed:', err)
+          );
+        }
+        
+        // Fetch dashboard stats
+        await fetchStats();
+        
+        // Only update loading state if we didn't have cached data
+        if (shouldSetLoading) {
+          setLoading(false);
         }
       } catch (error) {
-        console.error('Dashboard - Error fetching orders:', error);
+        console.error('Dashboard - Error loading data:', error);
+        setLoading(false);
       }
     };
-    loadOrders();
     
-    // Load products if needed
-    if (products.length === 0) {
-      productStore.fetchProductsFromAPI();
-    }
-    
-    fetchStats();
-  }, [user, navigate, fetchCustomers, customers.length, products.length]);
+    // Load or refresh all data
+    loadDashboardData();
+  }, [user, navigate, fetchCustomers, orders.length, products.length, customers.length]);
 
   const fetchStats = async () => {
     try {

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 
 // Create context
 const CartContext = createContext();
@@ -48,66 +49,87 @@ export const CartProvider = ({ children }) => {
   // Add item to cart
   const addToCart = (product) => {
     try {
+      console.log('🛒 CartContext: Adding product to cart with shipping data:', {
+        id: product.id,
+        name: product.name,
+        airShippingPrice: product.airShippingPrice,
+        airShippingDuration: product.airShippingDuration,
+        seaShippingPrice: product.seaShippingPrice,
+        seaShippingDuration: product.seaShippingDuration
+      });
+      
       setCartItems(prevItems => {
         // Handle different product formats (from WishlistPage vs from ProductDetailsPage)
         const productId = product.id;
         const productSize = product.size;
         const productColor = product.selectedColor || product.color;
         const productQuantity = product.quantity || 1;
+        const productPrice = product.price || product.salePrice || product.basePrice;
+        const productColorName = product.colorName;
+        const productImage = product.image;
         
-        // Get price and image based on available properties
-        let productPrice, productImage, productName, productColorName;
-        
-        if (product.variants && product.currentVariantIndex !== undefined) {
-          // Format from ProductDetailsPage
-          const variant = product.variants[product.currentVariantIndex];
-          // Ensure price is a number
-          productPrice = typeof variant.price === 'string' 
-            ? parseFloat(variant.price.replace(/[^\d.]/g, ''))
-            : parseFloat(variant.price);
-          productImage = variant.image || variant.additionalImages?.[0];
-          productName = product.name;
-          productColorName = variant.colorName;
-        } else {
-          // Format from WishlistPage or elsewhere
-          // Ensure price is a number
-          productPrice = typeof product.price === 'string'
-            ? parseFloat(product.price.replace(/[^\d.]/g, ''))
-            : parseFloat(product.price);
-          productImage = product.image;
-          productName = product.name;
-          productColorName = product.colorName;
-        }
-        
-        // Check if item already exists in cart
+        // Check if this product (with same size and color) already exists in cart
         const existingItemIndex = prevItems.findIndex(
-          item => item.id === productId && item.size === productSize && item.color === productColor
+          item => 
+            item.id === productId && 
+            item.size === productSize && 
+            item.color === productColor
         );
         
-        if (existingItemIndex > -1) {
-          // Update quantity of existing item
+        // Include shipping data in the cart item
+        const shippingData = {
+          airShippingPrice: product.airShippingPrice || 0,
+          airShippingDuration: product.airShippingDuration || 0,
+          seaShippingPrice: product.seaShippingPrice || 0,
+          seaShippingDuration: product.seaShippingDuration || 0
+        };
+        
+        console.log('🚢 CartContext: Shipping data being added to cart item:', shippingData);
+        
+        if (existingItemIndex >= 0) {
+          // If item exists, update quantity
           const updatedItems = [...prevItems];
-          updatedItems[existingItemIndex].quantity += productQuantity;
+          updatedItems[existingItemIndex] = {
+            ...updatedItems[existingItemIndex],
+            quantity: updatedItems[existingItemIndex].quantity + productQuantity,
+            ...shippingData // Make sure shipping data is updated
+          };
+          
+          // Also log the updated cart item
+          console.log('🔄 CartContext: Updated existing item in cart with shipping data:', updatedItems[existingItemIndex]);
+          
           return updatedItems;
         } else {
-          // Add new item to cart
-          return [...prevItems, {
+          // If item doesn't exist, add new item
+          const newItem = {
             id: productId,
-            name: productName,
+            name: product.name,
             price: productPrice,
             image: productImage,
             color: productColor,
             colorName: productColorName,
             size: productSize,
-            quantity: productQuantity
-          }];
+            quantity: productQuantity,
+            ...shippingData // Include shipping data
+          };
+          
+          // Log the new cart item
+          console.log('➕ CartContext: Added new item to cart with shipping data:', newItem);
+          
+          return [...prevItems, newItem];
         }
       });
       
-      return true; // Return success state that can be used to trigger notifications
+      // Show success message in toast
+      toast.success(`Item added to your cart!`, {
+        position: "bottom-right",
+        autoClose: 3000
+      });
     } catch (error) {
       console.error('Error adding to cart:', error);
-      return false;
+      toast.error('Failed to add item to cart. Please try again.', {
+        position: "bottom-right"
+      });
     }
   };
   

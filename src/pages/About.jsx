@@ -19,16 +19,16 @@ const About = () => {
   // Team members data
   const teamMembers = [
     {
-      name: 'Sarah Chen',
+      name: 'Benjie Agyare',
       position: 'Founder & CEO',
-      bio: 'With 15+ years in sourcing and quality control, Sarah founded Sinosply to bridge the gap between global buyers and Chinese manufacturers.',
-      image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
+      bio: 'With 15+ years in sourcing and quality control, Benjie founded Sinosply to bridge the gap between global buyers and Chinese manufacturers.',
+      image: '/team/benjie.jpg'
     },
     {
       name: 'Michael Wong',
       position: 'Operations Director',
       bio: 'Michael oversees our sourcing network and ensures seamless logistics across our sourcing operations in China.',
-      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
+      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     },
     {
       name: 'Li Wei',
@@ -40,7 +40,7 @@ const About = () => {
       name: 'David Osei',
       position: 'Customer Success Manager',
       bio: 'David ensures our clients have a seamless experience from their first quote to final delivery.',
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
+      image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     }
   ];
   
@@ -72,22 +72,30 @@ const About = () => {
   const certifications = [
     {
       name: 'ISO 9001:2015',
-      description: 'Quality Management System Certified',
+      issuer: 'International Organization for Standardization',
+      description: 'Quality Management System',
+      year: '2021',
       icon: <FaCertificate />
     },
     {
       name: 'SEDEX',
+      issuer: 'Supplier Ethical Data Exchange',
       description: 'Supply Chain Ethics Compliance',
+      year: '2020',
       icon: <FaCertificate />
     },
     {
       name: 'Authorized Economic Operator',
+      issuer: 'World Customs Organization',
       description: 'AEO Export & Import Certified',
+      year: '2019',
       icon: <FaCertificate />
     },
     {
-      name: 'International Freight Forwarder Association',
-      description: 'Member Since 2014',
+      name: 'Global Freight Alliance',
+      issuer: 'International Freight Forwarder Association',
+      description: 'Premium Member',
+      year: '2018',
       icon: <FaShippingFast />
     }
   ];
@@ -141,9 +149,9 @@ const About = () => {
                 transparent, and hassle-free for businesses of all sizes.
               </p>
               <p className="text-gray-600 mb-6">
-                Our founder, Sarah Chen, experienced firsthand the challenges businesses face when trying to 
+                Our founder, Benjie Agyare, experienced firsthand the challenges businesses face when trying to 
                 navigate China's complex manufacturing landscape. After 15 years in international trade and 
-                supply chain management, she assembled a team of experts to create a comprehensive sourcing 
+                supply chain management, he assembled a team of experts to create a comprehensive sourcing 
                 solution.
               </p>
               <p className="text-gray-600">
@@ -267,23 +275,58 @@ const About = () => {
           >
             <h2 className="text-3xl font-bold text-gray-900">Our Certifications</h2>
             <div className="mt-2 w-24 h-1 bg-red-600 mx-auto"></div>
+            <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
+              International standards and certifications that validate our quality and ethical practices
+            </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {certifications.map((cert, index) => (
               <motion.div 
                 key={index}
-                className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 text-center"
+                className="relative"
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.1 }}
                 viewport={{ once: true }}
+                whileHover={{ 
+                  y: -5,
+                  transition: { duration: 0.2 }
+                }}
               >
-                <div className="text-red-600 flex justify-center mb-3">
-                  <div className="text-2xl">{cert.icon}</div>
+                {/* Certificate Background with Border */}
+                <div className="absolute inset-0 bg-gradient-to-b from-amber-50 to-amber-100 rounded-lg transform rotate-1"></div>
+                
+                {/* Main Certificate */}
+                <div className="relative bg-white border-4 border-double border-amber-300 rounded-lg p-6 shadow-md overflow-hidden">
+                  {/* Gold Seal */}
+                  <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full opacity-20"></div>
+                  
+                  {/* Red Ribbon */}
+                  <div className="absolute -top-1 -right-1 w-16 h-16">
+                    <div className="absolute transform rotate-45 w-32 h-4 bg-red-600 right-0 top-6"></div>
+                  </div>
+                  
+                  {/* Certificate Content */}
+                  <div className="text-center mb-4">
+                    <div className="flex justify-center mb-4">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-white text-2xl">
+                        {cert.icon}
+                      </div>
+                    </div>
+                    
+                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">{cert.issuer}</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">{cert.name}</h3>
+                    <div className="w-12 h-1 bg-amber-300 mx-auto my-2"></div>
+                    <p className="text-sm font-medium text-gray-700 mb-3">{cert.description}</p>
+                    
+                    <div className="flex items-center justify-center">
+                      <div className="px-3 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">
+                        Since {cert.year}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">{cert.name}</h3>
-                <p className="text-sm text-gray-600">{cert.description}</p>
               </motion.div>
             ))}
           </div>

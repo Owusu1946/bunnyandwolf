@@ -15,6 +15,7 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
   // Get products from the product store
   const { products, fetchProductsFromAPI } = useProductStore();
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const isMobile = previewMode === 'mobile';
   
   // Helper function to get the best product image
   const getProductImage = (product) => {
@@ -161,23 +162,24 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
       return (
         <div>
           <h4 style={{
-            fontSize: '16px',
+            fontSize: isMobile ? '14px' : '16px',
             fontWeight: 'bold',
             textAlign: 'center',
-            margin: '30px 0 20px',
+            margin: isMobile ? '20px 0 15px' : '30px 0 20px',
             color: currentStyle.textColor
           }}>
             Featured Products
           </h4>
           <div style={{
             display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
             flexWrap: 'wrap',
             justifyContent: 'space-between',
-            gap: '15px'
+            gap: isMobile ? '12px' : '15px'
           }}>
-            {[1, 2, 3].slice(0, previewMode === 'mobile' ? 1 : 3).map((_, index) => (
+            {[1, 2].slice(0, isMobile ? 2 : 3).map((_, index) => (
               <div key={index} style={{
-                width: previewMode === 'mobile' ? '100%' : 'calc(33.33% - 10px)',
+                width: isMobile ? '100%' : 'calc(33.33% - 10px)',
                 backgroundColor: 'white',
                 borderRadius: '8px',
                 overflow: 'hidden',
@@ -185,7 +187,7 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
                 border: '1px solid #f0f0f0'
               }}>
                 <div style={{
-                  height: '160px',
+                  height: isMobile ? '140px' : '160px',
                   backgroundColor: '#f3f4f6',
                   display: 'flex',
                   alignItems: 'center',
@@ -216,35 +218,52 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
       );
     }
     
+    // Style for the Buy Now button, optimized for touch
+    const buyButtonStyle = {
+      backgroundColor: currentStyle.accentColor,
+      color: 'white',
+      fontSize: '11px',
+      fontWeight: 'bold',
+      padding: isMobile ? '8px 16px' : '5px 10px',
+      borderRadius: '4px',
+      textDecoration: 'none',
+      display: 'inline-block',
+      minWidth: isMobile ? '75px' : 'auto',
+      textAlign: 'center',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+      WebkitTapHighlightColor: 'transparent'
+    };
+    
     return (
       <div>
         <h4 style={{
-          fontSize: '16px',
+          fontSize: isMobile ? '14px' : '16px',
           fontWeight: 'bold',
           textAlign: 'center',
-          margin: '30px 0 20px',
+          margin: isMobile ? '20px 0 15px' : '30px 0 20px',
           color: currentStyle.textColor
         }}>
           Featured Products
         </h4>
         <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          gap: '15px'
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
+          gap: isMobile ? '12px' : '15px'
         }}>
-          {featuredProducts.slice(0, previewMode === 'mobile' ? 1 : 3).map((product, index) => (
+          {featuredProducts.slice(0, isMobile ? 2 : 3).map((product, index) => (
             <div key={index} style={{
-              width: previewMode === 'mobile' ? '100%' : 'calc(33.33% - 10px)',
               backgroundColor: 'white',
               borderRadius: '8px',
               overflow: 'hidden',
               boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-              border: '1px solid #f0f0f0'
+              border: '1px solid #f0f0f0',
+              marginBottom: isMobile ? '8px' : '0',
+              display: 'flex',
+              flexDirection: 'column'
             }}>
               <div style={{
                 position: 'relative',
-                height: '160px',
+                paddingTop: isMobile ? '75%' : '70%', /* Aspect ratio */
                 overflow: 'hidden'
               }}>
                 {product.badge && (
@@ -268,38 +287,55 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
                   src={product.image} 
                   alt={product.name}
                   style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
                     width: '100%',
                     height: '100%',
-                    objectFit: 'cover'
+                    objectFit: 'cover',
+                    objectPosition: 'center'
                   }}
+                  loading="lazy"
                   onError={(e) => {
                     e.target.onerror = null;
                     e.target.src = `https://via.placeholder.com/400x400?text=${encodeURIComponent(product.name || 'Product')}`;
                   }}
                 />
               </div>
-              <div style={{padding: '12px'}}>
+              <div style={{
+                padding: isMobile ? '12px 10px' : '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                flexGrow: 1,
+                justifyContent: 'space-between'
+              }}>
                 <div style={{
-                  fontSize: '14px',
+                  fontSize: isMobile ? '13px' : '14px',
                   fontWeight: '600',
                   marginBottom: '6px',
                   color: currentStyle.textColor,
-                  whiteSpace: 'nowrap',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis'
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  lineHeight: '1.3',
+                  height: isMobile ? '34px' : '36px'
                 }}>
                   {product.name}
                 </div>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  marginTop: isMobile ? '8px' : '4px'
                 }}>
                   <div>
                     <span style={{
-                      fontSize: '15px',
+                      fontSize: isMobile ? '14px' : '15px',
                       fontWeight: 'bold',
-                      color: currentStyle.accentColor
+                      color: currentStyle.accentColor,
+                      display: 'block'
                     }}>
                       {product.price}
                     </span>
@@ -307,22 +343,14 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
                       <div style={{
                         fontSize: '12px',
                         textDecoration: 'line-through',
-                        color: '#888'
+                        color: '#888',
+                        marginTop: '2px'
                       }}>
                         {product.discount}
                       </div>
                     )}
                   </div>
-                  <a href="#" style={{
-                    backgroundColor: currentStyle.accentColor,
-                    color: 'white',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    padding: '5px 10px',
-                    borderRadius: '4px',
-                    textDecoration: 'none',
-                    display: 'inline-block'
-                  }}>
+                  <a href="#" style={buyButtonStyle}>
                     BUY NOW
                   </a>
                 </div>
@@ -342,12 +370,12 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
           backgroundColor: '#FFF7ED',
           border: `2px dashed ${currentStyle.accentColor}`,
           borderRadius: '8px',
-          padding: '15px',
+          padding: isMobile ? '12px' : '15px',
           textAlign: 'center',
-          margin: '25px 0'
+          margin: isMobile ? '20px 0' : '25px 0'
         }}>
           <div style={{
-            fontSize: '13px',
+            fontSize: isMobile ? '12px' : '13px',
             fontWeight: '600',
             color: currentStyle.secondaryTextColor,
             marginBottom: '5px'
@@ -355,7 +383,7 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
             LIMITED TIME OFFER
           </div>
           <div style={{
-            fontSize: '22px',
+            fontSize: isMobile ? '18px' : '22px',
             fontWeight: 'bold',
             color: currentStyle.accentColor,
             marginBottom: '8px'
@@ -366,11 +394,11 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
             backgroundColor: currentStyle.accentColor,
             color: 'white',
             fontWeight: 'bold',
-            padding: '8px',
-            maxWidth: '200px',
+            padding: isMobile ? '6px' : '8px',
+            maxWidth: isMobile ? '180px' : '200px',
             margin: '0 auto',
             borderRadius: '4px',
-            fontSize: '16px',
+            fontSize: isMobile ? '14px' : '16px',
             letterSpacing: '1px'
           }}>
             CODE: SINOSPLY25
@@ -391,12 +419,12 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
         <div style={{
           backgroundColor: '#ECFDF5',
           borderRadius: '8px',
-          padding: '20px',
+          padding: isMobile ? '15px' : '20px',
           textAlign: 'center',
-          margin: '25px 0'
+          margin: isMobile ? '20px 0' : '25px 0'
         }}>
           <div style={{
-            fontSize: '18px',
+            fontSize: isMobile ? '16px' : '18px',
             fontWeight: 'bold',
             color: currentStyle.accentColor,
             marginBottom: '10px'
@@ -404,7 +432,7 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
             🎉 NEW COLLECTION LAUNCH 🎉
           </div>
           <div style={{
-            fontSize: '14px',
+            fontSize: isMobile ? '13px' : '14px',
             lineHeight: '1.6',
             color: currentStyle.textColor
           }}>
@@ -417,18 +445,67 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
     return null;
   };
   
+  // Improve CTA button for mobile
+  const ctaButtonStyle = {
+    background: `linear-gradient(to right, ${currentStyle.accentColor}, ${currentStyle.secondaryColor})`,
+    color: 'white',
+    padding: isMobile ? '12px 24px' : '14px 28px',
+    borderRadius: '6px',
+    textDecoration: 'none',
+    fontWeight: 'bold',
+    display: 'inline-block',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    fontSize: isMobile ? '13px' : '14px',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+    minWidth: isMobile ? '180px' : '200px',
+    WebkitTapHighlightColor: 'transparent'
+  };
+
+  // Enhance all link elements to provide visual feedback on mobile
+  const linkStyle = {
+    color: currentStyle.accentColor,
+    textDecoration: 'none',
+    margin: isMobile ? '0' : '0 8px',
+    padding: isMobile ? '8px 0' : '0', // Increased padding for better touch target
+    display: 'block', // Full width on mobile for better touch target
+    WebkitTapHighlightColor: 'transparent' // Removes default mobile tap highlight
+  };
+
+  // Define a reusable style for social media icons
+  const socialIconStyle = (isMobile) => ({
+    display: 'inline-block',
+    margin: '0 5px',
+    width: isMobile ? '40px' : '30px',
+    height: isMobile ? '40px' : '30px',
+    lineHeight: isMobile ? '40px' : '30px',
+    textAlign: 'center',
+    backgroundColor: '#f1f1f1',
+    borderRadius: '50%',
+    color: currentStyle.accentColor,
+    textDecoration: 'none',
+    fontWeight: 'bold',
+    WebkitTapHighlightColor: 'transparent',
+    transition: 'background-color 0.2s'
+  });
+
   return (
-    <div className={`overflow-auto border rounded-lg ${previewMode === 'mobile' ? 'w-[375px] mx-auto' : 'w-full'}`} 
-         style={{maxHeight: '600px'}}>
+    <div className={`overflow-auto border rounded-lg ${isMobile ? 'max-w-[100%]' : 'w-full'}`} 
+         style={{
+           maxHeight: isMobile ? '500px' : '600px',
+           WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+           transform: 'translateZ(0)' // Hardware acceleration for smoother scrolling
+         }}>
       <div style={{
         backgroundColor: '#f4f4f7', // Light grey background for email body
         fontFamily: currentStyle.fontFamily,
         color: currentStyle.textColor,
-        padding: previewMode === 'mobile' ? '10px' : '20px',
+        padding: isMobile ? '8px' : '20px',
       }}>
         {/* Email Container */}
         <div style={{
-          maxWidth: '600px',
+          maxWidth: '100%', // Ensure container doesn't overflow on mobile
+          width: isMobile ? '100%' : '600px',
           margin: '0 auto',
           backgroundColor: 'white',
           borderRadius: '8px',
@@ -438,15 +515,15 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
           {/* Email Header */}
           <div style={{
             background: currentStyle.headerColor,
-            padding: '25px 20px',
+            padding: isMobile ? '20px 15px' : '25px 20px',
             textAlign: 'center',
             position: 'relative'
           }}>
             {/* Logo and Brand */}
             <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
               <div style={{
-                width: '30px',
-                height: '30px',
+                width: isMobile ? '24px' : '30px',
+                height: isMobile ? '24px' : '30px',
                 backgroundColor: 'white',
                 borderRadius: '50%',
                 display: 'flex',
@@ -455,12 +532,12 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
                 marginRight: '10px'
               }}>
                 <span style={{
-                  fontSize: '18px',
+                  fontSize: isMobile ? '15px' : '18px',
                   fontWeight: 'bold',
                   color: currentStyle.accentColor
                 }}>S</span>
               </div>
-              <h2 style={{margin: 0, fontSize: previewMode === 'mobile' ? '18px' : '24px', color: 'white'}}>
+              <h2 style={{margin: 0, fontSize: isMobile ? '16px' : '24px', color: 'white'}}>
                 SINOSPLY
               </h2>
             </div>
@@ -472,7 +549,11 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
               right: '10px',
               fontSize: '10px'
             }}>
-              <a href="#" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none' }}>
+              <a href="#" style={{ 
+                color: 'rgba(255,255,255,0.7)', 
+                textDecoration: 'none',
+                padding: isMobile ? '5px' : '0' // Larger tap target on mobile
+              }}>
                 View in browser
               </a>
             </div>
@@ -480,12 +561,12 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
           
           {/* Email Content Section */}
           <div style={{
-            padding: previewMode === 'mobile' ? '15px' : '25px',
+            padding: isMobile ? '12px' : '25px',
           }}>
             <div style={{
-              fontSize: '12px',
+              fontSize: isMobile ? '11px' : '12px',
               color: '#888888',
-              marginBottom: '15px',
+              marginBottom: isMobile ? '10px' : '15px',
               textAlign: 'right'
             }}>
               {currentDate}
@@ -494,10 +575,10 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
             {/* Subject Line */}
             <h3 style={{
               borderBottom: `2px solid ${currentStyle.accentColor}`,
-              paddingBottom: '12px',
-              marginBottom: '20px',
+              paddingBottom: isMobile ? '8px' : '12px',
+              marginBottom: isMobile ? '15px' : '20px',
               color: currentStyle.textColor,
-              fontSize: previewMode === 'mobile' ? '18px' : '22px'
+              fontSize: isMobile ? '16px' : '22px'
             }}>
               {subject || "Your Campaign Subject Line"}
             </h3>
@@ -508,10 +589,19 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
             {/* Email Content */}
             <div style={{
               lineHeight: '1.6',
-              fontSize: previewMode === 'mobile' ? '14px' : '16px',
+              fontSize: isMobile ? '13px' : '16px',
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word'
             }}>
               {content ? (
-                <div dangerouslySetInnerHTML={{ __html: content }} />
+                <div 
+                  dangerouslySetInnerHTML={{ __html: content }} 
+                  className="email-content"
+                  style={{
+                    maxWidth: '100%',
+                    overflow: 'hidden'
+                  }}
+                />
               ) : (
                 <p>Your email content will appear here. Start typing in the content area to see your email take shape!</p>
               )}
@@ -523,21 +613,9 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
             {/* Call to Action Button */}
             <div style={{
               textAlign: 'center',
-              margin: '30px 0',
+              margin: isMobile ? '20px 0' : '30px 0',
             }}>
-              <a href="#" style={{
-                background: `linear-gradient(to right, ${currentStyle.accentColor}, ${currentStyle.secondaryColor})`,
-                color: 'white',
-                padding: '14px 28px',
-                borderRadius: '6px',
-                textDecoration: 'none',
-                fontWeight: 'bold',
-                display: 'inline-block',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                fontSize: '14px',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-              }}>
+              <a href="#" style={ctaButtonStyle}>
                 Shop The Collection
               </a>
             </div>
@@ -545,14 +623,14 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
             {/* Social Proof */}
             <div style={{
               backgroundColor: '#f9f9f9',
-              padding: '15px',
+              padding: isMobile ? '12px' : '15px',
               borderRadius: '8px',
-              margin: '20px 0'
+              margin: isMobile ? '15px 0' : '20px 0'
             }}>
               <div style={{
                 fontWeight: '600',
-                marginBottom: '10px',
-                fontSize: '15px',
+                marginBottom: isMobile ? '8px' : '10px',
+                fontSize: isMobile ? '14px' : '15px',
                 textAlign: 'center',
                 color: currentStyle.textColor
               }}>
@@ -560,7 +638,7 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
               </div>
               <p style={{
                 margin: '0',
-                fontSize: '13px',
+                fontSize: isMobile ? '12px' : '13px',
                 fontStyle: 'italic',
                 textAlign: 'center',
                 color: '#555'
@@ -569,8 +647,8 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
               </p>
               <div style={{
                 textAlign: 'center',
-                marginTop: '8px',
-                fontSize: '12px',
+                marginTop: isMobile ? '6px' : '8px',
+                fontSize: isMobile ? '11px' : '12px',
                 fontWeight: '600',
                 color: currentStyle.accentColor
               }}>
@@ -583,81 +661,44 @@ const EmailPreview = ({ template, subject, content, previewMode = 'desktop' }) =
           <div style={{
             borderTop: '1px solid #eee',
             backgroundColor: '#f9f9f9',
-            padding: '20px',
-            fontSize: '12px',
+            padding: isMobile ? '15px 10px' : '20px',
+            fontSize: isMobile ? '11px' : '12px',
             color: '#666',
             textAlign: 'center',
           }}>
             {/* Social Media Icons */}
             <div style={{ marginBottom: '15px' }}>
-              <a href="#" style={{
-                display: 'inline-block',
-                margin: '0 5px',
-                width: '30px',
-                height: '30px',
-                lineHeight: '30px',
-                textAlign: 'center',
-                backgroundColor: '#f1f1f1',
-                borderRadius: '50%',
-                color: currentStyle.accentColor,
-                textDecoration: 'none',
-                fontWeight: 'bold'
-              }}>f</a>
-              <a href="#" style={{
-                display: 'inline-block',
-                margin: '0 5px',
-                width: '30px',
-                height: '30px',
-                lineHeight: '30px',
-                textAlign: 'center',
-                backgroundColor: '#f1f1f1',
-                borderRadius: '50%',
-                color: currentStyle.accentColor,
-                textDecoration: 'none',
-                fontWeight: 'bold'
-              }}>t</a>
-              <a href="#" style={{
-                display: 'inline-block',
-                margin: '0 5px',
-                width: '30px',
-                height: '30px',
-                lineHeight: '30px',
-                textAlign: 'center',
-                backgroundColor: '#f1f1f1',
-                borderRadius: '50%',
-                color: currentStyle.accentColor,
-                textDecoration: 'none',
-                fontWeight: 'bold'
-              }}>in</a>
-              <a href="#" style={{
-                display: 'inline-block',
-                margin: '0 5px',
-                width: '30px',
-                height: '30px',
-                lineHeight: '30px',
-                textAlign: 'center',
-                backgroundColor: '#f1f1f1',
-                borderRadius: '50%',
-                color: currentStyle.accentColor,
-                textDecoration: 'none',
-                fontWeight: 'bold'
-              }}>ig</a>
+              <a href="#" style={socialIconStyle(isMobile)}>f</a>
+              <a href="#" style={socialIconStyle(isMobile)}>t</a>
+              <a href="#" style={socialIconStyle(isMobile)}>in</a>
+              <a href="#" style={socialIconStyle(isMobile)}>ig</a>
             </div>
             
-            <p style={{marginBottom: '8px'}}>
+            <p style={{marginBottom: isMobile ? '6px' : '8px'}}>
               &copy; {new Date().getFullYear()} Sinosply. All rights reserved.
             </p>
-            <p style={{marginBottom: '12px'}}>
+            <p style={{marginBottom: isMobile ? '10px' : '12px'}}>
               123 Fashion Street, Accra, Ghana
             </p>
             
-            <div style={{marginBottom: '15px'}}>
-              <a href="#" style={{color: currentStyle.accentColor, textDecoration: 'none', margin: '0 8px'}}>Unsubscribe</a>
-              <a href="#" style={{color: currentStyle.accentColor, textDecoration: 'none', margin: '0 8px'}}>Privacy Policy</a>
-              <a href="#" style={{color: currentStyle.accentColor, textDecoration: 'none', margin: '0 8px'}}>Contact Us</a>
+            <div style={{
+              marginBottom: '15px',
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              justifyContent: 'center',
+              gap: isMobile ? '8px' : '0'
+            }}>
+              <a href="#" style={linkStyle}>Unsubscribe</a>
+              <a href="#" style={linkStyle}>Privacy Policy</a>
+              <a href="#" style={linkStyle}>Contact Us</a>
             </div>
             
-            <p style={{fontSize: '11px', color: '#888', maxWidth: '400px', margin: '0 auto'}}>
+            <p style={{
+              fontSize: isMobile ? '10px' : '11px', 
+              color: '#888', 
+              maxWidth: isMobile ? '100%' : '400px', 
+              margin: '0 auto'
+            }}>
               You received this email because you signed up for updates from Sinosply.
               Please add <strong>hello@sinosply.com</strong> to your contacts to ensure our emails reach your inbox.
             </p>

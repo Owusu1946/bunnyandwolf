@@ -705,7 +705,7 @@ const PaymentPage = () => {
                       Processing...
                     </div>
                   ) : (
-                    `Pay with Chipper Cash ${safelyFormatPrice(orderInfo?.total || formData.amount)}`
+                    `Pay with MoMo ${safelyFormatPrice(orderInfo?.total || formData.amount)}`
                   )}
                 </button>
                   </>

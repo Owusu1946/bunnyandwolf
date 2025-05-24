@@ -54,6 +54,14 @@ export const useProductStore = create(
         // Check if product already exists
         const exists = products.some(p => p._id === product._id);
         
+        // Log shipping data
+        console.log(`📦 ProductStore: Product shipping data for "${product.name}":`, {
+          airShippingPrice: product.airShippingPrice || 0,
+          airShippingDuration: product.airShippingDuration || 0,
+          seaShippingPrice: product.seaShippingPrice || 0,
+          seaShippingDuration: product.seaShippingDuration || 0
+        });
+        
         if (exists) {
           // Update existing product
           const updatedProducts = products.map(p => 

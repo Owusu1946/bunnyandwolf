@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaApple, FaGooglePlay, FaTiktok, FaFacebookF, FaInstagram, FaSnapchatGhost, FaYoutube, FaPinterestP, FaTwitter, FaLinkedinIn, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FiLoader, FiCheck } from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSocialStore } from '../store/socialStore';
 
 const Footer = () => {
   const { fetchSocialLinks, getActiveSocialLinks } = useSocialStore();
   const [isLoading, setIsLoading] = useState(true);
   const [expandedSection, setExpandedSection] = useState(null);
+  const [email, setEmail] = useState('');
+  const [subscriptionState, setSubscriptionState] = useState('idle'); // idle, sending, success
   
   useEffect(() => {
     const loadSocialLinks = async () => {
@@ -23,12 +27,44 @@ const Footer = () => {
     loadSocialLinks();
   }, [fetchSocialLinks]);
   
+  // Reset subscription state after success
+  useEffect(() => {
+    if (subscriptionState === 'success') {
+      const timer = setTimeout(() => {
+        setSubscriptionState('idle');
+        setEmail('');
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [subscriptionState]);
+  
   const toggleSection = (section) => {
     if (expandedSection === section) {
       setExpandedSection(null);
     } else {
       setExpandedSection(section);
     }
+  };
+
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+  };
+  
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    
+    if (!email.trim() || !email.includes('@')) {
+      return;
+    }
+    
+    // Simulate API call
+    setSubscriptionState('sending');
+    
+    setTimeout(() => {
+      // Simulate successful subscription
+      setSubscriptionState('success');
+    }, 1500);
   };
 
   // Get active social links (with fallback to defaults if none exist)
@@ -83,6 +119,30 @@ const Footer = () => {
     }
   ];
   
+  // Button content based on subscription state
+  const getButtonContent = () => {
+    switch (subscriptionState) {
+      case 'sending':
+        return <FiLoader className="animate-spin w-4 h-4" />;
+      case 'success':
+        return <FiCheck className="w-4 h-4" />;
+      default:
+        return "→";
+    }
+  };
+  
+  // Custom button background based on subscription state
+  const getButtonClass = () => {
+    switch (subscriptionState) {
+      case 'sending':
+        return "bg-gray-600 text-white";
+      case 'success':
+        return "bg-green-600 text-white";
+      default:
+        return "bg-black text-white";
+    }
+  };
+  
   return (
     <footer className="bg-white pt-10 pb-6 border-t border-gray-200">
       <div className="container mx-auto px-4">
@@ -114,16 +174,39 @@ const Footer = () => {
           
           <div className="py-6">
             <h3 className="font-medium text-sm mb-4">JOIN OUR NEWSLETTER</h3>
-            <div className="flex mb-4">
+            <form onSubmit={handleSubscribe} className="flex mb-4 relative">
               <input 
                 type="email" 
                 placeholder="Your email" 
-                className="flex-1 border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black"
+                value={email}
+                onChange={handleEmailChange}
+                disabled={subscriptionState !== 'idle'}
+                className="flex-1 border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-all duration-200"
               />
-              <button className="bg-black text-white px-4 py-2 text-sm">
-                →
-              </button>
-            </div>
+              <AnimatePresence mode="wait">
+                <motion.button 
+                  key={subscriptionState}
+                  initial={{ opacity: 0.8, y: 0 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  transition={{ duration: 0.2 }}
+                  type="submit"
+                  disabled={subscriptionState !== 'idle'}
+                  className={`${getButtonClass()} px-4 py-2 text-sm flex items-center justify-center min-w-[36px] transition-colors duration-300`}
+                >
+                  {getButtonContent()}
+                </motion.button>
+              </AnimatePresence>
+            </form>
+            {subscriptionState === 'success' && (
+              <motion.p 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-green-600 mt-1"
+              >
+                Thanks for subscribing!
+              </motion.p>
+            )}
           </div>
         </div>
         
@@ -146,19 +229,51 @@ const Footer = () => {
           
           <div>
             <h3 className="font-medium text-sm mb-4">JOIN OUR NEWSLETTER</h3>
-            <div className="flex mb-4">
+            <form onSubmit={handleSubscribe} className="flex mb-4 relative">
               <input 
                 type="email" 
                 placeholder="Your email" 
-                className="flex-1 border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black"
+                value={email}
+                onChange={handleEmailChange}
+                disabled={subscriptionState !== 'idle'}
+                className="flex-1 border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-all duration-200"
               />
-              <button className="bg-black text-white px-4 py-2 text-sm">
-                →
-              </button>
-            </div>
-            <p className="text-xs text-gray-500">
-              Sign up to get updates on new arrivals and special offers.
-            </p>
+              <AnimatePresence mode="wait">
+                <motion.button 
+                  key={subscriptionState}
+                  initial={{ opacity: 0.8, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  type="submit"
+                  disabled={subscriptionState !== 'idle'}
+                  className={`${getButtonClass()} px-4 py-2 text-sm flex items-center justify-center min-w-[36px] transition-colors duration-300`}
+                >
+                  {getButtonContent()}
+                </motion.button>
+              </AnimatePresence>
+            </form>
+            <AnimatePresence>
+              {subscriptionState === 'success' ? (
+                <motion.p 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="text-xs text-green-600"
+                >
+                  Thanks for subscribing! We'll keep you updated.
+                </motion.p>
+              ) : (
+                <motion.p 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="text-xs text-gray-500"
+                >
+                  Sign up to get updates on new arrivals and special offers.
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
         </div>
         

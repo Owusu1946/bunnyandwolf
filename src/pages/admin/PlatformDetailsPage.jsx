@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaExternalLinkAlt, FaEdit, FaTrash, FaPlus, FaExclamationCircle, FaSync } from 'react-icons/fa';
+import { FaArrowLeft, FaExternalLinkAlt, FaEdit, FaTrash, FaPlus, FaExclamationCircle, FaSync, FaBars } from 'react-icons/fa';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { usePlatformsStore } from '../../store/platformsStore';
@@ -17,6 +17,7 @@ const PlatformDetailsPage = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
   // Get platform data from store
   const { 
@@ -36,6 +37,16 @@ const PlatformDetailsPage = () => {
   useEffect(() => {
     loadData();
   }, [id, platforms.length, products.length, fetchPlatformsFromAPI, fetchProductsFromAPI]);
+  
+  // Detect mobile screen size
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Function to load all data
   const loadData = async () => {
@@ -124,7 +135,7 @@ const PlatformDetailsPage = () => {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 ml-64">
+        <div className={`flex-1 ${isMobile ? 'ml-0' : 'ml-64'} transition-all duration-300 ease-in-out`}>
           <LoadingOverlay />
         </div>
       </div>
@@ -136,14 +147,14 @@ const PlatformDetailsPage = () => {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className={`flex-1 ${isMobile ? 'ml-0' : 'ml-64'} transition-all duration-300 ease-in-out p-4 md:p-8`}>
           <Link to="/admin/platforms" className="flex items-center text-purple-600 mb-6">
             <FaArrowLeft className="mr-2" /> Back to Platforms
           </Link>
-          <div className="bg-white p-8 rounded-lg shadow-sm flex flex-col items-center justify-center">
+          <div className="bg-white p-4 md:p-8 rounded-lg shadow-sm flex flex-col items-center justify-center">
             <FaExclamationCircle className="text-red-500 text-5xl mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Platform Not Found</h2>
-            <p className="text-gray-600 mb-6">The platform you're looking for doesn't exist or has been removed.</p>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 text-center">Platform Not Found</h2>
+            <p className="text-gray-600 mb-6 text-center">The platform you're looking for doesn't exist or has been removed.</p>
             <Link to="/admin/platforms" className="bg-purple-600 text-white px-4 py-2 rounded-lg">
               Return to Platforms
             </Link>
@@ -157,16 +168,16 @@ const PlatformDetailsPage = () => {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
-      <div className="flex-1 ml-64">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-6">
+      <div className={`flex-1 ${isMobile ? 'ml-0' : 'ml-64'} transition-all duration-300 ease-in-out`}>
+        <div className={`${isMobile ? 'p-4' : 'p-8'}`}>
+          <div className={`${isMobile ? 'flex flex-col space-y-3' : 'flex justify-between items-center'} mb-6`}>
             <Link to="/admin/platforms" className="flex items-center text-purple-600">
               <FaArrowLeft className="mr-2" /> Back to Platforms
             </Link>
-            <div className="flex space-x-3">
+            <div className={`flex ${isMobile ? 'flex-col space-y-2 w-full' : 'space-x-3'}`}>
               <button
                 onClick={handleRefresh}
-                className={`bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center ${refreshing ? 'animate-pulse' : ''}`}
+                className={`${isMobile ? 'w-full justify-center' : ''} bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center ${refreshing ? 'animate-pulse' : ''}`}
                 disabled={refreshing}
               >
                 <FaSync className={`mr-2 ${refreshing ? 'animate-spin' : ''}`} /> 
@@ -174,13 +185,13 @@ const PlatformDetailsPage = () => {
               </button>
               <button
                 onClick={handleEditPlatform}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+                className={`${isMobile ? 'w-full justify-center' : ''} bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center`}
               >
                 <FaEdit className="mr-2" /> Edit Platform
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center"
+                className={`${isMobile ? 'w-full justify-center' : ''} bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center`}
               >
                 <FaTrash className="mr-2" /> Delete Platform
               </button>
@@ -203,7 +214,7 @@ const PlatformDetailsPage = () => {
           
           {/* Platform Header with Banner */}
           <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
-            <div className="h-56 bg-gray-200 relative">
+            <div className="h-40 sm:h-56 bg-gray-200 relative">
               {platform.bannerUrl ? (
                 <img 
                   src={platform.bannerUrl} 
@@ -216,12 +227,12 @@ const PlatformDetailsPage = () => {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-purple-400 to-blue-500">
-                  <h1 className="text-4xl font-bold text-white">{platform.name}</h1>
+                  <h1 className="text-2xl sm:text-4xl font-bold text-white">{platform.name}</h1>
                 </div>
               )}
               
               {/* Logo overlapping the banner */}
-              <div className="absolute -bottom-16 left-8 w-32 h-32 rounded-xl overflow-hidden border-4 border-white bg-white shadow-md">
+              <div className={`absolute ${isMobile ? '-bottom-12 left-4 w-24 h-24' : '-bottom-16 left-8 w-32 h-32'} rounded-xl overflow-hidden border-4 border-white bg-white shadow-md`}>
                 {platform.logoUrl ? (
                   <img 
                     src={platform.logoUrl} 
@@ -240,17 +251,17 @@ const PlatformDetailsPage = () => {
               </div>
             </div>
             
-            <div className="pt-20 px-8 pb-8">
-              <div className="flex justify-between items-start">
+            <div className={`${isMobile ? 'pt-16 px-4 pb-6' : 'pt-20 px-8 pb-8'}`}>
+              <div className={`${isMobile ? 'flex flex-col' : 'flex justify-between items-start'}`}>
                 <div>
-                  <div className="flex items-center">
-                    <h1 className="text-2xl font-bold text-gray-900">{platform.name}</h1>
+                  <div className="flex items-center flex-wrap">
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{platform.name}</h1>
                     {platform.isActive ? (
-                      <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <span className="ml-3 mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         Active
                       </span>
                     ) : (
-                      <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      <span className="ml-3 mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                         Inactive
                       </span>
                     )}
@@ -261,7 +272,7 @@ const PlatformDetailsPage = () => {
                   href={`https://${platform.domain}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="flex items-center text-purple-600 hover:underline"
+                  className={`flex items-center text-purple-600 hover:underline ${isMobile ? 'mt-4' : ''}`}
                 >
                   Visit Platform <FaExternalLinkAlt className="ml-1" />
                 </a>
@@ -270,8 +281,8 @@ const PlatformDetailsPage = () => {
           </div>
           
           {/* Platform Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+            <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm">
               <h2 className="text-lg font-semibold text-gray-700 mb-4">Platform Details</h2>
               <div className="space-y-3">
                 <div>
@@ -292,7 +303,7 @@ const PlatformDetailsPage = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow-sm">
+            <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm">
               <h2 className="text-lg font-semibold text-gray-700 mb-4">Sales Overview</h2>
               <div className="flex flex-col items-center justify-center h-full">
                 <div className="text-3xl font-bold text-purple-600">{formatCurrency(platform.revenue || 0)}</div>
@@ -302,7 +313,7 @@ const PlatformDetailsPage = () => {
                 <p className="text-gray-500 mt-1">Items Sold</p>
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow-sm">
+            <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm">
               <h2 className="text-lg font-semibold text-gray-700 mb-4">Product Categories</h2>
               {platform.productCategories && platform.productCategories.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -323,19 +334,19 @@ const PlatformDetailsPage = () => {
           
           {/* Platform Products */}
           <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
-            <div className="flex justify-between items-center p-6 border-b">
+            <div className={`flex ${isMobile ? 'flex-col space-y-3' : 'justify-between items-center'} p-4 md:p-6 border-b`}>
               <h2 className="text-lg font-semibold text-gray-800">Platform Products</h2>
               <Link
                 to="/admin/products"
                 state={{ addForPlatform: id }}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
+                className={`bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center ${isMobile ? 'w-full justify-center' : ''}`}
               >
                 <FaPlus className="mr-2" /> Add Product
               </Link>
             </div>
             
             {platformProducts.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 p-4 md:p-6">
                 {platformProducts.map(product => (
                   <div key={product._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                     <div className="h-48 bg-gray-200 relative">
@@ -369,7 +380,7 @@ const PlatformDetailsPage = () => {
                         </div>
                         <Link 
                           to={`/admin/products?edit=${product._id}`}
-                          className="text-purple-600 hover:text-purple-800"
+                          className="text-purple-600 hover:text-purple-800 p-2"
                         >
                           <FaEdit />
                         </Link>
@@ -383,16 +394,16 @@ const PlatformDetailsPage = () => {
                 ))}
               </div>
             ) : (
-              <div className="py-12 flex flex-col items-center justify-center">
-                <div className="h-24 w-24 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                  <FaExclamationCircle className="h-10 w-10 text-purple-500" />
+              <div className="py-8 md:py-12 flex flex-col items-center justify-center">
+                <div className="h-20 w-20 md:h-24 md:w-24 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+                  <FaExclamationCircle className="h-8 w-8 md:h-10 md:w-10 text-purple-500" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">No Products Found</h3>
-                <p className="text-gray-500 mb-6">This platform has no associated products yet.</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-1 text-center">No Products Found</h3>
+                <p className="text-gray-500 mb-6 text-center px-4">This platform has no associated products yet.</p>
                 <Link
                   to="/admin/products"
                   state={{ addForPlatform: id }}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
+                  className={`bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center ${isMobile ? 'w-full justify-center' : ''}`}
                 >
                   <FaPlus className="mr-2" /> Add First Product
                 </Link>
@@ -405,7 +416,7 @@ const PlatformDetailsPage = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto p-4 md:p-6">
             <div className="mb-4">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                 <FaTrash className="h-6 w-6 text-red-600" />
@@ -423,18 +434,18 @@ const PlatformDetailsPage = () => {
               )}
             </div>
             
-            <div className="flex justify-end gap-3 mt-6">
+            <div className={`${isMobile ? 'flex flex-col space-y-2' : 'flex justify-end gap-3'} mt-6`}>
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                className={`${isMobile ? 'w-full order-2' : ''} px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50`}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleDeletePlatform}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                className={`${isMobile ? 'w-full order-1' : ''} px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700`}
               >
                 Delete
               </button>

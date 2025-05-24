@@ -5,6 +5,8 @@ import axios from 'axios';
 import LoadingOverlay from '../components/LoadingOverlay';
 import apiConfig from '../config/apiConfig';
 import { FaStore, FaSignInAlt, FaLock, FaEnvelope } from 'react-icons/fa';
+import { useCustomersStore } from '../store/customersStore';
+import { useOrderStore } from '../store/orderStore';
 
 const AdminLogin = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +17,8 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { setUser } = useAuth();
+  const { preloadCustomers } = useCustomersStore();
+  const { preloadOrders } = useOrderStore();
 
   const handleChange = (e) => {
     setFormData({
@@ -40,6 +44,25 @@ const AdminLogin = () => {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
+        
+        // Preload data needed for the dashboard
+        console.log('Preloading customer and order data for dashboard...');
+        
+        // Start both data fetches in parallel using the optimized preload functions
+        const preloadPromises = [
+          preloadCustomers(100),  // Preload up to 100 customers
+          preloadOrders()         // Preload most recent orders
+        ];
+        
+        try {
+          await Promise.all(preloadPromises);
+          console.log('Successfully preloaded dashboard data');
+        } catch (preloadError) {
+          // Log but continue even if preload fails
+          console.warn('Data preload warning:', preloadError);
+        }
+        
+        // Navigate to dashboard
         navigate('/admin/dashboard');
       }
     } catch (error) {

@@ -1,10 +1,40 @@
 import { useState, useEffect, useRef } from 'react';
 import { FaPaperPlane, FaSearch, FaEllipsisV, FaPaperclip, FaSmile, 
-         FaCheckDouble, FaCheck, FaCircle, FaPhoneAlt, FaVideo } from 'react-icons/fa';
+         FaCheckDouble, FaCheck, FaCircle, FaPhoneAlt, FaVideo, FaBars, FaArrowLeft,
+         FaDownload, FaFile, FaFilePdf, FaFileImage, FaFileCode } from 'react-icons/fa';
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import EmojiPicker from 'emoji-picker-react';
+import io from 'socket.io-client';
+import { useChatStore } from '../../store/chatStore';
+
+// Function to generate initials avatar from name
+const getInitialsAvatar = (name) => {
+  // Default colors
+  const colors = [
+    '#FF5733', '#33A8FF', '#33FF57', '#A833FF', '#FF33A8',
+    '#33FFA8', '#FF5733', '#337DFF', '#FF3E33', '#33FFD4'
+  ];
+  
+  // Get initials from name
+  const initials = name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+  
+  // Generate consistent color based on name
+  const colorIndex = name
+    .split('')
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length;
+    
+  return {
+    initials,
+    backgroundColor: colors[colorIndex]
+  };
+};
 
 const ChatsPage = () => {
   const [chats, setChats] = useState([]);
@@ -20,6 +50,9 @@ const ChatsPage = () => {
   const [activeTab, setActiveTab] = useState('all'); // all, unread, priority
   const [connected, setConnected] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showChatList, setShowChatList] = useState(true);
+  
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const inputRef = useRef(null);
@@ -27,145 +60,18 @@ const ChatsPage = () => {
   const reconnectTimerRef = useRef(null);
   const activeCustomers = useRef(new Map());
   
-  // Define dummy chats data
-  const dummyChats = [
-    {
-      _id: '1',
-      user: {
-        _id: '101',
-        firstName: 'Sarah',
-        lastName: 'Johnson',
-        email: 'sarah.johnson@example.com',
-        avatar: 'https://randomuser.me/api/portraits/women/32.jpg',
-        online: true,
-        lastSeen: new Date()
-      },
-      lastMessage: 'Do you have this in a different color?',
-      unread: true,
-      priority: 'high',
-      updatedAt: new Date(Date.now() - 1000 * 60 * 5) // 5 minutes ago
-    },
-    {
-      _id: '2',
-      user: {
-        _id: '102',
-        firstName: 'Michael',
-        lastName: 'Chen',
-        email: 'michael.chen@example.com',
-        avatar: 'https://randomuser.me/api/portraits/men/45.jpg'
-      },
-      lastMessage: 'Thanks for your help with my order!',
-      unread: false,
-      updatedAt: new Date(Date.now() - 1000 * 60 * 30) // 30 minutes ago
-    },
-    {
-      _id: '3',
-      user: {
-        _id: '103',
-        firstName: 'Emma',
-        lastName: 'Rodriguez',
-        email: 'emma.rodriguez@example.com',
-        avatar: 'https://randomuser.me/api/portraits/women/63.jpg'
-      },
-      lastMessage: 'When will my order be shipped?',
-      unread: true,
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60) // 1 hour ago
-    }
-  ];
-  
-  // Define dummy messages for demo chats
-  const dummyMessages = {
-    '1': [
-      {
-        _id: '1001',
-        content: 'Hello, I just ordered the leather jacket in medium, but I was wondering if you have it in red?',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 20)
-      },
-      {
-        _id: '1002',
-        content: 'Hi Sarah! Thank you for your order. Let me check our inventory for the red leather jacket in medium.',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 18)
-      },
-      {
-        _id: '1003',
-        content: 'I\'ve checked and we do have it in red. Would you like me to change your order?',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 17)
-      },
-      {
-        _id: '1004',
-        content: 'Yes please! That would be perfect.',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 15)
-      },
-      {
-        _id: '1005',
-        content: 'Do you have this in a different color?',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 5)
-      }
-    ],
-    '2': [
-      {
-        _id: '2001',
-        content: 'Hi, I received my order #78923 today but there seems to be a missing item.',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 120)
-      },
-      {
-        _id: '2002',
-        content: 'Hello Michael, I\'m sorry to hear that. Can you tell me which item is missing from your order?',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 118)
-      },
-      {
-        _id: '2003',
-        content: 'The wireless earbuds were not in the package.',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 115)
-      },
-      {
-        _id: '2004',
-        content: 'I apologize for the inconvenience. I\'ve arranged for the earbuds to be shipped immediately with express delivery at no additional cost.',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 110)
-      },
-      {
-        _id: '2005',
-        content: 'Thanks for your help with my order!',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 30)
-      }
-    ],
-    '3': [
-      {
-        _id: '3001',
-        content: 'Hello, I placed order #34567 three days ago and was wondering when it will be shipped?',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 180)
-      },
-      {
-        _id: '3002',
-        content: 'Hi Emma, let me check the status of your order for you.',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 175)
-      },
-      {
-        _id: '3003',
-        content: 'I can see that your order is currently being packed at our warehouse. It should be shipped by tomorrow morning.',
-        sender: 'admin',
-        createdAt: new Date(Date.now() - 1000 * 60 * 173)
-      },
-      {
-        _id: '3004',
-        content: 'When will my order be shipped?',
-        sender: 'user',
-        createdAt: new Date(Date.now() - 1000 * 60 * 60)
-      }
-    ]
-  };
+  // Get chat store methods and state
+  const { 
+    sessions,
+    setActiveSession,
+    addActiveAdminSession,
+    removeActiveAdminSession,
+    addMessage,
+    sendMessage,
+    markSessionAsRead,
+    setConnectionState,
+    setSocket
+  } = useChatStore();
 
   const quickReplies = [
     "Thanks for reaching out to us!",
@@ -175,326 +81,474 @@ const ChatsPage = () => {
     "I'll need a bit more information to assist you better.",
   ];
 
-  // Set up WebSocket connection
-  useEffect(() => {
-    connectWebSocket();
+  // Get Socket.io URL based on environment
+  const getSocketUrl = () => {
+    if (process.env.NODE_ENV === 'development') {
+      // Try to connect to local dedicated chat server
+      return 'http://localhost:4000';
+    }
     
-    // First load dummy chats
-    setTimeout(() => {
-      setChats(dummyChats);
-      setLoading(false);
+    // For production, use the host's chat server endpoint
+    // This assumes we deploy the chat server under /chat-server path
+    return `${window.location.protocol}//${window.location.host}/chat-server`;
+  };
+
+  // Create a configurable socket connection
+  const createSocketConnection = () => {
+    try {
+      const socketUrl = getSocketUrl();
+      console.log(`[SOCKET] Admin connecting to Socket.io: ${socketUrl}`);
       
-      // Load any saved chat histories from localStorage for persistence
-      loadSavedChats();
+      // Create Socket.io instance with improved options
+      const socket = io(socketUrl, {
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        forceNew: true,
+        query: {
+          userType: 'admin',
+          timestamp: Date.now()
+        }
+      });
+      
+      // Debug all events in development
+      if (process.env.NODE_ENV === 'development') {
+        socket.onAny((event, ...args) => {
+          if (event !== 'heartbeat') { // Skip logging heartbeats
+            console.log(`[SOCKET EVENT] ${event}:`, args);
+          }
+        });
+      }
+      
+      return socket;
+    } catch (error) {
+      console.error("Error creating Socket.io connection:", error);
+      return null;
+    }
+  };
+
+  // Set up Socket.io connection
+  useEffect(() => {
+    connectSocketIO();
+    
+    // Initialize with empty state and wait for real data
+    setTimeout(() => {
+      setLoading(false);
     }, 800);
     
     return () => {
-      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        socketRef.current.close();
+      cleanupConnection();
+    };
+  }, []);
+  
+  // Cleanup function to handle all disconnect logic
+  const cleanupConnection = () => {
+    if (socketRef.current) {
+      // Leave all active sessions before disconnecting
+      if (selectedChat) {
+        socketRef.current.emit('leave_session', { sessionId: selectedChat._id });
       }
+      
+      socketRef.current.disconnect();
+    }
+    
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
     };
-  }, []);
   
-  const connectWebSocket = () => {
+  const connectSocketIO = () => {
     try {
       // Clean up existing socket if needed
-      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        socketRef.current.close();
+      cleanupConnection();
+      
+      // Create Socket.io instance with improved options
+      const socket = createSocketConnection();
+      
+      if (!socket) {
+        setConnected(false);
+        setConnectionState(false, "Failed to create socket connection");
+        scheduleReconnect();
+        return;
       }
       
-      // Use secure WebSockets if on HTTPS
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      // Store socket reference
+      socketRef.current = socket;
+      setSocket(socket);
       
-      // Use the same WebSocket URL as the customer component for development
-      // In production, this would be your actual WebSocket server URL
-      const wsUrl = process.env.NODE_ENV === 'development' 
-        ? 'wss://echo.websocket.events'
-        : `${protocol}//${window.location.host}/ws/admin/chat`;
-      
-      console.log(`Admin connecting to WebSocket: ${wsUrl}`);
-      
-      socketRef.current = new WebSocket(wsUrl);
-      
-      socketRef.current.onopen = () => {
-        console.log('Admin WebSocket connected');
+      // Connection established
+      socket.on('connect', () => {
+        console.log(`[SOCKET] Connected with ID: ${socket.id}`);
         setConnected(true);
         setReconnecting(false);
+        setConnectionState(true, null);
         
-        // Wait a short moment to ensure WebSocket is fully connected
-        setTimeout(() => {
-          try {
-            // Check if WebSocket is open before sending
-            if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
               // Send an initial message to identify this client as admin
-              const initMessage = {
-                type: 'init',
+        socket.emit('init', {
                 userType: 'admin',
                 timestamp: new Date().toISOString()
-              };
-              socketRef.current.send(JSON.stringify(initMessage));
-            } else {
-              console.log('Admin WebSocket not ready for sending messages');
-            }
-          } catch (error) {
-            console.error('Error sending admin init message:', error);
-          }
-        }, 500);
-      };
-      
-      socketRef.current.onmessage = (event) => {
-        try {
-          // First check if the message is valid JSON
-          let data;
-          try {
-            data = JSON.parse(event.data);
-          } catch (parseError) {
-            console.log('Received non-JSON message:', event.data);
-            return; // Skip processing for non-JSON messages
-          }
-          
-          console.log('Admin received WebSocket message:', data);
-          
-          // Process different message types
-          switch(data.type) {
-            case 'message':
-              // Process messages from customers
-              if (data.sender === 'customer') {
-                handleCustomerMessage(data);
-              }
-              break;
-            case 'init':
-              if (data.userType === 'customer') {
-                // Track active customers
-                activeCustomers.current.set(data.sessionId, {
-                  lastSeen: new Date(),
-                  online: true
-                });
-                
-                // Update the chat in the list if it exists
-                setChats(prevChats => {
-                  const updatedChats = [...prevChats];
-                  const chatIndex = updatedChats.findIndex(chat => chat._id === data.sessionId);
-                  
-                  if (chatIndex >= 0) {
-                    updatedChats[chatIndex] = {
-                      ...updatedChats[chatIndex],
-                      user: {
-                        ...updatedChats[chatIndex].user,
-                        online: true,
-                        lastSeen: new Date()
-                      }
-                    };
-                  } else {
-                    // Create a new chat for this customer
-                    updatedChats.push({
-                      _id: data.sessionId,
-                      user: {
-                        _id: data.sessionId,
-                        firstName: 'Customer',
-                        lastName: `#${data.sessionId.slice(-5)}`,
-                        email: 'customer@example.com',
-                        avatar: 'https://randomuser.me/api/portraits/lego/1.jpg',
-                        online: true,
-                        lastSeen: new Date()
-                      },
-                      lastMessage: 'New customer connected',
-                      unread: false,
-                      priority: 'normal',
-                      updatedAt: new Date()
-                    });
-                  }
-                  
-                  return updatedChats;
-                });
-              }
-              break;
-            case 'typing':
-              // Handle typing indicator from customers
-              if (data.userType === 'customer') {
-                // If this is the currently selected chat, show typing indicator
-                if (selectedChat && selectedChat._id === data.sessionId) {
-                  setIsTyping(data.isTyping);
-                }
-              }
-              break;
-            default:
-              console.log('Unhandled message type:', data.type);
-          }
-        } catch (error) {
-          console.error("Error processing WebSocket message:", error);
-        }
-      };
-      
-      socketRef.current.onclose = (event) => {
-        console.log('Admin WebSocket disconnected', event.code, event.reason);
-        setConnected(false);
+        });
         
-        // Attempt to reconnect after delay
-        if (!event.wasClean) {
-          setReconnecting(true);
-          reconnectTimerRef.current = setTimeout(() => {
-            console.log('Attempting to reconnect Admin WebSocket...');
-            connectWebSocket();
-          }, 3000);
-        }
-      };
-      
-      socketRef.current.onerror = (error) => {
-        console.error('Admin WebSocket error:', error);
-        setConnected(false);
-      };
-    } catch (error) {
-      console.error("Error connecting to Admin WebSocket:", error);
-      setConnected(false);
-    }
-  };
-  
-  // Process incoming customer message
-  const handleCustomerMessage = (messageData) => {
-    const { sessionId, messageId, content, timestamp } = messageData;
-    
-    console.log(`Processing customer message from ${sessionId}: ${content}`);
-    
-    // Check if we already have a chat for this customer
-    const existingChatIndex = chats.findIndex(
-      chat => chat._id === sessionId
-    );
-    
-    if (existingChatIndex >= 0) {
-      // Update existing chat
-      const updatedChats = [...chats];
-      updatedChats[existingChatIndex] = {
-        ...updatedChats[existingChatIndex],
-        lastMessage: content,
-        updatedAt: new Date(timestamp) || new Date(),
-        unread: true,
-        user: {
-          ...updatedChats[existingChatIndex].user,
-          online: true,
-          lastSeen: new Date()
-        }
-      };
-      
-      setChats(updatedChats);
-      
-      // Update activeCustomers Map
-      activeCustomers.current.set(sessionId, {
-        lastSeen: new Date(),
-        online: true
+        // Request all active chat sessions
+        socket.emit('get_sessions');
       });
       
-      // If this is the currently selected chat, add message to display
-      if (selectedChat && selectedChat._id === sessionId) {
+      // Heartbeat check from server
+      socket.on('heartbeat', (data) => {
+        // Respond to server heartbeat to keep connection alive
+        socket.emit('heartbeat_ack', { timestamp: Date.now() });
+      });
+      
+      // Connection error
+      socket.on('connect_error', (error) => {
+        console.error('[SOCKET] Connection error:', error);
+        setConnected(false);
+        setConnectionState(false, error.message);
+        scheduleReconnect();
+      });
+      
+      // Disconnection
+      socket.on('disconnect', (reason) => {
+        console.log('[SOCKET] Disconnected:', reason);
+        setConnected(false);
+        setConnectionState(false, null);
+        
+        // Attempt to reconnect after delay
+        if (reason !== 'io client disconnect') {
+          scheduleReconnect();
+        }
+      });
+      
+      // Init acknowledgement
+      socket.on('init_ack', (data) => {
+        console.log('[SOCKET] Initialization acknowledged by server:', data);
+      });
+      
+      // Session updates
+      socket.on('sessions_update', (sessions) => {
+        console.log('[SOCKET] Received sessions update:', sessions);
+        
+        if (Array.isArray(sessions) && sessions.length > 0) {
+          // Process each session and update chat store
+          sessions.forEach(session => {
+            // Update customer info
+            const customerInfo = session.customerInfo || {
+              name: 'Guest Customer',
+              email: 'guest@example.com'
+            };
+            
+            // Initialize session in the chat store
+            useChatStore.getState().initSession(session.sessionId, customerInfo);
+            
+            // Update messages if needed
+            if (session.messages && session.messages.length > 0) {
+              // Add any new messages from server
+              const existingMessages = useChatStore.getState().sessions[session.sessionId]?.messages || [];
+              const existingIds = existingMessages.map(m => m.id);
+              
+              session.messages.forEach(msg => {
+                if (!existingIds.includes(msg.messageId)) {
+                  // Convert format
+                  const message = {
+                    id: msg.messageId,
+                    text: msg.content,
+                    sender: msg.sender === 'admin' ? 'support' : 'user',
+                    timestamp: msg.timestamp,
+                    time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    fileType: msg.fileType,
+                    fileUrl: msg.fileUrl,
+                    fileName: msg.fileName,
+                    fileSize: msg.fileSize
+                  };
+                  
+                  // Add to chat store
+                  useChatStore.getState().addMessage(session.sessionId, message);
+                }
+              });
+            }
+            
+            // Update typing indicator state
+            if (selectedChat && selectedChat._id === session.sessionId) {
+              setIsTyping(session.typing || false);
+            }
+          });
+        }
+      });
+      
+      // Customer connected notification
+      socket.on('customer_connected', (data) => {
+        console.log('[SOCKET] Customer connected:', data);
+        if (data.sessionId) {
+          // Update customer info if available
+          if (data.customerInfo) {
+            useChatStore.getState().initSession(data.sessionId, data.customerInfo);
+          }
+          
+          // Update customer status in chats list
+          updateCustomerStatus(data.sessionId, true);
+        }
+      });
+      
+      // Customer info updated
+      socket.on('customer_updated', (data) => {
+        console.log('[SOCKET] Customer info updated:', data);
+        if (data.sessionId && data.customerInfo) {
+          useChatStore.getState().initSession(data.sessionId, data.customerInfo);
+        }
+      });
+      
+      // Customer disconnected notification
+      socket.on('customer_disconnected', (data) => {
+        console.log('[SOCKET] Customer disconnected:', data);
+        if (data.sessionId) {
+          // Update customer status in chats list
+          updateCustomerStatus(data.sessionId, false);
+        }
+      });
+      
+      // Message from server
+      socket.on('message', (data) => {
+        try {
+          console.log('[SOCKET] Received message:', data);
+          
+          // Process message and add to the chat store
+          if (data.sessionId && data.content) {
+            const messageObj = {
+              id: data.messageId,
+              text: data.content,
+              sender: data.sender === 'admin' ? 'support' : 'user',
+              timestamp: data.timestamp,
+              time: new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              fileType: data.fileType,
+              fileUrl: data.fileUrl,
+              fileName: data.fileName,
+              fileSize: data.fileSize
+            };
+            
+            // Add message to the chat store
+            useChatStore.getState().addMessage(data.sessionId, messageObj);
+            
+            // If message is from a customer & we're viewing this chat, add to UI directly
+            if (data.sender === 'customer' && selectedChat && selectedChat._id === data.sessionId) {
+              const newMessage = {
+                _id: data.messageId,
+                content: data.content,
+                sender: 'user',
+                createdAt: new Date(data.timestamp),
+                status: 'read',
+                fileType: data.fileType,
+                fileUrl: data.fileUrl,
+                fileName: data.fileName,
+                fileSize: data.fileSize
+              };
+              
+              setMessages(prevMessages => [...prevMessages, newMessage]);
+            }
+            
+            // Reset typing indicator when message is received
+            if (data.sender === 'customer' && selectedChat && selectedChat._id === data.sessionId) {
+              setIsTyping(false);
+            }
+          }
+        } catch (error) {
+          console.error("[SOCKET] Error processing message:", error);
+        }
+      });
+      
+      // New customer message notification
+      socket.on('new_customer_message', (data) => {
+        console.log('[SOCKET] New customer message notification:', data);
+        if (data.message && data.sessionId) {
+          // Update customer info if provided
+          if (data.customerInfo) {
+            useChatStore.getState().initSession(data.sessionId, data.customerInfo);
+          }
+          
+          // Add message to chat store
+          const messageObj = {
+            id: data.message.messageId,
+            text: data.message.content,
+            sender: 'user',
+            timestamp: data.message.timestamp,
+            time: new Date(data.message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            fileType: data.message.fileType,
+            fileUrl: data.message.fileUrl,
+            fileName: data.message.fileName,
+            fileSize: data.message.fileSize
+          };
+          
+          // Add to chat store
+          useChatStore.getState().addMessage(data.sessionId, messageObj);
+          
+          // If we're currently viewing this chat, add to UI directly
+          if (selectedChat && selectedChat._id === data.sessionId) {
         const newMessage = {
-          _id: messageId,
-          content: content,
+              _id: data.message.messageId,
+              content: data.message.content,
           sender: 'user',
-          createdAt: new Date(timestamp),
-          status: 'read'
+              createdAt: new Date(data.message.timestamp),
+              status: 'read',
+              fileType: data.message.fileType,
+              fileUrl: data.message.fileUrl,
+              fileName: data.message.fileName,
+              fileSize: data.message.fileSize
         };
         
         setMessages(prevMessages => [...prevMessages, newMessage]);
         
-        // Update local storage for persistence
-        saveMessagesToLocalStorage(sessionId, [
-          ...messages,
-          {
-            id: messageId,
-            text: content,
-            sender: 'user',
-            time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            timestamp: timestamp
+            // Mark as read since we're viewing it
+            socket.emit('mark_as_read', { sessionId: data.sessionId });
           }
-        ]);
-      } else {
-        // If not viewing this chat, append to stored messages
-        const existingMessages = loadMessagesFromLocalStorage(sessionId) || [];
-        saveMessagesToLocalStorage(sessionId, [
-          ...existingMessages,
-          {
-            id: messageId,
-            text: content,
-            sender: 'user',
-            time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            timestamp: timestamp
+        }
+      });
+      
+      // History response
+      socket.on('history', (data) => {
+        console.log('[SOCKET] Received message history:', data);
+        
+        if (Array.isArray(data.messages) && data.messages.length > 0 && data.sessionId) {
+          // Format messages for UI display
+          const formattedMessages = data.messages.map(msg => ({
+            _id: msg.messageId,
+            content: msg.content,
+            sender: msg.sender === 'admin' ? 'admin' : 'user',
+            createdAt: new Date(msg.timestamp),
+            status: 'read',
+            fileType: msg.fileType,
+            fileUrl: msg.fileUrl,
+            fileName: msg.fileName,
+            fileSize: msg.fileSize
+          }));
+          
+          console.log(`[SOCKET] Loaded ${formattedMessages.length} messages for session ${data.sessionId}`);
+          
+          // Update UI if this is the currently selected chat
+          if (selectedChat && selectedChat._id === data.sessionId) {
+            setMessages(formattedMessages);
           }
-        ]);
-      }
-    } else {
-      // Create new chat for this customer
-      createNewCustomerChat(sessionId, content, timestamp, messageId);
+        }
+      });
+      
+      // Typing indicator
+      socket.on('typing', (data) => {
+        console.log('[SOCKET] Typing indicator:', data);
+        if (data.userType === 'customer' && selectedChat && selectedChat._id === data.sessionId) {
+          setIsTyping(data.isTyping);
+        }
+      });
+      
+      // Error from server
+      socket.on('error', (data) => {
+        console.error('[SOCKET] Server error:', data);
+      });
+      
+    } catch (error) {
+      console.error("[SOCKET] Error connecting to Socket.io:", error);
+      setConnected(false);
+      setConnectionState(false, error.message);
+      scheduleReconnect();
     }
   };
   
-  // Create a new customer chat
-  const createNewCustomerChat = (sessionId, lastMessage, timestamp, messageId) => {
-    const newChat = {
+  // Schedule reconnect attempt
+  const scheduleReconnect = () => {
+    // Clear any existing reconnect timer
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+    }
+    
+    setReconnecting(true);
+    
+    // Try to reconnect after a short delay
+    reconnectTimerRef.current = setTimeout(() => {
+      console.log("[SOCKET] Attempting to reconnect...");
+      connectSocketIO();
+    }, 3000);
+  };
+  
+  // Convert chat store sessions to the format needed for the UI
+  useEffect(() => {
+    // Convert sessions from chat store to chats format
+    const chatList = Object.entries(sessions).map(([sessionId, sessionData]) => {
+      // Get the last message if available
+      const lastMessage = sessionData.messages && sessionData.messages.length > 0 
+        ? sessionData.messages[sessionData.messages.length - 1].text 
+        : 'No messages yet';
+      
+      // Process customer info - use real data if available, fall back to defaults
+      const customerInfo = sessionData.customerInfo || {};
+      const isAuthenticated = customerInfo.isAuthenticated || false;
+      const userId = customerInfo.userId || null;
+      
+      let firstName, lastName, email, avatar;
+      
+      if (isAuthenticated && customerInfo.name) {
+        // Split name into first and last name components
+        const nameParts = customerInfo.name.split(' ');
+        firstName = nameParts[0] || 'User';
+        lastName = nameParts.slice(1).join(' ') || `#${sessionId.slice(-5)}`;
+        email = customerInfo.email || 'customer@example.com';
+        
+        // Create avatar from name if needed
+        const { initials, backgroundColor } = getInitialsAvatar(customerInfo.name);
+        avatar = customerInfo.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=${encodeURIComponent(backgroundColor.substring(1))}&color=fff`;
+      } else {
+        // Use generic info for non-authenticated users
+        firstName = 'Guest';
+        lastName = `Customer #${sessionId.slice(-5)}`;
+        email = 'guest@example.com';
+        avatar = 'https://randomuser.me/api/portraits/lego/1.jpg';
+      }
+      
+      return {
       _id: sessionId,
       user: {
         _id: sessionId,
-        firstName: 'Customer',
-        lastName: `#${sessionId.slice(-5)}`,
-        email: 'customer@example.com',
-        avatar: 'https://randomuser.me/api/portraits/lego/1.jpg',
+          firstName,
+          lastName,
+          email,
+          avatar,
         online: true,
-        lastSeen: new Date()
+          lastSeen: new Date(sessionData.lastActive),
+          isAuthenticated
       },
       lastMessage: lastMessage,
-      unread: true,
-      priority: 'normal',
-      updatedAt: new Date(timestamp) || new Date()
-    };
+        unread: sessionData.unreadCount > 0,
+        priority: sessionData.priority || 'normal',
+        updatedAt: new Date(sessionData.lastActive)
+      };
+    });
     
-    setChats(prevChats => [...prevChats, newChat]);
-    
-    // Save the first message to storage
-    saveMessagesToLocalStorage(sessionId, [
-      {
-        id: messageId,
-        text: lastMessage,
-        sender: 'user',
-        time: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-    ]);
-  };
+    // Update UI state with converted data
+    if (chatList.length > 0) {
+      console.log(`[CHAT] Updating UI with ${chatList.length} chats from store`);
+      setChats(chatList);
+    }
+  }, [sessions]);
   
-  // Load saved chat histories (for persistence across refreshes)
-  const loadSavedChats = () => {
-    try {
-      // Get all keys from localStorage that match our pattern
-      const chatSessions = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('sinosply_chat_messages_customer-')) {
-          const sessionId = key.replace('sinosply_chat_messages_', '');
-          chatSessions.push(sessionId);
-        }
+  // Update customer online status
+  const updateCustomerStatus = (sessionId, isOnline) => {
+    setChats(prevChats => {
+      const updatedChats = [...prevChats];
+      const chatIndex = updatedChats.findIndex(chat => chat._id === sessionId);
+      
+      if (chatIndex >= 0) {
+        updatedChats[chatIndex] = {
+          ...updatedChats[chatIndex],
+          user: {
+            ...updatedChats[chatIndex].user,
+            online: isOnline,
+            lastSeen: new Date()
+          }
+        };
+        return updatedChats;
       }
       
-      // Process each chat session
-      chatSessions.forEach(sessionId => {
-        const messages = loadMessagesFromLocalStorage(sessionId);
-        if (messages && messages.length > 0) {
-          // Get the latest message
-          const lastMessage = messages[messages.length - 1];
-          
-          // Create or update chat entry
-          const existingChatIndex = chats.findIndex(chat => chat._id === sessionId);
-          
-          if (existingChatIndex >= 0) {
-            // Update existing chat
-            const updatedChats = [...chats];
-            updatedChats[existingChatIndex] = {
-              ...updatedChats[existingChatIndex],
-              lastMessage: lastMessage.text,
-              updatedAt: new Date(lastMessage.time || Date.now())
-            };
-            setChats(updatedChats);
-          } else {
-            // Create new chat
+      // If customer not in list yet, create a new entry only if they're online
+      if (isOnline) {
             const newChat = {
               _id: sessionId,
               user: {
@@ -503,133 +557,126 @@ const ChatsPage = () => {
                 lastName: `#${sessionId.slice(-5)}`,
                 email: 'customer@example.com',
                 avatar: 'https://randomuser.me/api/portraits/lego/1.jpg',
-                online: false,
+            online: true,
                 lastSeen: new Date()
               },
-              lastMessage: lastMessage.text,
-              unread: lastMessage.sender === 'user',
+          lastMessage: 'New customer connected',
+          unread: true,
               priority: 'normal',
-              updatedAt: new Date(lastMessage.time || Date.now())
-            };
-            setChats(prevChats => [...prevChats, newChat]);
-          }
-        }
-      });
-    } catch (error) {
-      console.error("Error loading saved chats:", error);
-    }
-  };
-  
-  // Local storage helpers for message persistence
-  const loadMessagesFromLocalStorage = (sessionId) => {
-    try {
-      const saved = localStorage.getItem(`sinosply_chat_messages_${sessionId}`);
-      return saved ? JSON.parse(saved) : null;
-    } catch (error) {
-      console.error(`Error loading messages for ${sessionId}:`, error);
-      return null;
-    }
-  };
-  
-  const saveMessagesToLocalStorage = (sessionId, messages) => {
-    try {
-      localStorage.setItem(`sinosply_chat_messages_${sessionId}`, JSON.stringify(messages));
-    } catch (error) {
-      console.error(`Error saving messages for ${sessionId}:`, error);
-    }
+          updatedAt: new Date()
+        };
+        return [...prevChats, newChat];
+      }
+      
+      return prevChats;
+    });
   };
 
-  // Send typing indicator to customer
-  const sendTypingIndicator = (isTyping) => {
-    if (!selectedChat || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    
-    try {
-      const typingMessage = {
-        type: 'typing',
-        sessionId: selectedChat._id,
-        isTyping: isTyping,
-        userType: 'admin',
-        timestamp: new Date().toISOString()
-      };
-      
-      socketRef.current.send(JSON.stringify(typingMessage));
-    } catch (error) {
-      console.error("Error sending typing indicator:", error);
-    }
-  };
-  
-  // Hook up typing indicator
-  useEffect(() => {
-    if (newMessage && selectedChat && selectedChat._id.startsWith('customer-')) {
-      sendTypingIndicator(true);
-      
-      // Clear typing indicator after a delay
-      const typingTimeout = setTimeout(() => {
-        sendTypingIndicator(false);
-      }, 3000);
-      
-      return () => clearTimeout(typingTimeout);
-    }
-  }, [newMessage, selectedChat]);
-
-    // Scroll to bottom when messages change
+  // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
-  useEffect(() => {
-    if (selectedChat) {
-      // Load real messages for customer chats
-      if (selectedChat._id.startsWith('customer-')) {
-        const savedMessages = loadMessagesFromLocalStorage(selectedChat._id);
+  // Handle chat selection with mobile view toggle
+  const handleChatSelect = (chat) => {
+    console.log(`[CHAT] Selecting chat: ${chat._id}`);
+    
+    // If already selected, don't do anything
+    if (selectedChat && selectedChat._id === chat._id) {
+      return;
+    }
+    
+    // Leave previous session if any
+    if (socketRef.current && socketRef.current.connected && selectedChat) {
+      socketRef.current.emit('leave_session', { sessionId: selectedChat._id });
+    }
+    
+    // Set selected chat
+    setSelectedChat(chat);
+    
+    // Update active session in chat store
+    setActiveSession(chat._id);
+    addActiveAdminSession(chat._id);
+    
+    // Join the socket room for this chat session
+    if (socketRef.current && socketRef.current.connected) {
+      console.log(`[SOCKET] Joining session room: ${chat._id}`);
+      socketRef.current.emit('select_session', {
+        sessionId: chat._id
+      });
+      
+      // Mark as read on server
+      socketRef.current.emit('mark_as_read', {
+        sessionId: chat._id
+      });
+    }
+    
+    // Load messages for the selected chat
+    if (chat && chat._id) {
+      // Get messages from chat store
+      const storedSession = sessions[chat._id];
+      
+      if (storedSession && storedSession.messages && storedSession.messages.length > 0) {
+        console.log(`[CHAT] Loading ${storedSession.messages.length} messages from store for ${chat._id}`);
         
-        if (savedMessages && savedMessages.length > 0) {
-          setMessages(
-            savedMessages.map(msg => ({
+        // Convert to message format
+        const formattedMessages = storedSession.messages.map(msg => ({
               _id: msg.id,
               content: msg.text,
-              sender: msg.sender === 'user' ? 'user' : 'admin',
-              createdAt: new Date(msg.time || new Date()),
+          sender: msg.sender === 'support' ? 'admin' : 'user',
+          createdAt: new Date(msg.timestamp || msg.time),
               status: 'read'
-            }))
-          );
-          
-          // Mark chat as read
-          setChats(prevChats => 
-            prevChats.map(chat => 
-              chat._id === selectedChat._id ? { ...chat, unread: false } : chat
-            )
-          );
-          
-          return; // Exit early, we loaded messages from localStorage
+        }));
+        
+        setMessages(formattedMessages);
+        
+        // Mark as read in chat store
+        markSessionAsRead(chat._id);
+      } else {
+        // Request message history from server
+        console.log(`[SOCKET] Requesting message history for ${chat._id}`);
+        if (socketRef.current && socketRef.current.connected) {
+          socketRef.current.emit('get_history', {
+            sessionId: chat._id
+          });
+        } else {
+          // Fallback to empty messages array
+          setMessages([]);
         }
       }
       
-      // Fetch messages for selected chat - fallback to dummy data for demo
-      const chatMessages = dummyMessages[selectedChat._id] || [];
-      setMessages(chatMessages);
+      // Reset other states
+      setShowSearchResults(false);
+      setSearchTerm('');
       
-      // Mark as read when chat is selected
-      setChats(prevChats => 
-        prevChats.map(chat => 
-          chat._id === selectedChat._id ? { ...chat, unread: false } : chat
-        )
-      );
+      // Scroll to bottom of messages
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
       
-      // Simulate typing indicator after selection for dummy chats
-      const randomDelay = Math.floor(Math.random() * 5000) + 1000;
-      if (selectedChat._id === '1' || selectedChat._id === '3') {
+      // For mobile, hide the chat list and show the message view
+      if (isMobile) {
+        setShowChatList(false);
+        
+        // Focus on message input after a delay to allow rendering
         setTimeout(() => {
-          setIsTyping(true);
-          setTimeout(() => setIsTyping(false), 3000);
-        }, randomDelay);
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
+        }, 500);
+      }
+      
+      // Mark as read in UI
+      if (chat.unread) {
+        const updatedChats = chats.map(c => 
+          c._id === chat._id ? { ...c, unread: false } : c
+        );
+        setChats(updatedChats);
       }
     }
-  }, [selectedChat]);
+  };
 
   const handleSearch = (e) => {
     const term = e.target.value;
@@ -637,7 +684,7 @@ const ChatsPage = () => {
     
     if (term.length > 2) {
       // Search in chat users
-      const filtered = dummyChats.filter(chat => {
+      const filtered = chats.filter(chat => {
         const fullName = `${chat.user.firstName} ${chat.user.lastName}`.toLowerCase();
         return fullName.includes(term.toLowerCase()) || 
                chat.user.email.toLowerCase().includes(term.toLowerCase()) ||
@@ -665,9 +712,13 @@ const ChatsPage = () => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedChat || !connected) return;
     
-    const messageId = `admin-msg-${Date.now()}`;
+    const messageId = `admin-msg-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
     const timestamp = new Date().toISOString();
     
+    // Reset typing indicator
+    sendTypingIndicator(false);
+    
+    // Add to UI immediately for responsiveness
     const messageObj = {
       _id: messageId,
       content: newMessage,
@@ -676,10 +727,10 @@ const ChatsPage = () => {
       createdAt: new Date(),
     };
     
-    // Add to messages state
+    // Add to messages state for UI
     setMessages(prev => [...prev, messageObj]);
     
-    // Update last message in chats
+    // Update last message in chats list
     setChats(prevChats => 
       prevChats.map(chat => 
         chat._id === selectedChat._id 
@@ -692,35 +743,31 @@ const ChatsPage = () => {
       )
     );
     
-    // Send via WebSocket if connected
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+    // Send message via socket
+    if (socketRef.current && socketRef.current.connected) {
       try {
-        const adminMessage = {
-          type: 'message',
+        socketRef.current.emit('message', {
           messageId: messageId,
           sessionId: selectedChat._id,
           content: newMessage,
           sender: 'admin',
           timestamp: timestamp
-        };
+        });
         
-        socketRef.current.send(JSON.stringify(adminMessage));
+        console.log('[SOCKET] Message sent');
         
-        // Store message in localStorage for persistence
-        const existingMessages = loadMessagesFromLocalStorage(selectedChat._id) || [];
-        saveMessagesToLocalStorage(selectedChat._id, [
-          ...existingMessages,
-          {
+        // Add to chat store
+        const storeMessage = {
             id: messageId,
             text: newMessage,
             sender: 'support',
+          timestamp: timestamp,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            status: 'delivered',
-            timestamp: timestamp
-          }
-        ]);
+        };
         
-        // Update message status to delivered
+        useChatStore.getState().addMessage(selectedChat._id, storeMessage);
+        
+        // Update message status to delivered after a short delay
         setTimeout(() => {
           setMessages(prev => 
             prev.map(msg => 
@@ -729,10 +776,24 @@ const ChatsPage = () => {
           );
         }, 500);
       } catch (error) {
-        console.error("Error sending message via WebSocket:", error);
+        console.error("[SOCKET] Error sending message:", error);
+        
+        // Show error status in UI
+        setMessages(prev => 
+          prev.map(msg => 
+            msg._id === messageId ? { ...msg, status: 'error' } : msg
+          )
+        );
       }
     } else {
-      console.warn("WebSocket not connected, message not sent");
+      console.warn("[SOCKET] Socket.io not connected, message not sent");
+      
+      // Show error status in UI
+      setMessages(prev => 
+        prev.map(msg => 
+          msg._id === messageId ? { ...msg, status: 'error' } : msg
+        )
+      );
     }
     
     // Clear input
@@ -741,6 +802,38 @@ const ChatsPage = () => {
     // Clear typing indicator
     sendTypingIndicator(false);
   };
+
+  // Send typing indicator to customer
+  const sendTypingIndicator = (isTyping) => {
+    if (!selectedChat || !socketRef.current || !socketRef.current.connected) {
+      return;
+    }
+    
+    try {
+      socketRef.current.emit('typing', {
+        sessionId: selectedChat._id,
+        isTyping: isTyping,
+        userType: 'admin',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error sending typing indicator:", error);
+    }
+  };
+  
+  // Hook up typing indicator
+  useEffect(() => {
+    if (newMessage && selectedChat && selectedChat._id.startsWith('customer-')) {
+      sendTypingIndicator(true);
+      
+      // Clear typing indicator after a delay
+      const typingTimeout = setTimeout(() => {
+        sendTypingIndicator(false);
+      }, 3000);
+      
+      return () => clearTimeout(typingTimeout);
+    }
+  }, [newMessage, selectedChat]);
 
   const handleQuickReply = (reply) => {
     setNewMessage(reply);
@@ -799,16 +892,132 @@ const ChatsPage = () => {
     }
   };
 
+  // Render message with support for file attachments
+  const renderMessageContent = (message) => {
+    if (message.fileType === 'image' && message.fileUrl) {
+      return (
+        <div className="mb-1">
+          <img 
+            src={message.fileUrl} 
+            alt={message.fileName || "Image"}
+            className="max-w-full rounded-lg max-h-48 object-contain"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = "https://via.placeholder.com/400x300?text=Image+Error";
+            }}
+          />
+          {message.fileName && (
+            <div className="text-xs mt-1 opacity-70 flex items-center">
+              <span>{message.fileName}</span>
+              {message.fileSize && (
+                <span className="ml-1">({formatFileSize(message.fileSize)})</span>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    } else if (message.fileType === 'file' && message.fileUrl) {
+      return (
+        <div className="mb-1">
+          <a 
+            href={message.fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center p-2 rounded bg-black/5 hover:bg-black/10 transition-colors"
+          >
+            <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center mr-2">
+              {getFileIcon(message.fileName || 'file.txt')}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <div className="text-sm font-medium truncate">{message.fileName}</div>
+              {message.fileSize && (
+                <div className="text-xs opacity-70">{formatFileSize(message.fileSize)}</div>
+              )}
+            </div>
+            <div className="ml-2">
+              <FaDownload className="w-4 h-4 opacity-70" />
+            </div>
+          </a>
+        </div>
+      );
+    }
+
+    // Default to text message
+    return <p>{message.content}</p>;
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // Get file type icon
+  const getFileIcon = (fileName) => {
+    const extension = fileName.split('.').pop().toLowerCase();
+    
+    // PDF files
+    if (extension === 'pdf') {
+      return <FaFilePdf />;
+    }
+    
+    // Image files
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension)) {
+      return <FaFileImage />;
+    }
+    
+    // Text/Code files
+    if (['txt', 'js', 'html', 'css', 'jsx', 'md'].includes(extension)) {
+      return <FaFileCode />;
+    }
+    
+    // Default file icon
+    return <FaFile />;
+  };
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      
+      // When switching to desktop view, always show the chat list
+      if (!mobile) {
+        setShowChatList(true);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Function to toggle chat list visibility on mobile
+  const toggleChatList = () => {
+    setShowChatList(prev => !prev);
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
       {loading && <LoadingOverlay />}
       
-      <div className="flex-1 ml-64">
+      <div className={`flex-1 ${isMobile ? 'ml-0' : 'ml-64'} transition-all duration-300 ease-in-out`}>
         <div className="h-screen flex flex-col">
           <header className="bg-white border-b shadow-sm px-6 py-4 flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-gray-800">Customer Support</h1>
+            <div className="flex items-center">
+              {isMobile && selectedChat && !showChatList && (
+                <button 
+                  className="mr-3 p-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center justify-center"
+                  onClick={toggleChatList}
+                  aria-label="Back to chat list"
+                >
+                  <FaArrowLeft className="text-sm" />
+                </button>
+              )}
+              <h1 className="text-xl md:text-2xl font-semibold text-gray-800">Customer Support</h1>
+            </div>
             
             {/* WebSocket status indicator */}
             <div className="flex items-center">
@@ -819,9 +1028,17 @@ const ChatsPage = () => {
             </div>
           </header>
           
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden relative">
             {/* Left sidebar - Conversations */}
-            <div className="w-1/3 border-r bg-white flex flex-col">
+            <div 
+              className={`${
+                isMobile 
+                  ? (showChatList 
+                      ? 'w-full absolute inset-0 z-10 transition-all duration-300 ease-in-out' 
+                      : 'absolute -left-full w-full z-10 transition-all duration-300 ease-in-out') 
+                  : 'w-1/3'
+              } border-r bg-white flex flex-col`}
+            >
               <div className="p-4 border-b">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -877,11 +1094,7 @@ const ChatsPage = () => {
                     searchResults.map((chat) => (
                       <div
                         key={chat._id}
-                        onClick={() => {
-                          setSelectedChat(chat);
-                          setShowSearchResults(false);
-                          setSearchTerm('');
-                        }}
+                        onClick={() => handleChatSelect(chat)}
                         className="px-4 py-3 border-b hover:bg-gray-50 cursor-pointer transition-colors duration-150"
                       >
                         <div className="flex items-center">
@@ -940,7 +1153,7 @@ const ChatsPage = () => {
                     filterChatsByTab(chats).map((chat) => (
                       <div
                         key={chat._id}
-                        onClick={() => setSelectedChat(chat)}
+                        onClick={() => handleChatSelect(chat)}
                         className={`px-4 py-3 border-b hover:bg-gray-50 cursor-pointer transition-colors duration-150 ${
                           selectedChat && selectedChat._id === chat._id
                             ? 'bg-purple-50 border-l-4 border-l-purple-500'
@@ -1009,11 +1222,28 @@ const ChatsPage = () => {
             </div>
             
             {/* Chat Messages */}
-            <div className="w-2/3 flex flex-col bg-gray-50">
+            <div 
+              className={`${
+                isMobile 
+                  ? (showChatList 
+                      ? 'opacity-0 absolute inset-0 z-0 transition-all duration-300 ease-in-out' 
+                      : 'w-full opacity-100 absolute inset-0 z-20 transition-all duration-300 ease-in-out') 
+                  : 'w-2/3'
+              } flex flex-col bg-gray-50`}
+            >
               {selectedChat ? (
                 <>
-                  <div className="px-4 py-3 bg-white border-b shadow-sm flex items-center justify-between">
+                  <div className="px-4 py-3 bg-white border-b shadow-sm flex items-center justify-between sticky top-0 z-10">
                     <div className="flex items-center">
+                      {isMobile && !showChatList && (
+                        <button 
+                          className="mr-3 p-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center justify-center"
+                          onClick={toggleChatList}
+                          aria-label="Back to chat list"
+                        >
+                          <FaArrowLeft className="text-sm" />
+                        </button>
+                      )}
                       <div className="relative">
                         <img
                           src={selectedChat.user.avatar || 'https://via.placeholder.com/40'}
@@ -1070,7 +1300,7 @@ const ChatsPage = () => {
                                   : 'bg-white border border-gray-200 message-user'
                               }`}
                             >
-                              <p>{message.content}</p>
+                              {renderMessageContent(message)}
                               <div className={`flex items-center text-xs mt-1 ${
                                 message.sender === 'admin' ? 'text-purple-200 justify-end' : 'text-gray-400'
                               }`}>
@@ -1121,11 +1351,11 @@ const ChatsPage = () => {
                   
                   <form
                     onSubmit={handleSendMessage}
-                    className="p-4 bg-white border-t flex items-center relative"
+                    className="p-4 bg-white border-t flex items-center relative sticky bottom-0 z-10"
                   >
                     <button
                       type="button"
-                      className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                      className={`p-2 text-gray-500 hover:text-gray-700 transition-colors ${isMobile ? 'hidden sm:block' : ''}`}
                       onClick={() => {}}
                     >
                       <FaPaperclip />
@@ -1147,7 +1377,7 @@ const ChatsPage = () => {
                         <FaSmile />
                       </button>
                       {showEmojiPicker && (
-                        <div className="absolute bottom-12 right-0 z-10">
+                        <div className={`absolute ${isMobile ? 'bottom-12 -left-[200px] sm:-left-[100px]' : 'bottom-12 right-0'} z-10`}>
                           <EmojiPicker onEmojiClick={onEmojiClick} />
                         </div>
                       )}

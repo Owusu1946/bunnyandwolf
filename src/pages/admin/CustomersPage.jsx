@@ -18,7 +18,32 @@ function formatTimeAgo(timestamp) {
 }
 
 // Skeleton loader for customer rows
-const CustomerRowSkeleton = () => {
+const CustomerRowSkeleton = ({ isMobile }) => {
+  if (isMobile) {
+    return (
+      <div className="p-4 border-b animate-pulse">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center">
+            <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full"></div>
+            <div className="ml-3">
+              <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-32"></div>
+            </div>
+          </div>
+          <div className="h-6 bg-gray-200 rounded-full w-16"></div>
+        </div>
+        <div className="flex justify-between items-center">
+          <div className="h-4 bg-gray-200 rounded w-32"></div>
+          <div className="flex space-x-2">
+            <div className="h-6 w-6 bg-gray-200 rounded-full"></div>
+            <div className="h-6 w-6 bg-gray-200 rounded-full"></div>
+            <div className="h-6 w-6 bg-gray-200 rounded-full"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="grid grid-cols-5 gap-4 px-6 py-4 animate-pulse">
       <div className="col-span-2">
@@ -46,6 +71,17 @@ const CustomerRowSkeleton = () => {
 // Network status indicator component
 const NetworkStatus = ({ isOnline, isCached, lastUpdate, isRefreshing }) => {
   const timeAgo = lastUpdate ? formatTimeAgo(lastUpdate) : 'never';
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  
+  // Detect mobile screen size
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   return (
     <div className="text-xs flex items-center bg-gray-50 px-2 py-1 rounded-md">
@@ -64,7 +100,7 @@ const NetworkStatus = ({ isOnline, isCached, lastUpdate, isRefreshing }) => {
       )}
       
       <span className="ml-1">
-        {isOnline ? 'Online' : 'Offline'} • {isCached ? 'Using cache' : 'Live data'} • Updated {timeAgo}
+        {isOnline ? 'Online' : 'Offline'}{isMobile ? '' : ' • '}{!isMobile && (isCached ? 'Using cache' : 'Live data')}{isMobile ? '' : ' • '}{!isMobile && `Updated ${timeAgo}`}
       </span>
     </div>
   );
@@ -78,6 +114,7 @@ const CustomersPage = () => {
   const [networkError, setNetworkError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
   // Get chat store for unread count
   const totalUnreadChats = useChatStore(state => state.getTotalUnreadCount());
@@ -268,21 +305,31 @@ const CustomersPage = () => {
   // Determine data source for status display
   const isUsingCachedData = isCacheExpired || !!networkError || !isOnline;
 
+  // Detect mobile screen size
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
-      <div className="flex-1 ml-64">
+      <div className={`flex-1 ${isMobile ? 'ml-0' : 'ml-64'} transition-all duration-300 ease-in-out`}>
         {isLoading && !isRefreshing && <LoadingOverlay />}
         
         <div className="p-4">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-4">
-            <div className="relative mb-4 md:mb-0">
-              <form onSubmit={handleSearch}>
+          <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+            <div className="relative w-full md:w-auto mb-4 md:mb-0">
+              <form onSubmit={handleSearch} className="w-full">
                 <input
                   type="text"
                   placeholder="Search customers..."
-                  className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -293,14 +340,14 @@ const CustomersPage = () => {
               </form>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className={`flex items-center gap-2 ${isMobile ? 'flex-wrap justify-center w-full' : 'gap-4'}`}>
               {/* Chat button */}
               <button
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center relative"
+                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center relative ${isMobile ? 'flex-1' : ''}`}
                 onClick={() => setChatPanelOpen(true)}
               >
                 <FaCommentDots className="mr-2" />
-                Customer Chat
+                {isMobile ? 'Chat' : 'Customer Chat'}
                 {totalUnreadChats > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                     {totalUnreadChats}
@@ -309,40 +356,54 @@ const CustomersPage = () => {
               </button>
               
               {/* Network/Cache status indicator */}
+              {!isMobile && (
               <NetworkStatus 
                 isOnline={isOnline}
                 isCached={isUsingCachedData}
                 lastUpdate={lastFetchTime}
                 isRefreshing={isBackgroundRefreshing || isRefreshing}
               />
+              )}
               
               <button
-                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''} ${isMobile ? 'flex-1' : ''}`}
                 onClick={handleRefresh}
                 disabled={isRefreshing}
               >
                 <FaDownload className={`mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+                {isRefreshing ? 'Refreshing...' : isMobile ? 'Refresh' : 'Refresh Data'}
               </button>
             </div>
           </div>
           
+          {/* Mobile network status indicator */}
+          {isMobile && (
+            <div className="mb-4">
+              <NetworkStatus 
+                isOnline={isOnline}
+                isCached={isUsingCachedData}
+                lastUpdate={lastFetchTime}
+                isRefreshing={isBackgroundRefreshing || isRefreshing}
+              />
+            </div>
+          )}
+          
           {/* Success message */}
           {successMessage && (
             <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 flex items-center">
-              <FaCheck className="mr-2" />
-              <span>{successMessage}</span>
+              <FaCheck className="mr-2 flex-shrink-0" />
+              <span className="text-sm">{successMessage}</span>
             </div>
           )}
           
           {/* Network error message */}
           {networkError && (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
+              <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center'}`}>
+                <div className={`${isMobile ? '' : 'flex-shrink-0'}`}>
                   <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
                 </div>
-                <div className="ml-3">
+                <div className={`${isMobile ? '' : 'ml-3 flex-grow'}`}>
                   <p className="text-sm text-yellow-700">{networkError}</p>
                   {!isOnline && (
                     <p className="text-xs text-yellow-600 mt-1">
@@ -350,11 +411,11 @@ const CustomersPage = () => {
                     </p>
                   )}
                 </div>
-                <div className="ml-auto pl-3">
+                <div className={`${isMobile ? 'w-full' : 'ml-auto pl-3'}`}>
                   <button 
                     onClick={handleRetry}
                     disabled={isRefreshing}
-                    className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded hover:bg-yellow-200 focus:outline-none"
+                    className={`px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded hover:bg-yellow-200 focus:outline-none ${isMobile ? 'w-full' : ''}`}
                   >
                     {isRefreshing ? 'Trying...' : `Retry${retryCount > 0 ? ` (${retryCount})` : ''}`}
                   </button>
@@ -369,10 +430,10 @@ const CustomersPage = () => {
               <h3 className="font-semibold mb-2 flex items-center">
                 <FaExclamationTriangle className="mr-2" /> Database Error:
               </h3>
-              <p>{error}</p>
+              <p className="text-sm">{error}</p>
               <div className="mt-2 flex space-x-2">
                 <button 
-                  className="text-sm px-3 py-1 bg-red-200 text-red-800 rounded-md hover:bg-red-300"
+                  className={`text-sm px-3 py-1 bg-red-200 text-red-800 rounded-md hover:bg-red-300 ${isMobile ? 'w-full' : ''}`}
                   onClick={handleRefresh}
                 >
                   Refresh Data
@@ -382,7 +443,8 @@ const CustomersPage = () => {
           )}
           
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="min-w-full divide-y divide-gray-200">
+            {/* Desktop View - Table Header */}
+            {!isMobile && (
               <div className="bg-gray-50 grid grid-cols-5 gap-4 px-6 py-3">
                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">
                   Customer
@@ -397,16 +459,78 @@ const CustomersPage = () => {
                   Actions
                 </div>
               </div>
+            )}
               
               <div className="bg-white divide-y divide-gray-200">
                 {isRefreshing ? (
                   // Show skeleton loaders while refreshing
                   Array.from({ length: 5 }).map((_, index) => (
-                    <CustomerRowSkeleton key={index} />
+                  <CustomerRowSkeleton key={index} isMobile={isMobile} />
                   ))
                 ) : customers.length > 0 ? (
                   customers.map((customer) => (
-                    <div key={customer._id} className="grid grid-cols-5 gap-4 px-6 py-4 hover:bg-gray-50">
+                  <div key={customer._id} className={isMobile ? 
+                    "p-4 border-b hover:bg-gray-50" : 
+                    "grid grid-cols-5 gap-4 px-6 py-4 hover:bg-gray-50"
+                  }>
+                    {isMobile ? (
+                      // Mobile Card View
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                              {customer.firstName ? customer.firstName.charAt(0) : '?'}
+                              {customer.lastName ? customer.lastName.charAt(0) : ''}
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900">
+                                {customer.firstName} {customer.lastName}
+                              </div>
+                              <div className="text-xs text-gray-500">{customer.email}</div>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            customer.role === 'admin' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {customer.role || 'user'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center text-sm">
+                          <div className="text-gray-500">
+                            Joined: {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'Unknown'}
+                          </div>
+                          <div className="flex space-x-4">
+                            <button 
+                              className="text-blue-600 hover:text-blue-900 p-1"
+                              onClick={() => handleViewCustomer(customer._id)}
+                              title="View Customer"
+                            >
+                              <FaEye />
+                            </button>
+                            <button 
+                              className="text-green-600 hover:text-green-900 p-1"
+                              title="Edit Customer"
+                              disabled={!isOnline}
+                            >
+                              <FaUserEdit className={!isOnline ? 'opacity-50' : ''} />
+                            </button>
+                            <button 
+                              className={`text-red-600 p-1 ${isOnline ? 'hover:text-red-900' : 'opacity-50 cursor-not-allowed'}`}
+                              onClick={isOnline ? () => handleDelete(customer._id) : undefined}
+                              title={isOnline ? "Delete Customer" : "Cannot delete while offline"}
+                              disabled={!isOnline}
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      // Desktop Table View
+                      <>
                       <div className="col-span-2">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
@@ -457,6 +581,8 @@ const CustomersPage = () => {
                           <FaTrash />
                         </button>
                       </div>
+                      </>
+                    )}
                     </div>
                   ))
                 ) : (
@@ -468,22 +594,21 @@ const CustomersPage = () => {
                     <p className="text-gray-500">Customers will appear here once they register</p>
                   </div>
                 )}
-              </div>
             </div>
             
             {customers.length > 0 && totalPages > 1 && (
-              <div className="px-6 py-4 flex items-center justify-between border-t">
+              <div className={`${isMobile ? 'px-4' : 'px-6'} py-4 flex ${isMobile ? 'flex-col space-y-3' : 'items-center justify-between'} border-t`}>
                 <div>
                   <p className="text-sm text-gray-700">
                     Showing page <span className="font-medium">{currentPage}</span> of{' '}
                     <span className="font-medium">{totalPages}</span>
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className={`flex gap-2 ${isMobile ? 'w-full' : ''}`}>
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className={`px-3 py-1 border rounded ${
+                    className={`px-3 py-1 border rounded ${isMobile ? 'flex-1 justify-center' : ''} ${
                       currentPage === 1
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -494,7 +619,7 @@ const CustomersPage = () => {
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className={`px-3 py-1 border rounded ${
+                    className={`px-3 py-1 border rounded ${isMobile ? 'flex-1 justify-center' : ''} ${
                       currentPage === totalPages
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -511,7 +636,7 @@ const CustomersPage = () => {
       
       {/* Admin Chat Panel */}
       {chatPanelOpen && (
-        <AdminChatPanel onClose={() => setChatPanelOpen(false)} />
+        <AdminChatPanel onClose={() => setChatPanelOpen(false)} className={isMobile ? "w-full" : ""} />
       )}
     </div>
   );

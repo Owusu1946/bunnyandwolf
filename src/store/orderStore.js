@@ -24,6 +24,9 @@ const notifyOrderUpdate = (updatedOrder) => {
   });
 };
 
+// Track order loading status to prevent duplicate loads
+let isOrderLoadInProgress = false;
+
 export const useOrderStore = create(
   persist(
     (set, get) => ({
@@ -32,6 +35,8 @@ export const useOrderStore = create(
       trackingInfo: null,
       orders: [], // Store user orders
       selectedOrder: null, // Track the currently selected order for view/edit
+      isLoading: false, // Add loading indicator
+      lastFetchTime: null, // Track when data was last fetched
       
       // New methods for update notification
       subscribeToOrderUpdates: (callback) => {
@@ -52,13 +57,87 @@ export const useOrderStore = create(
         };
       },
       
-      // Fetch all orders from the API
-      fetchOrders: async () => {
+      // Fast preload function specifically for admin dashboard
+      preloadOrders: async () => {
+        // Skip if already loading
+        if (isOrderLoadInProgress) {
+          console.log('[OrderStore] Order preload skipped - already in progress');
+          return { success: false, message: 'Already loading' };
+        }
+        
         try {
+          isOrderLoadInProgress = true;
+          set({ isLoading: true });
+          
+          // Get token from localStorage
+          const token = localStorage.getItem('token');
+          if (!token) {
+            console.error('[OrderStore] No token found, cannot preload orders');
+            set({ isLoading: false });
+            return { success: false, error: 'Authentication required' };
+          }
+          
+          console.log('[OrderStore] Fast preloading all orders for dashboard...');
+          
+          // Create a fast-path for admin dashboard by just requesting most recent 50 orders
+          // This is much faster than fetching all pages
+          const response = await axios.get(`${apiConfig.baseURL}/orders`, {
+            params: { page: 1, limit: 50 }, // Just fetch recent orders for dashboard stats
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          
+          if (response.data.success) {
+            console.log(`[OrderStore] Successfully preloaded ${response.data.data.length} recent orders`);
+            
+            // Update store with fetched orders
+            set({ 
+              orders: response.data.data,
+              lastFetchTime: Date.now(),
+              isLoading: false 
+            });
+            
+            return { success: true, data: response.data.data };
+          } else {
+            throw new Error('Failed to preload orders');
+          }
+        } catch (error) {
+          console.error('[OrderStore] Error preloading orders:', error);
+          set({ isLoading: false });
+          return { success: false, error: error.message };
+        } finally {
+          isOrderLoadInProgress = false;
+        }
+      },
+      
+      // Fetch all orders from the API
+      fetchOrders: async (forceRefresh = false) => {
+        // Skip if already loading
+        if (isOrderLoadInProgress) {
+          console.log('[OrderStore] Order fetch skipped - already in progress');
+          return { success: false, message: 'Already loading' };
+        }
+        
+        try {
+          // Check if we already have cached data and if it's fresh enough
+          const cachedOrders = get().orders;
+          const lastFetch = get().lastFetchTime;
+          
+          if (!forceRefresh && cachedOrders.length > 0 && lastFetch && (Date.now() - lastFetch < 5 * 60 * 1000)) {
+            console.log('[OrderStore] Using cached orders data');
+            return { success: true, data: cachedOrders };
+          }
+          
+          // If we get here, we need to fetch fresh data
+          isOrderLoadInProgress = true;
+          set({ isLoading: true });
+          
           // Get token from localStorage
           const token = localStorage.getItem('token');
           if (!token) {
             console.error('No token found, cannot fetch orders');
+            set({ isLoading: false });
             return { success: false, error: 'Authentication required' };
           }
           
@@ -103,12 +182,19 @@ export const useOrderStore = create(
           console.log(`Successfully fetched all ${allOrders.length} orders`);
           
           // Update store with all fetched orders
-          set({ orders: allOrders });
+          set({ 
+            orders: allOrders,
+            lastFetchTime: Date.now(),
+            isLoading: false 
+          });
           
           return { success: true, data: allOrders };
         } catch (error) {
           console.error('Error fetching orders:', error);
+          set({ isLoading: false });
           return { success: false, error: error.message };
+        } finally {
+          isOrderLoadInProgress = false;
         }
       },
       
@@ -457,7 +543,8 @@ export const useOrderStore = create(
         orderInfo: state.orderInfo,
         trackingInfo: state.trackingInfo,
         orders: state.orders,
-        selectedOrder: state.selectedOrder // Also persist selectedOrder
+        selectedOrder: state.selectedOrder, // Also persist selectedOrder
+        lastFetchTime: state.lastFetchTime // Also persist last fetch time
       })
     }
   )

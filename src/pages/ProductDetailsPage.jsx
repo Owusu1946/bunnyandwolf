@@ -19,7 +19,8 @@ import {
   CornerDownRight,
   ThumbsUp,
   ThumbsDown,
-  AlertTriangle
+  AlertTriangle,
+  Shield
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Navbar from '../components/Navbar';
@@ -34,6 +35,15 @@ import { useReviewStore } from '../store/reviewStore';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { generateProductSchema, generateBreadcrumbSchema } from '../utils/schemaHelper';
+import { toast } from 'react-hot-toast';
+
+// Add analytics tracking import or define a simple track function
+// Add this after the other imports
+const track = (event, data) => {
+  // Simple logging for events - replace with actual analytics implementation
+  console.log(`📊 Analytics Event: ${event}`, data);
+  // If you have an actual analytics service, you would call it here
+};
 
 // Import to use product store
 const ProductDetailsPage = () => {
@@ -354,7 +364,7 @@ const ProductDetailsPage = () => {
   const handleAddToCart = async () => {
     // Validate size selection first if sizes are available
     if (!selectedSize && product.sizes && product.sizes.length > 0) {
-      error('Please select a size first');
+      toast.error('Please select a size first');
       return;
     }
     
@@ -367,98 +377,145 @@ const ProductDetailsPage = () => {
         ? {
             price: product.variants[selectedVariantIndex]?.price || product.basePrice,
             image: product.variants[selectedVariantIndex]?.image || mainImage || product.image,
-            color: product.variants[selectedVariantIndex]?.color || null,
-            colorName: product.variants[selectedVariantIndex]?.colorName || null
+            color: product.variants[selectedVariantIndex]?.color || '#000000',
+            colorName: product.variants[selectedVariantIndex]?.colorName || 'Default'
           }
         : {
             price: product.basePrice,
-            image: product.image || mainImage,
-            color: null,
-            colorName: null
+            image: mainImage || product.image,
+            color: '#000000',
+            colorName: 'Default'
           };
       
-      // Prepare product for cart with all required information
-      const cartProduct = {
-        id: product._id,
-        name: product.name,
-        price: variantInfo.price,
-        image: variantInfo.image || `https://placehold.co/400x500/e2e8f0/1e293b?text=${encodeURIComponent(product.name)}`,
-        selectedColor: variantInfo.color,
-        colorName: variantInfo.colorName,
-        size: selectedSize || 'One Size',
-        quantity: quantity
+      // Include shipping information in the product
+      const shippingInfo = {
+        airShippingPrice: product.airShippingPrice || 0,
+        airShippingDuration: product.airShippingDuration || 0,
+        seaShippingPrice: product.seaShippingPrice || 0,
+        seaShippingDuration: product.seaShippingDuration || 0
       };
       
-      // Add to cart using context
-      const success = addToCart(cartProduct);
+      console.log('🚢 ProductDetails: Shipping data from product:', shippingInfo);
       
-      if (success) {
-        // Always show the toast notification
-        cartNotification(
-          `${product.name} has been added to your cart.`,
-          {
-            title: 'Added to Cart',
-            image: cartProduct.image
-          }
-        );
-      }
+      // Create cart item object
+      const cartItem = {
+        id: product._id,
+        name: product.name,
+        ...variantInfo,
+        size: selectedSize || 'One Size',
+        quantity: quantity,
+        variants: product.variants,
+        currentVariantIndex: selectedVariantIndex,
+        ...shippingInfo // Add shipping information
+      };
+      
+      // Add to cart context
+      addToCart(cartItem);
+      
+      // Record analytics event
+      track('add_to_cart', {
+        product_id: product._id,
+        product_name: product.name,
+        product_price: variantInfo.price,
+        product_color: variantInfo.colorName,
+        product_size: selectedSize || 'One Size',
+        quantity: quantity
+      });
+      
+      // Show success message
+      toast.success('Added to cart successfully!');
+      
+      // Open the cart drawer after a short delay
+      setTimeout(() => {
+        toggleCartDrawer();
+      }, 300);
     } catch (err) {
-      error('Failed to add item to cart');
-      console.error('Cart error:', err);
+      console.error('Error adding to cart:', err);
+      toast.error('Failed to add to cart. Please try again.');
     } finally {
         setAddingToCart(false);
     }
   };
   
-  // Handle buy now button
+  // Add this formatPrice helper function with the other utility functions
+  const formatPrice = (price) => {
+    // Check if price is already a string with currency
+    if (typeof price === 'string' && (price.includes('GH₵') || price.includes('₵'))) {
+      return price;
+    }
+    
+    // Convert to number if it's a string without currency
+    const numericPrice = typeof price === 'string' ? parseFloat(price.replace(/[^\d.]/g, '')) : price;
+    
+    // Format the price with GH₵ symbol
+    return `GH₵${numericPrice?.toFixed(2) || '0.00'}`;
+  };
+  
+  // Fix the handleBuyNow function to handle errors properly
   const handleBuyNow = () => {
     // Validate size selection first if sizes are available
     if (!selectedSize && product.sizes && product.sizes.length > 0) {
-      error('Please select a size first');
+      toast.error('Please select a size first');
         return;
       }
       
+    try {
     // Get variant information if available
     const variantInfo = product.variants && product.variants.length > 0
       ? {
           price: product.variants[selectedVariantIndex]?.price || product.basePrice,
           image: product.variants[selectedVariantIndex]?.image || mainImage || product.image,
-          color: product.variants[selectedVariantIndex]?.color || null,
-          colorName: product.variants[selectedVariantIndex]?.colorName || null
+            color: product.variants[selectedVariantIndex]?.color || '#000000',
+            colorName: product.variants[selectedVariantIndex]?.colorName || 'Default'
         }
       : {
           price: product.basePrice,
-          image: product.image || mainImage,
-          color: null,
-          colorName: null
+            image: mainImage || product.image,
+            color: '#000000',
+            colorName: 'Default'
         };
     
-    // Format price correctly
-    const formattedPrice = typeof variantInfo.price === 'number' 
-      ? `GH₵${variantInfo.price.toFixed(2)}`
-      : variantInfo.price;
+      // Include shipping information in the product
+      const shippingInfo = {
+        airShippingPrice: product.airShippingPrice || 0,
+        airShippingDuration: product.airShippingDuration || 0,
+        seaShippingPrice: product.seaShippingPrice || 0,
+        seaShippingDuration: product.seaShippingDuration || 0
+      };
+      
+      console.log('🚢 ProductDetails: Shipping data for Buy Now:', shippingInfo);
     
-    // Prepare product information for checkout
-    const checkoutProductInfo = {
+      // Create product info object for checkout
+      const productInfo = {
       id: product._id,
             name: product.name,
-      price: formattedPrice,
-      image: variantInfo.image || `https://placehold.co/400x500/e2e8f0/1e293b?text=${encodeURIComponent(product.name)}`,
+        price: formatPrice(variantInfo.price),
+        image: variantInfo.image,
       selectedColor: variantInfo.color,
-      colorName: variantInfo.colorName || 'Default',
+        colorName: variantInfo.colorName,
       size: selectedSize || 'One Size',
             quantity: quantity,
-      variants: product.variants || [],
-            currentVariantIndex: selectedVariantIndex
-    };
-    
-    // Navigate directly to checkout with product info
-    navigate('/checkout', {
-      state: {
-        productInfo: checkoutProductInfo,
-        fromCart: false
+        ...shippingInfo // Add shipping information
+      };
+      
+      // Update analytics
+      if (typeof track === 'function') {
+        track('begin_checkout', {
+          product_id: product._id,
+          product_name: product.name,
+          product_price: variantInfo.price,
+          product_color: variantInfo.colorName,
+          product_size: selectedSize || 'One Size',
+          quantity: quantity
+        });
       }
-    });
+      
+      // Navigate to checkout with product info
+      navigate('/checkout', { state: { productInfo } });
+    } catch (err) {
+      console.error('Error processing buy now:', err);
+      toast.error('Failed to proceed to checkout. Please try again.');
+    }
   };
   
   const handleThumbnailClick = (image) => {
@@ -817,6 +874,14 @@ const ProductDetailsPage = () => {
     return reviewStats;
   };
   
+  // Add a toggleCartDrawer function if it doesn't exist
+  const toggleCartDrawer = () => {
+    // This would typically be provided by a cart context or prop
+    // For now, we'll just log the action since we can't access the actual cart drawer
+    console.log('🛒 ProductDetails: Cart drawer toggle called');
+    // If you have a cart drawer component, you would call its toggle function here
+  };
+  
   return (
     <div className="min-h-screen bg-white">
       {/* SEO component */}
@@ -1099,15 +1164,29 @@ const ProductDetailsPage = () => {
               <div className="flex items-start">
                 <Truck className="w-5 h-5 mt-0.5 text-gray-600" />
                 <div className="ml-3">
-                  <h4 className="text-sm font-medium text-gray-900">Free shipping</h4>
-                  <p className="text-sm text-gray-500">Free standard shipping on orders over GH₵100</p>
+                  <h4 className="text-sm font-medium text-gray-900">Premium Packaging</h4>
+                  <p className="text-sm text-gray-500">Luxury gift-ready packaging for an elevated experience</p>
                 </div>
               </div>
               <div className="flex items-start">
                 <RefreshCw className="w-5 h-5 mt-0.5 text-gray-600" />
                 <div className="ml-3">
-                  <h4 className="text-sm font-medium text-gray-900">30-day returns</h4>
-                  <p className="text-sm text-gray-500">Free returns within 30 days of delivery</p>
+                  <h4 className="text-sm font-medium text-gray-900">Quality Guarantee</h4>
+                  <p className="text-sm text-gray-500">Each product passes our rigorous quality inspection</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <Shield className="w-5 h-5 mt-0.5 text-gray-600" />
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-gray-900">Authenticity Certified</h4>
+                  <p className="text-sm text-gray-500">Every item includes our official authenticity certificate</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <MessageCircle className="w-5 h-5 mt-0.5 text-gray-600" />
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-gray-900">VIP Support</h4>
+                  <p className="text-sm text-gray-500">Access to our dedicated customer concierge team</p>
                 </div>
               </div>
             </div>

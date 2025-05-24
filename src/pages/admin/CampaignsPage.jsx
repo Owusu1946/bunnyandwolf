@@ -30,7 +30,9 @@ import {
   FaMobileAlt,
   FaDesktop,
   FaCode,
-  FaSpinner
+  FaSpinner,
+  FaChevronRight,
+  FaEye
 } from 'react-icons/fa';
 
 const CampaignsPage = () => {
@@ -97,6 +99,20 @@ const CampaignsPage = () => {
   const [sendingSuccess, setSendingSuccess] = useState(false);
   const [customerDataError, setCustomerDataError] = useState(null);
   const [campaignDataError, setCampaignDataError] = useState(null);
+
+  // Add state to track mobile view
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showCampaignActions, setShowCampaignActions] = useState(null);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Modified useEffect to load user data and check authentication
   useEffect(() => {
@@ -417,20 +433,20 @@ const CampaignsPage = () => {
       <Sidebar />
       
       <div className={`flex-1 transition-all duration-300 ${
-        collapsed ? 'ml-20' : 'ml-64'
-      } p-6`}>
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-semibold text-gray-800">Marketing Campaigns</h1>
+        isMobile ? 'ml-0 p-3' : (collapsed ? 'ml-20' : 'ml-64') + ' p-6'
+      }`}>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-3">
+          <h1 className="text-xl md:text-2xl font-semibold text-gray-800">Marketing Campaigns</h1>
           <button 
             onClick={() => setShowNewCampaignModal(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center md:justify-start w-full md:w-auto"
           >
             <FaPlus className="mr-2" /> Create Campaign
           </button>
         </div>
 
         {/* Campaign Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <div className="rounded-full bg-blue-100 p-3">
@@ -438,7 +454,7 @@ const CampaignsPage = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-gray-500 text-sm">Total Campaigns</h3>
-                <p className="text-2xl font-semibold">
+                <p className="text-xl md:text-2xl font-semibold">
                   {isLoading ? (
                     <FaSpinner className="animate-spin inline" />
                   ) : (
@@ -456,7 +472,7 @@ const CampaignsPage = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-gray-500 text-sm">Total Recipients</h3>
-                <p className="text-2xl font-semibold">
+                <p className="text-xl md:text-2xl font-semibold">
                   {isLoading ? (
                     <FaSpinner className="animate-spin inline" />
                   ) : (
@@ -474,7 +490,7 @@ const CampaignsPage = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-gray-500 text-sm">Scheduled/Sent</h3>
-                <p className="text-2xl font-semibold">
+                <p className="text-xl md:text-2xl font-semibold">
                   {isLoading ? (
                     <FaSpinner className="animate-spin inline" />
                   ) : (
@@ -492,7 +508,7 @@ const CampaignsPage = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-gray-500 text-sm">Avg. Open Rate</h3>
-                <p className="text-2xl font-semibold">
+                <p className="text-xl md:text-2xl font-semibold">
                   {isLoading ? (
                     <FaSpinner className="animate-spin inline" />
                   ) : (
@@ -524,8 +540,8 @@ const CampaignsPage = () => {
 
         {/* Search & Filter */}
         <div className="bg-white rounded-lg shadow mb-6">
-          <div className="p-4 flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
+          <div className="p-3 md:p-4 flex flex-col sm:flex-row flex-wrap gap-3">
+            <div className="flex-1 min-w-full sm:min-w-[200px]">
               <div className="relative">
                 <input
                   type="text"
@@ -538,31 +554,29 @@ const CampaignsPage = () => {
               </div>
             </div>
             
-            <div className="flex-1 min-w-[150px]">
+            <div className="grid grid-cols-2 gap-3 w-full sm:flex sm:w-auto">
               <div className="relative">
                 <select
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  <option value="all">All Statuses</option>
+                  <option value="all">Status</option>
                   <option value="draft">Draft</option>
                   <option value="scheduled">Scheduled</option>
                   <option value="sent">Sent</option>
                   <option value="active">Active</option>
                 </select>
                 <FaFilter className="absolute right-3 top-3 text-gray-400" />
-              </div>
             </div>
             
-            <div className="flex-1 min-w-[150px]">
               <div className="relative">
                 <select
                   value={typeFilter}
                   onChange={e => setTypeFilter(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  <option value="all">All Types</option>
+                  <option value="all">Type</option>
                   <option value="email">Email</option>
                   <option value="notification">Notification</option>
                   <option value="promo">Promotional</option>
@@ -575,7 +589,7 @@ const CampaignsPage = () => {
           </div>
         </div>
 
-        {/* Campaigns List */}
+        {/* Campaigns List - Table for desktop, Cards for mobile */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {isLoading ? (
             <div className="py-20 text-center">
@@ -583,7 +597,9 @@ const CampaignsPage = () => {
               <p className="text-gray-500">Loading campaigns...</p>
             </div>
           ) : (
-          <div className="overflow-x-auto">
+            <>
+              {/* Desktop View: Table */}
+              <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
@@ -661,7 +677,16 @@ const CampaignsPage = () => {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Duplicate campaign
+                              viewCampaignDetails(campaign);
+                            }}
+                            title="View Campaign"
+                            className="text-gray-500 hover:text-gray-700 mr-3"
+                          >
+                            <FaEye />
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
                             const duplicateData = {
                               title: `Copy of ${campaign.title}`,
                               type: campaign.type,
@@ -709,7 +734,7 @@ const CampaignsPage = () => {
                     </td>
                   </tr>
                 ))}
-                  {!isLoading && filteredCampaigns.length === 0 && (
+                    {filteredCampaigns.length === 0 && (
                   <tr>
                     <td colSpan="8" className="py-6 px-4 text-center text-gray-500">
                       No campaigns found matching your search criteria.
@@ -719,14 +744,180 @@ const CampaignsPage = () => {
               </tbody>
             </table>
           </div>
+
+              {/* Mobile View: Cards */}
+              <div className="md:hidden">
+                {filteredCampaigns.length > 0 ? (
+                  <div className="divide-y divide-gray-200">
+                    {filteredCampaigns.map(campaign => (
+                      <div 
+                        key={campaign._id}
+                        className="p-4 hover:bg-gray-50"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => viewCampaignDetails(campaign)}
+                          >
+                            <h3 className="font-medium text-gray-900">{campaign.title}</h3>
+                            <p className="text-sm text-gray-500">{campaign.subject}</p>
+                          </div>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowCampaignActions(showCampaignActions === campaign._id ? null : campaign._id);
+                            }}
+                            className="p-2 ml-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
+                            aria-label="Toggle campaign actions"
+                          >
+                            <FaEllipsisV size={16} />
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 my-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(campaign.status)}`}>
+                            {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                          </span>
+                          <div className="flex items-center bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
+                            {getCampaignTypeIcon(campaign.type)}
+                            <span className="ml-1 capitalize">{campaign.type}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm mt-3">
+                          <div>
+                            <p className="text-gray-500">Schedule</p>
+                            <p className="font-medium">{formatDate(campaign.scheduledDate || campaign.sentAt)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Recipients</p>
+                            <p className="font-medium">{getRecipientCount(campaign).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Open Rate</p>
+                            <div className="flex items-center">
+                              <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                <div 
+                                  className="bg-green-600 h-2 rounded-full" 
+                                  style={{ width: `${getOpenRate(campaign)}%` }}
+                                ></div>
+                              </div>
+                              <span>{getOpenRate(campaign)}%</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Click Rate</p>
+                            <div className="flex items-center">
+                              <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{ width: `${getClickRate(campaign)}%` }}
+                                ></div>
+                              </div>
+                              <span>{getClickRate(campaign)}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mobile Action Buttons with improved visuals */}
+                        <div className={`mt-3 grid grid-cols-2 gap-2 transition-all duration-200 ${
+                          showCampaignActions === campaign._id ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+                        }`}>
+                          {campaign.status !== 'sent' && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSendCampaign(campaign);
+                              }}
+                              className="flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-800 p-3 rounded-lg"
+                            >
+                              <FaPaperPlane className="mr-2" /> Send
+                            </button>
+                          )}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              viewCampaignDetails(campaign);
+                            }}
+                            className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-800 p-3 rounded-lg"
+                          >
+                            <FaEye className="mr-2" /> View
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Duplicate campaign functionality
+                              const duplicateData = {
+                                title: `Copy of ${campaign.title}`,
+                                type: campaign.type,
+                                subject: campaign.subject,
+                                content: campaign.content,
+                                recipientType: campaign.recipientType,
+                                template: campaign.template
+                              };
+                              
+                              createCampaign(duplicateData)
+                                .then(() => {
+                                  toast.success('Campaign duplicated successfully!');
+                                  fetchCampaigns();
+                                })
+                                .catch(err => {
+                                  toast.error('Failed to duplicate campaign');
+                                });
+                            }}
+                            className="flex items-center justify-center bg-purple-100 hover:bg-purple-200 text-purple-800 p-3 rounded-lg"
+                          >
+                            <FaCopy className="mr-2" /> Copy
+                          </button>
+                          {campaign.status !== 'sent' && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm('Are you sure you want to delete this campaign?')) {
+                                  deleteCampaign(campaign._id)
+                                    .then(() => {
+                                      toast.success('Campaign deleted successfully!');
+                                      fetchCampaigns();
+                                    })
+                                    .catch(err => {
+                                      toast.error('Failed to delete campaign');
+                                    });
+                                }
+                              }}
+                              className="flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-800 p-3 rounded-lg"
+                            >
+                              <FaTrash className="mr-2" /> Delete
+                            </button>
+                          )}
+                        </div>
+                        
+                        {/* View Details Button */}
+                        <button 
+                          onClick={() => viewCampaignDetails(campaign)}
+                          className={`mt-3 flex items-center justify-center w-full p-3 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 ${
+                            showCampaignActions === campaign._id ? 'hidden' : 'block'
+                          }`}
+                        >
+                          View Details <FaChevronRight className="ml-1" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-10 text-center text-gray-500">
+                    No campaigns found matching your search criteria.
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
 
       {/* New Campaign Modal with Preview */}
       {showNewCampaignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-lg shadow-xl p-4 md:p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">Create New Campaign</h3>
               <button 
@@ -741,7 +932,7 @@ const CampaignsPage = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <form onSubmit={handleCreateCampaign} className="space-y-6">
+                <form onSubmit={handleCreateCampaign} className="space-y-4 md:space-y-6">
                       <div>
                     <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
                           Campaign Title
@@ -875,17 +1066,17 @@ const CampaignsPage = () => {
                     </p>
                     </div>
                     
-                  <div className="flex justify-end space-x-3 pt-4">
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
                       <button
                         type="button"
                         onClick={() => setShowNewCampaignModal(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                      className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 w-full sm:w-auto"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 w-full sm:w-auto"
                       >
                         Create Campaign
                       </button>
@@ -893,7 +1084,7 @@ const CampaignsPage = () => {
                 </form>
               </div>
               
-              <div>
+              <div className={`${isMobile ? 'hidden lg:block' : 'block'}`}>
                 <div className="border rounded-lg p-4 bg-gray-50 h-full">
                 <div className="flex justify-between items-center mb-4">
                     <h4 className="text-sm font-medium text-gray-700">Email Preview</h4>
@@ -977,13 +1168,13 @@ const CampaignsPage = () => {
 
       {/* Campaign Detail Modal */}
       {showCampaignDetailModal && selectedCampaign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-lg shadow-xl p-4 md:p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">Campaign Details</h3>
               <button 
                 onClick={() => setShowCampaignDetailModal(false)}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-gray-400 hover:text-gray-500 p-2"
               >
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -993,8 +1184,8 @@ const CampaignsPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-1 space-y-4">
-                <div>
-                  <h4 className="font-medium text-gray-700">Details</h4>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-3">Details</h4>
                   <div className="mt-2 space-y-3">
                     <div>
                       <span className="text-sm text-gray-500">Title:</span>
@@ -1031,8 +1222,8 @@ const CampaignsPage = () => {
             </div>
 
                 {selectedCampaign.status === 'sent' && (
-                  <div>
-                    <h4 className="font-medium text-gray-700">Performance</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-700 mb-3">Performance</h4>
                     <div className="mt-2 space-y-4">
                       <div>
                         <div className="flex justify-between text-sm">
@@ -1070,12 +1261,12 @@ const CampaignsPage = () => {
                   </div>
                 )}
                 
-                <div className="pt-4 space-y-2">
+                <div className="pt-4 space-y-3">
                   {selectedCampaign.status !== 'sent' ? (
                     <button
                       onClick={() => handleSendCampaign(selectedCampaign)}
                       disabled={isSending}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center justify-center"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg flex items-center justify-center"
                     >
                       {isSending ? (
                         <>
@@ -1088,7 +1279,7 @@ const CampaignsPage = () => {
                       )}
                     </button>
                   ) : (
-                    <div className="flex items-center justify-center py-2 px-4 bg-green-100 text-green-800 rounded">
+                    <div className="flex items-center justify-center py-3 px-4 bg-green-100 text-green-800 rounded-lg">
                       <FaCheck className="mr-2" /> Campaign Sent
                     </div>
                   )}
@@ -1105,7 +1296,7 @@ const CampaignsPage = () => {
                         });
                         setShowNewCampaignModal(true);
                       }}
-                      className="w-full border border-gray-300 text-gray-700 py-2 px-4 rounded flex items-center justify-center"
+                      className="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-lg flex items-center justify-center"
                     >
                       <FaEdit className="mr-2" /> Edit Campaign
                 </button>
@@ -1126,7 +1317,7 @@ const CampaignsPage = () => {
                             });
                         }
                       }}
-                      className="w-full border border-red-300 text-red-700 py-2 px-4 rounded flex items-center justify-center"
+                      className="w-full border border-red-300 text-red-700 py-3 px-4 rounded-lg flex items-center justify-center"
                     >
                       <FaTrash className="mr-2" /> Delete Campaign
               </button>
@@ -1135,20 +1326,20 @@ const CampaignsPage = () => {
               </div>
               
               <div className="md:col-span-2">
-                <div className="bg-gray-100 p-4 rounded-lg mb-4">
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="font-medium text-gray-700">Email Preview</h4>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => setPreviewMode('desktop')}
-                        className={`p-1 rounded ${previewMode === 'desktop' ? 'bg-gray-200' : ''}`}
+                        className={`p-2 rounded ${previewMode === 'desktop' ? 'bg-gray-200' : ''}`}
                         title="Desktop preview"
                       >
                         <FaDesktop className="text-gray-600" />
                       </button>
                       <button
                         onClick={() => setPreviewMode('mobile')}
-                        className={`p-1 rounded ${previewMode === 'mobile' ? 'bg-gray-200' : ''}`}
+                        className={`p-2 rounded ${previewMode === 'mobile' ? 'bg-gray-200' : ''}`}
                         title="Mobile preview"
                       >
                         <FaMobileAlt className="text-gray-600" />

@@ -47,13 +47,111 @@ const OrderCardSkeleton = () => {
         <div className="h-5 bg-gray-200 rounded w-1/3"></div>
         <div className="h-5 bg-gray-200 rounded w-1/4"></div>
       </div>
-      <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
-      <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <div className="h-4 bg-gray-200 rounded w-2/3 mb-1"></div>
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+        </div>
+        <div>
+          <div className="h-4 bg-gray-200 rounded w-1/2 mb-1"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/3 mb-1"></div>
+          <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+        </div>
+      </div>
       <div className="flex justify-between items-center">
         <div className="h-6 bg-gray-200 rounded w-20"></div>
         <div className="flex space-x-2">
           <div className="h-8 bg-gray-200 rounded-full w-8"></div>
           <div className="h-8 bg-gray-200 rounded-full w-8"></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+// Mobile Order Card component
+const OrderCard = ({ order, onViewDetails, onEditOrder, onStatusChange, showStatusDropdown, toggleStatusDropdown, getUserForOrder, getCustomerEmail, formatDate, formatPrice }) => {
+  const getStatusClass = (status) => {
+    switch(status) {
+      case 'Delivered': return 'bg-green-100 text-green-800';
+      case 'Shipped': return 'bg-blue-100 text-blue-800';
+      case 'Pending': return 'bg-yellow-100 text-yellow-800';
+      case 'Processing': return 'bg-purple-100 text-purple-800';
+      case 'Cancelled': return 'bg-red-100 text-red-800';
+      case 'Refunded': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-4 mb-3">
+      <div className="flex justify-between mb-2">
+        <h4 className="font-medium text-sm">{order.orderNumber}</h4>
+        <span className="text-xs text-gray-500">{formatDate(order.createdAt)}</span>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+        <div>
+          <p className="text-gray-500">Customer:</p>
+          <p className="font-medium truncate">{getUserForOrder(order) ? 
+            `${getUserForOrder(order).firstName || ''} ${getUserForOrder(order).lastName || ''}`.trim() : 
+            order.customerName || 'Unknown'}</p>
+          <p className="text-gray-500 truncate">{getCustomerEmail(order)}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Amount:</p>
+          <p className="font-medium">{formatPrice(order.totalAmount)}</p>
+          <p className="text-gray-500">{Array.isArray(order.items) ? order.items.length : 0} items</p>
+        </div>
+      </div>
+      
+      <div className="flex justify-between items-center">
+        <div className="relative">
+          <span 
+            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${getStatusClass(order.status)}`}
+            onClick={() => toggleStatusDropdown(order._id)}
+          >
+            {order.status || 'Unknown'}
+          </span>
+          
+          {/* Status dropdown */}
+          {showStatusDropdown[order._id] && (
+            <div className="absolute left-0 mt-1 w-40 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+              <ul className="py-1">
+                {['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'].map(status => (
+                  <li 
+                    key={status}
+                    className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100
+                      ${order.status === status ? 'bg-gray-50 font-medium' : ''}
+                    `}
+                    onClick={() => onStatusChange(order._id, status)}
+                  >
+                    {status}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex space-x-2">
+          <button 
+            className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100"
+            onClick={() => onViewDetails(order._id)}
+            aria-label="View details"
+          >
+            <FaEye className="w-3.5 h-3.5" />
+          </button>
+          <button 
+            className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100"
+            onClick={() => onEditOrder(order._id)}
+            aria-label="Edit order"
+          >
+            <FaPencilAlt className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>
@@ -753,28 +851,30 @@ const AdminOrders = () => {
         
         <div className="p-3 sm:p-6">
           <div className="mb-4 sm:mb-8">
-            <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-center flex-wrap">
             <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Orders Management</h1>
               
               {/* Tools buttons */}
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
                 <button 
                   onClick={toggleNotificationTester}
-                  className="text-sm px-3 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md transition-colors"
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md transition-colors"
                 >
-                  {showNotificationTester ? 'Hide Notification Tester' : 'Show Notification Tester'}
+                  <span className="hidden xs:inline">{showNotificationTester ? 'Hide' : 'Show'} Notification Tester</span>
+                  <span className="xs:hidden">{showNotificationTester ? 'Hide' : 'Show'} Tester</span>
                 </button>
                 
                 <button 
                   onClick={triggerTestNotification}
-                  className="text-sm px-3 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-md transition-colors"
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-md transition-colors"
                 >
                   <FaBell className="inline mr-1" />
-                  Test Notification
+                  <span className="hidden xs:inline">Test Notification</span>
+                  <span className="xs:hidden">Test</span>
                 </button>
               </div>
             </div>
-            <p className="text-sm sm:text-base text-gray-600">View and manage all customer orders</p>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">View and manage all customer orders</p>
           </div>
           
           {/* Notification Tester */}
@@ -785,51 +885,60 @@ const AdminOrders = () => {
           )}
           
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
-            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
-              <h3 className="text-xs sm:text-sm font-medium text-gray-500">Total Orders</h3>
-              <p className="text-lg sm:text-2xl font-bold truncate">{stats.totalOrders}</p>
+          <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <h3 className="text-xs font-medium text-gray-500">Total Orders</h3>
+              <p className="text-base sm:text-xl font-bold truncate">{stats.totalOrders}</p>
             </div>
             
             <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
-              <h3 className="text-xs sm:text-sm font-medium text-gray-500">Total Revenue</h3>
-              <p className="text-lg sm:text-2xl font-bold truncate">{formatPrice(stats.totalRevenue)}</p>
+              <h3 className="text-xs font-medium text-gray-500">Total Revenue</h3>
+              <p className="text-base sm:text-xl font-bold truncate">{formatPrice(stats.totalRevenue)}</p>
             </div>
             
             <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
-              <h3 className="text-xs sm:text-sm font-medium text-gray-500">Recent Orders (7d)</h3>
-              <p className="text-lg sm:text-2xl font-bold truncate">{stats.recentOrders}</p>
+              <h3 className="text-xs font-medium text-gray-500">Recent Orders (7d)</h3>
+              <p className="text-base sm:text-xl font-bold truncate">{stats.recentOrders}</p>
             </div>
             
             <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
-              <h3 className="text-xs sm:text-sm font-medium text-gray-500">Recent Revenue (7d)</h3>
-              <p className="text-lg sm:text-2xl font-bold truncate">{formatPrice(stats.recentRevenue)}</p>
+              <h3 className="text-xs font-medium text-gray-500">Recent Revenue (7d)</h3>
+              <p className="text-base sm:text-xl font-bold truncate">{formatPrice(stats.recentRevenue)}</p>
             </div>
           </div>
           
-          {/* Filters and Search */}
-          <div className="space-y-3 mb-4 sm:space-y-0 sm:flex sm:flex-row sm:justify-between sm:items-center sm:mb-6">
-            <div className="relative w-full sm:w-64">
-              <form onSubmit={handleSearch}>
-                <input
-                  type="text"
-                  placeholder="Search orders..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <div className="absolute left-3 top-2.5 text-gray-400">
-                  <FaSearch />
+          {/* Filters and Search - Improved Mobile Layout */}
+          <div className="space-y-3 mb-4 sm:mb-6">
+            {/* Search Bar */}
+            <div className="w-full">
+              <form onSubmit={handleSearch} className="flex">
+                <div className="relative flex-grow">
+                  <input
+                    type="text"
+                    placeholder="Search orders..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <div className="absolute left-3 top-2.5 text-gray-400">
+                    <FaSearch />
+                  </div>
                 </div>
-                <button type="submit" className="hidden">Search</button>
+                <button 
+                  type="submit"
+                  className="ml-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 md:hidden"
+                >
+                  Search
+                </button>
               </form>
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              <div className="flex items-center flex-1 min-w-[180px]">
-                <FaFilter className="mr-2 text-gray-500" />
+            {/* Filters - more responsive layout */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="flex items-center">
+                <FaFilter className="mr-2 text-gray-500 hidden xs:inline" />
                 <select
-                  className="border border-gray-300 rounded-lg px-2 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
+                  className="border border-gray-300 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full text-sm"
                   value={statusFilter}
                   onChange={handleStatusFilterChange}
                 >
@@ -843,27 +952,27 @@ const AdminOrders = () => {
                 </select>
               </div>
               
-              <div className="flex items-center flex-1 min-w-[120px]">
-                <span className="mr-2 text-gray-500 whitespace-nowrap text-sm">Show:</span>
+              <div className="flex items-center">
+                <span className="mr-1 text-gray-500 whitespace-nowrap text-xs sm:text-sm hidden xs:inline">Show:</span>
                 <select
-                  className="border border-gray-300 rounded-lg px-2 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
+                  className="border border-gray-300 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full text-sm"
                   value={itemsPerPage}
                   onChange={handleItemsPerPageChange}
                 >
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="50">50</option>
+                  <option value="5">5 per page</option>
+                  <option value="10">10 per page</option>
+                  <option value="20">20 per page</option>
+                  <option value="50">50 per page</option>
                 </select>
               </div>
               
               <button
-                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center flex-1 min-w-[140px] justify-center ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center col-span-2 md:col-span-1 mt-1 md:mt-0 ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
                 onClick={handleRefresh}
                 disabled={isRefreshing}
               >
                 <FaSync className={`mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Refreshing...' : 'Refresh Orders'}
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </button>
             </div>
           </div>
@@ -890,9 +999,10 @@ const AdminOrders = () => {
             </div>
           )}
           
-          {/* Orders Table */}
+          {/* Orders Table (Desktop) / Cards (Mobile) */}
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Desktop View */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -1050,7 +1160,39 @@ const AdminOrders = () => {
               </table>
             </div>
             
-            {/* Pagination */}
+            {/* Mobile View - Cards */}
+            <div className="md:hidden p-3">
+              <h3 className="text-sm font-medium text-gray-500 uppercase mb-2">Orders</h3>
+              
+              {isRefreshing ? (
+                // Skeleton cards for mobile
+                Array.from({ length: 3 }).map((_, index) => (
+                  <OrderCardSkeleton key={index} />
+                ))
+              ) : currentOrders.length > 0 ? (
+                currentOrders.map(order => (
+                  <OrderCard 
+                    key={order._id}
+                    order={order}
+                    onViewDetails={handleViewOrderDetails}
+                    onEditOrder={handleEditOrder}
+                    onStatusChange={handleStatusChange}
+                    showStatusDropdown={showStatusDropdown}
+                    toggleStatusDropdown={toggleStatusDropdown}
+                    getUserForOrder={getUserForOrder}
+                    getCustomerEmail={getCustomerEmail}
+                    formatDate={formatDate}
+                    formatPrice={formatPrice}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg">
+                  {isLoading ? 'Loading orders...' : 'No orders found matching your criteria'}
+                </div>
+              )}
+            </div>
+            
+            {/* Pagination - Keep existing pagination code */}
             {totalPages > 1 && (
               <div className="px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between border-t border-gray-200">
                 <div className="flex justify-between sm:hidden mb-3">
@@ -1158,17 +1300,17 @@ const AdminOrders = () => {
         {/* Order Details/Edit Modal */}
         {showOrderModal && selectedOrder && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-start md:items-center justify-center">
-            <div className="relative bg-white rounded-lg shadow-xl mx-auto w-full md:w-4/5 lg:max-w-4xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto mt-2 md:mt-0">
+            <div className="relative bg-white rounded-lg shadow-xl mx-auto w-full md:w-4/5 lg:max-w-4xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto mt-0 md:mt-0">
               {/* Modal Header */}
-              <div className="sticky top-0 bg-white px-4 sm:px-6 py-3 sm:py-4 border-b flex justify-between items-center z-10">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+              <div className="sticky top-0 bg-white px-3 sm:px-6 py-3 sm:py-4 border-b flex justify-between items-center z-10">
+                <h3 className="text-sm sm:text-lg font-semibold text-gray-900 truncate">
                   {isEditMode ? 'Edit Order: ' : 'Order: '}
-                  #{isEditMode ? editedOrder.orderNumber : selectedOrder.orderNumber}
+                  <span className="text-purple-600">#{isEditMode ? editedOrder.orderNumber : selectedOrder.orderNumber}</span>
                 </h3>
                 <div className="flex items-center space-x-2">
                   {isEditMode && (
                     <button 
-                      className="text-green-600 hover:text-green-700 px-2 sm:px-3 py-1 bg-green-100 rounded-md flex items-center text-sm"
+                      className="text-green-600 hover:text-green-700 px-2 sm:px-3 py-1 bg-green-100 rounded-md flex items-center text-xs sm:text-sm"
                       onClick={handleSaveOrder}
                     >
                       <FaSave className="mr-1" /> Save
@@ -1179,7 +1321,7 @@ const AdminOrders = () => {
                     onClick={closeOrderModal}
                     aria-label="Close"
                   >
-                    <FaTimes size={20} />
+                    <FaTimes size={18} />
                   </button>
                 </div>
               </div>
@@ -1245,7 +1387,7 @@ const AdminOrders = () => {
                 </div>
                 
                 {/* Order Info Sections */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6">
                   {/* Customer Info */}
                   <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
                     <div className="flex items-center mb-2 sm:mb-3">
@@ -1767,44 +1909,65 @@ const AdminOrders = () => {
         
         {/* Receipt Viewer Modal */}
         {receiptViewerOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+          <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-2 sm:p-4">
+            <div className="bg-white rounded-lg w-full max-w-lg sm:max-w-4xl max-h-[95vh] flex flex-col">
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 border-b">
-                <h3 className="text-lg font-medium">Receipt Image</h3>
-                <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+                <h3 className="text-base sm:text-lg font-medium">Receipt Image</h3>
+                <div className="flex items-center space-x-1 sm:space-x-2">
                   <button 
                     onClick={handleZoomOut} 
                     className="p-1 bg-gray-200 rounded-full hover:bg-gray-300"
                     disabled={imageZoomLevel <= 50}
                     title="Zoom Out"
                   >
-                    <FaSearchMinus />
+                    <FaSearchMinus className="text-xs sm:text-sm" />
                   </button>
-                  <span className="text-sm font-medium">{imageZoomLevel}%</span>
+                  <span className="text-xs sm:text-sm font-medium">{imageZoomLevel}%</span>
                   <button 
                     onClick={handleZoomIn} 
                     className="p-1 bg-gray-200 rounded-full hover:bg-gray-300"
                     disabled={imageZoomLevel >= 200}
                     title="Zoom In"
                   >
-                    <FaSearchPlus />
+                    <FaSearchPlus className="text-xs sm:text-sm" />
                   </button>
                   <button 
                     onClick={downloadReceiptImage} 
-                    className="p-1 bg-gray-200 rounded-full hover:bg-gray-300 ml-2"
+                    className="p-1 bg-gray-200 rounded-full hover:bg-gray-300 ml-1 sm:ml-2"
                     title="Download Receipt"
                   >
-                    <FaDownload />
+                    <FaDownload className="text-xs sm:text-sm" />
                   </button>
                   <button 
                     onClick={closeReceiptViewer} 
-                    className="p-1 bg-gray-200 rounded-full hover:bg-gray-300 ml-2"
+                    className="p-1 bg-gray-200 rounded-full hover:bg-gray-300 ml-1 sm:ml-2"
                     title="Close"
                   >
-                    <FaTimes />
+                    <FaTimes className="text-xs sm:text-sm" />
                   </button>
                 </div>
+              </div>
+              
+              {/* Mobile Zoom Controls - Touch friendly */}
+              <div className="flex justify-center p-2 bg-gray-50 md:hidden">
+                <button 
+                  onClick={handleZoomOut}
+                  className="bg-gray-200 px-4 py-2 rounded-l-lg text-gray-700"
+                  disabled={imageZoomLevel <= 50}
+                >
+                  <FaSearchMinus className="inline mr-1" /> Zoom Out
+                </button>
+                <div className="px-4 py-2 bg-white border-t border-b border-gray-300 font-medium">
+                  {imageZoomLevel}%
+                </div>
+                <button 
+                  onClick={handleZoomIn}
+                  className="bg-gray-200 px-4 py-2 rounded-r-lg text-gray-700"
+                  disabled={imageZoomLevel >= 200}
+                >
+                  <FaSearchPlus className="inline mr-1" /> Zoom In
+                </button>
               </div>
               
               {/* Modal Body - Image Container */}
@@ -1830,7 +1993,13 @@ const AdminOrders = () => {
               </div>
               
               {/* Modal Footer */}
-              <div className="border-t p-4 text-right">
+              <div className="border-t p-3 sm:p-4 flex justify-between">
+                <button 
+                  onClick={downloadReceiptImage}
+                  className="px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 sm:flex items-center hidden"
+                >
+                  <FaDownload className="mr-1" /> Download
+                </button>
                 <button 
                   onClick={closeReceiptViewer}
                   className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"

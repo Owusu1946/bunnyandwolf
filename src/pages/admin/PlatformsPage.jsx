@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaGlobe, FaLink, FaCheck } from 'react-icons/fa';
+import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaGlobe, FaLink, FaCheck, FaBars } from 'react-icons/fa';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import apiConfig from '../../config/apiConfig';
@@ -24,6 +24,7 @@ const PlatformsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [currentPlatform, setCurrentPlatform] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
   // Form state for new/edit platform
   const [formData, setFormData] = useState({
@@ -70,6 +71,16 @@ const PlatformsPage = () => {
   useEffect(() => {
     fetchPlatformsData();
   }, [fetchPlatformsFromAPI]);
+
+  // Add resize listener to detect mobile screens
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Function to fetch platforms data
   const fetchPlatformsData = async () => {
@@ -214,16 +225,16 @@ const PlatformsPage = () => {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
-      <div className="flex-1 ml-64">
+      <div className={`flex-1 ${isMobile ? 'ml-0' : 'ml-64'} transition-all duration-300 ease-in-out`}>
         {loading && <LoadingOverlay />}
         
         <div className="p-4">
-          <div className="flex justify-between items-center mb-4">
-            <div className="relative">
+          <div className={`${isMobile ? 'flex flex-col space-y-3' : 'flex justify-between items-center'} mb-4`}>
+            <div className={`relative ${isMobile ? 'w-full' : ''}`}>
               <input
                 type="text"
                 placeholder="Search platforms..."
-                className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -231,7 +242,8 @@ const PlatformsPage = () => {
                 <FaSearch />
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            
+            <div className={`flex items-center ${isMobile ? 'justify-between w-full' : 'space-x-4'}`}>
               {lastUpdated && (
                 <span className="text-xs text-gray-500">
                   Last updated: {formatDate(lastUpdated)}
@@ -246,21 +258,18 @@ const PlatformsPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </button>
-              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white">
-                O
-              </div>
+              <button
+                className={`${isMobile ? 'w-full' : ''} bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center ${isMobile ? 'justify-center' : ''}`}
+                onClick={handleAddPlatform}
+              >
+                <FaPlus className="mr-2" /> Add Platform
+              </button>
             </div>
           </div>
           
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="flex justify-between items-center p-4 border-b">
               <h2 className="text-xl font-semibold text-gray-800">Storefront Platforms</h2>
-              <button
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
-                onClick={handleAddPlatform}
-              >
-                <FaPlus className="mr-2" /> Add Platform
-              </button>
             </div>
             
             {/* Error message */}

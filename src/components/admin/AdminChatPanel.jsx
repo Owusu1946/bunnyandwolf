@@ -2,21 +2,29 @@ import { useState, useEffect, useRef } from 'react';
 import { Send, MinusCircle, X, ArrowLeft, CheckCheck } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import io from 'socket.io-client';
 
-// Define WebSocket URL based on environment
-const getWebSocketUrl = () => {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = process.env.REACT_APP_WS_HOST || window.location.host;
-  return `${protocol}//${host}/ws/chat`;
+// Define Socket.io URL based on environment
+const getSocketUrl = () => {
+  if (process.env.NODE_ENV === 'development') {
+    // Try to connect to local server
+    return 'http://localhost:4000';
+  }
+  
+  // For production, use window.location origin to ensure same-origin connection
+  return `${window.location.protocol}//${window.location.host}`;
 };
 
-const AdminChatPanel = ({ onClose }) => {
+const AdminChatPanel = ({ onClose, className }) => {
   const [newMessage, setNewMessage] = useState('');
   const [typing, setTyping] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showSessionList, setShowSessionList] = useState(true);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const socketRef = useRef(null);
 
   // Get chat store methods and state
   const { 
@@ -38,15 +46,31 @@ const AdminChatPanel = ({ onClose }) => {
   );
   const totalUnreadCount = useChatStore(state => state.getTotalUnreadCount());
   
-  // Connect to WebSocket as admin
+  // Detect mobile screen size
   useEffect(() => {
-    // Connect to WebSocket server as admin
-    connectWebSocket();
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      
+      // When switching to desktop view, always show the sessions list
+      if (!mobile) {
+        setShowSessionList(true);
+      }
+    };
     
-    // Clean up WebSocket connection on component unmount
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Connect to Socket.io as admin
+  useEffect(() => {
+    // Connect to Socket.io server as admin
+    connectSocket();
+    
+    // Clean up Socket.io connection on component unmount
     return () => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
       }
       
       if (typingTimeoutRef.current) {
@@ -55,51 +79,81 @@ const AdminChatPanel = ({ onClose }) => {
     };
   }, []);
   
-  const connectWebSocket = () => {
+  const connectSocket = () => {
     try {
-      if (socket && socket.readyState !== WebSocket.CLOSED) {
-        return; // Already connected or connecting
-      }
+      const socketUrl = getSocketUrl();
+      console.log(`[ADMIN] Connecting to Socket.io server: ${socketUrl}`);
       
-      const wsUrl = `${getWebSocketUrl()}/admin`;
-      const newSocket = new WebSocket(wsUrl);
-      setSocket(newSocket);
+      // Create Socket.io instance with improved options
+      const socket = io(socketUrl, {
+        reconnectionAttempts: 10, // Increase reconnection attempts
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000, // Cap the delay at 5 seconds
+        timeout: 20000, // Increase connection timeout
+        transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
+        upgrade: true, // Allow transport upgrade (polling -> websocket)
+        forceNew: true, // Force a new connection
+        query: {
+          userType: 'admin',
+          timestamp: Date.now() // Add timestamp to prevent caching
+        }
+      });
       
-      newSocket.onopen = () => {
-        console.log('[ADMIN] WebSocket connected');
+      // Store socket reference
+      socketRef.current = socket;
+      setSocket(socket);
+      
+      // Enhanced connection debugging
+      socket.io.on("reconnect_attempt", (attempt) => {
+        console.log(`[ADMIN] Socket.io reconnection attempt ${attempt}`);
+      });
+
+      socket.io.on("reconnect_error", (error) => {
+        console.error("[ADMIN] Socket.io reconnection error:", error);
+      });
+
+      socket.io.on("reconnect_failed", () => {
+        console.error("[ADMIN] Socket.io reconnection failed");
+        setConnectionState(false, "Reconnection failed after multiple attempts");
+      });
+      
+      socket.io.on("error", (error) => {
+        console.error("[ADMIN] Socket.io transport error:", error);
+      });
+      
+      // Connection established
+      socket.on('connect', () => {
+        console.log(`[ADMIN] Socket.io connected with ID: ${socket.id}, Transport: ${socket.io.engine.transport.name}`);
         setConnectionState(true, null);
         
         // Send admin init message
-        setTimeout(() => {
-          try {
-            if (newSocket && newSocket.readyState === WebSocket.OPEN) {
-              const initMessage = {
-                type: 'init',
+        socket.emit('init', {
                 userType: 'admin',
-                timestamp: new Date().toISOString()
-              };
-              newSocket.send(JSON.stringify(initMessage));
-            }
-          } catch (error) {
-            console.error('[ADMIN] Error sending init message:', error);
+          timestamp: new Date().toISOString(),
+          clientInfo: {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform
           }
-        }, 500);
-      };
+        });
+      });
       
-      newSocket.onmessage = (event) => {
-        try {
-          // Parse message
-          let data;
-          try {
-            data = JSON.parse(event.data);
-          } catch (parseError) {
-            console.log('[ADMIN] Received non-JSON message:', event.data);
-            return;
-          }
+      // Connection error with more details
+      socket.on('connect_error', (error) => {
+        console.error('[ADMIN] Socket.io connection error:', error);
+        console.error('[ADMIN] Socket.io connection error message:', error.message);
+        console.error('[ADMIN] Socket.io connection error description:', error.description);
+        setConnectionState(false, `Connection error: ${error.message}`);
+      });
+      
+      // Disconnection
+      socket.on('disconnect', (reason) => {
+        console.log('[ADMIN] Socket.io disconnected:', reason);
+        setConnectionState(false);
+      });
           
-          // Handle different message types
-          switch(data.type) {
-            case 'message':
+      // Message from customer
+      socket.on('message', (data) => {
+        try {
               // Handle messages from customers
               if (data.sender === 'customer' && data.sessionId) {
                 const customerMessage = { 
@@ -113,51 +167,173 @@ const AdminChatPanel = ({ onClose }) => {
                 // Add message to store
                 addMessage(data.sessionId, customerMessage);
               }
-              break;
-              
-            case 'typing':
+        } catch (error) {
+          console.error("[ADMIN] Error processing Socket.io message:", error);
+        }
+      });
+      
+      // New customer message notification
+      socket.on('new_customer_message', (data) => {
+        // This event is specifically for alerting admins of new messages
+        console.log('[ADMIN] New customer message:', data);
+        
+        if (data.sessionId && data.message) {
+          // Ensure the session exists
+          const { sessions } = useChatStore.getState();
+          if (!sessions[data.sessionId]) {
+            useChatStore.getState().initSession(data.sessionId, {});
+            console.log(`[ADMIN] Created new session for message: ${data.sessionId}`);
+          }
+          
+          // Format the message for the store
+          const customerMessage = { 
+            id: data.message.messageId, 
+            text: data.message.content, 
+            sender: 'user',
+            time: new Date(data.message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: data.message.timestamp
+          };
+          
+          // Add message to store
+          useChatStore.getState().addMessage(data.sessionId, customerMessage);
+        }
+      });
+      
+      // Customer typing status
+      socket.on('typing', (data) => {
               if (data.sessionId === activeSessionId) {
                 setTyping(data.isTyping);
               }
-              break;
+      });
               
-            case 'session_list':
-              // Server might send list of active sessions
-              if (Array.isArray(data.sessions)) {
-                data.sessions.forEach(session => {
-                  useChatStore.getState().initSession(session.sessionId, session.customerInfo);
-                });
-              }
-              break;
-              
-            default:
-              console.log('[ADMIN] Unhandled message type:', data.type);
-          }
-        } catch (error) {
-          console.error("[ADMIN] Error processing WebSocket message:", error);
+      // Sessions update
+      socket.on('sessions_update', (data) => {
+        console.log('[ADMIN] Received sessions update:', data);
+        // Server sends list of active sessions
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach(session => {
+            // Initialize each session in the store
+            useChatStore.getState().initSession(
+              session.sessionId, 
+              session.customerInfo || {}
+            );
+            
+            // If session contains messages, add them to the store
+            if (session.messages && session.messages.length > 0) {
+              session.messages.forEach(msg => {
+                const messageObj = {
+                  id: msg.messageId || `imported-${Date.now()}-${Math.random()}`,
+                  text: msg.content,
+                  sender: msg.sender === 'admin' ? 'support' : 'user',
+                  time: new Date(msg.timestamp).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  }),
+                  timestamp: msg.timestamp,
+                  sent: true
+                };
+                
+                // Only add the message if it doesn't already exist
+                const existingMessages = useChatStore.getState().sessions[session.sessionId]?.messages || [];
+                const messageExists = existingMessages.some(m => m.id === messageObj.id);
+                
+                if (!messageExists) {
+                  useChatStore.getState().addMessage(session.sessionId, messageObj);
         }
-      };
+              });
+            }
+          });
+        }
+      });
       
-      newSocket.onclose = (event) => {
-        console.log('[ADMIN] WebSocket disconnected', event.code, event.reason);
-        setConnectionState(false);
-      };
+      // Customer connected notification
+      socket.on('customer_connected', (data) => {
+        console.log('[ADMIN] Customer connected:', data);
+        
+        // Initialize session if it doesn't exist
+        const { sessions } = useChatStore.getState();
+        if (!sessions[data.sessionId]) {
+          useChatStore.getState().initSession(data.sessionId, data.customerInfo || {});
+          console.log(`[ADMIN] Created new session for connected customer: ${data.sessionId}`);
+        }
+        
+        // Add status message to the chat
+        const statusMessage = {
+          id: `status-${Date.now()}`,
+          text: 'Customer has connected',
+          sender: 'system',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date().toISOString(),
+          isStatus: true
+        };
+        
+        useChatStore.getState().addMessage(data.sessionId, statusMessage);
+      });
       
-      newSocket.onerror = (error) => {
-        console.error('[ADMIN] WebSocket error:', error);
-        setConnectionState(false, 'Connection error');
-      };
+      // Customer disconnected notification
+      socket.on('customer_disconnected', (data) => {
+        console.log('[ADMIN] Customer disconnected:', data);
+        
+        // Add status message to the chat if the session exists
+        const { sessions } = useChatStore.getState();
+        if (sessions[data.sessionId]) {
+          const statusMessage = {
+            id: `status-${Date.now()}`,
+            text: 'Customer has disconnected',
+            sender: 'system',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: new Date().toISOString(),
+            isStatus: true
+          };
+          
+          useChatStore.getState().addMessage(data.sessionId, statusMessage);
+        }
+      });
       
     } catch (error) {
-      console.error("[ADMIN] Error connecting to WebSocket:", error);
+      console.error("[ADMIN] Error connecting to Socket.io:", error);
       setConnectionState(false, error.message);
     }
   };
   
   // Handle session selection
   const handleSelectSession = (sessionId) => {
+    console.log(`[ADMIN] Selecting session: ${sessionId}`);
     setActiveSession(sessionId);
     markSessionAsRead(sessionId);
+    
+    // Notify Socket.io server about selected session
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('select_session', {
+        sessionId: sessionId
+      });
+    }
+    
+    // On mobile, hide the session list when a session is selected
+    if (isMobile) {
+      setShowSessionList(false);
+      
+      // Focus on input field after a short delay to allow component to render
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 300);
+    }
+  };
+  
+  // Toggle session list visibility on mobile
+  const toggleSessionList = () => {
+    setShowSessionList(prev => !prev);
+    
+    // If showing session list on mobile, reset active session focus
+    if (isMobile && !showSessionList && activeSessionId) {
+      // Small delay to allow UI to update before attempting to focus
+      setTimeout(() => {
+        const sessionElement = document.getElementById(`session-${activeSessionId}`);
+        if (sessionElement) {
+          sessionElement.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
   };
   
   // Auto-scroll to bottom when messages change
@@ -219,18 +395,13 @@ const AdminChatPanel = ({ onClose }) => {
   };
   
   const sendTypingStatus = (isTyping) => {
-    if (socket && socket.readyState === WebSocket.OPEN && activeSessionId) {
-      try {
-        const typingMessage = {
-          type: 'typing',
+    if (socketRef.current && socketRef.current.connected && activeSessionId) {
+      socketRef.current.emit('typing', {
           sessionId: activeSessionId,
           isTyping,
+        userType: 'admin',
           timestamp: new Date().toISOString()
-        };
-        socket.send(JSON.stringify(typingMessage));
-      } catch (err) {
-        console.error('[ADMIN] Error sending typing status:', err);
-      }
+      });
     }
   };
   
@@ -261,9 +432,23 @@ const AdminChatPanel = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl h-[80vh] flex overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2 }}
+        className={`bg-white rounded-lg shadow-xl w-full ${isMobile ? 'h-full max-w-full rounded-none' : 'max-w-6xl h-[80vh]'} flex overflow-hidden ${className || ''}`}
+      >
         {/* Chat sessions sidebar */}
-        <div className="w-1/4 bg-gray-50 border-r border-gray-200 flex flex-col">
+        <AnimatePresence mode="wait">
+          {(!isMobile || (isMobile && showSessionList)) && (
+            <motion.div 
+              key="session-list"
+              initial={isMobile ? { x: -300, opacity: 0 } : { opacity: 1 }}
+              animate={isMobile ? { x: 0, opacity: 1 } : { opacity: 1 }}
+              exit={isMobile ? { x: -300, opacity: 0 } : { opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className={`${isMobile ? 'w-full' : 'w-1/4'} bg-gray-50 border-r border-gray-200 flex flex-col ${isMobile ? 'absolute inset-0 z-10' : ''}`}
+            >
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
             <h3 className="font-semibold text-lg">Customer Chats</h3>
             <button 
@@ -284,10 +469,13 @@ const AdminChatPanel = ({ onClose }) => {
               sessions.map(session => {
                 const lastMessage = session.messages[session.messages.length - 1];
                 const unreadCount = session.unreadCount || 0;
+                    
+                    console.log(`[ADMIN] Rendering session: ${session.id}, Messages: ${session.messages.length}, Unread: ${unreadCount}`);
                 
                 return (
                   <div 
                     key={session.id}
+                        id={`session-${session.id}`}
                     className={`p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-100 ${
                       activeSessionId === session.id ? 'bg-gray-100' : ''
                     }`}
@@ -329,21 +517,32 @@ const AdminChatPanel = ({ onClose }) => {
               {isConnected ? 'Connected' : 'Disconnected - Trying to reconnect...'}
             </div>
           </div>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Chat window */}
-        <div className="w-3/4 flex flex-col">
+        <AnimatePresence mode="wait">
+          <motion.div 
+            key={`chat-view-${showSessionList ? 'hidden' : 'visible'}`}
+            initial={isMobile ? { x: 300, opacity: 0 } : { opacity: 1 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className={`${isMobile ? (showSessionList ? 'hidden' : 'w-full') : 'w-3/4'} flex flex-col relative`}
+          >
           {activeSessionId ? (
             <>
               {/* Chat header */}
               <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                 <div className="flex items-center">
+                    {isMobile && (
                   <button 
-                    className="mr-3 p-1 rounded-full hover:bg-gray-100 md:hidden"
-                    onClick={() => setActiveSession(null)}
+                        className="mr-3 p-2 rounded-full hover:bg-gray-100"
+                        onClick={toggleSessionList}
                   >
                     <ArrowLeft size={18} />
                   </button>
+                    )}
                   
                   <div>
                     <h3 className="font-semibold">
@@ -355,6 +554,15 @@ const AdminChatPanel = ({ onClose }) => {
                     </p>
                   </div>
                 </div>
+                  
+                  {isMobile && (
+                    <button 
+                      className="text-gray-500 hover:text-gray-700"
+                      onClick={onClose}
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
               </div>
               
               {/* Chat messages */}
@@ -370,13 +578,24 @@ const AdminChatPanel = ({ onClose }) => {
                   messages.map((message) => (
                     <div 
                       key={message.id} 
-                      className={`mb-4 flex ${message.sender === 'support' ? 'justify-end' : 'justify-start'}`}
+                        className={`mb-4 flex ${
+                          message.sender === 'support' 
+                            ? 'justify-end' 
+                            : message.sender === 'system' 
+                              ? 'justify-center' 
+                              : 'justify-start'
+                        }`}
                     >
+                        {message.sender === 'system' ? (
+                          <div className="bg-gray-100 text-gray-600 text-xs py-1 px-3 rounded-full">
+                            {message.text}
+                          </div>
+                        ) : (
                       <motion.div 
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
-                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                            className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 ${
                           message.sender === 'support' ? 'bg-purple-600 text-white rounded-tr-none' : 'bg-gray-200 text-gray-800 rounded-tl-none'
                         }`}
                       >
@@ -386,6 +605,7 @@ const AdminChatPanel = ({ onClose }) => {
                           {message.sender === 'support' && <CheckCheck className="w-3 h-3 ml-1" />}
                         </div>
                       </motion.div>
+                        )}
                     </div>
                   ))
                 )}
@@ -454,12 +674,23 @@ const AdminChatPanel = ({ onClose }) => {
                 Select a Chat to Start Messaging
               </h3>
               <p className="text-gray-500 max-w-md">
-                Choose a customer conversation from the sidebar to view and respond to messages.
+                  {isMobile ? 
+                    "Browse customer conversations and select one to start messaging." :
+                    "Choose a customer conversation from the sidebar to view and respond to messages."}
               </p>
+                {isMobile && !showSessionList && (
+                  <button
+                    onClick={toggleSessionList}
+                    className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-md"
+                  >
+                    View Conversations
+                  </button>
+                )}
             </div>
           )}
-        </div>
-      </div>
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 };

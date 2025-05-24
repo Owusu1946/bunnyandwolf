@@ -55,6 +55,60 @@ export const useCustomersStore = create(
       selectedCustomer: null,
       lastFetchTime: null,
       
+      // Fast preload function with no debounce for admin dashboard
+      preloadCustomers: async (limit = 100) => {
+        console.log('[CustomersStore] Fast preloading customers data');
+        
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) {
+            console.warn('[CustomersStore] No token available for preload');
+            return { success: false };
+          }
+          
+          // Set loading indicator, but don't block UI
+          set({ isLoading: true, error: null });
+          
+          // Use custom axios instance to prevent logout on 401
+          const customAxios = createCustomAxios();
+          
+          try {
+            const response = await customAxios.get(`${apiConfig.baseURL}/users`, {
+              params: {
+                page: 1,
+                limit,
+                // No search filter for preload to get full dataset
+              },
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
+            
+            console.log(`[CustomersStore] Preload successful, loaded ${response.data.data.length} customers`);
+            
+            set({ 
+              customers: response.data.data,
+              totalCustomers: response.data.total,
+              totalPages: response.data.pages || Math.ceil(response.data.total / limit),
+              currentPage: 1,
+              isLoading: false,
+              lastFetchTime: Date.now(),
+              isBackgroundRefreshing: false,
+            });
+            
+            return { success: true, data: response.data.data };
+          } catch (error) {
+            console.error('[CustomersStore] Preload failed:', error);
+            set({ isLoading: false, error: 'Failed to preload customers' });
+            return { success: false, error };
+          }
+        } catch (error) {
+          console.error('[CustomersStore] Preload exception:', error);
+          set({ isLoading: false, error: 'Unexpected error during preload' });
+          return { success: false, error };
+        }
+      },
+      
       // Fetch customers from the API with caching
       fetchCustomers: async (page = 1, limit = 10, search = '', forceRefresh = false) => {
         // Prevent multiple concurrent fetch calls
@@ -67,6 +121,12 @@ export const useCustomersStore = create(
         if (fetchDebounceTimer) {
           clearTimeout(fetchDebounceTimer);
         }
+        
+        // Check if we're making an admin dashboard request (large limit with force refresh)
+        const isAdminDashboardRequest = limit >= 100 && forceRefresh;
+        
+        // For admin dashboard requests, use much shorter debounce or none at all
+        const debounceDelay = isAdminDashboardRequest ? 50 : 200;
         
         // Debounce the fetch call to prevent rapid multiple calls
         return new Promise((resolve) => {
@@ -220,7 +280,7 @@ export const useCustomersStore = create(
             } finally {
               fetchInProgress = false;
             }
-          }, 300); // 300ms debounce delay
+          }, debounceDelay); // Reduced debounce delay
         });
       },
       

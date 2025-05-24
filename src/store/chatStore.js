@@ -15,7 +15,7 @@ export const useChatStore = create(
       connectionError: null,
       reconnectAttempts: 0,
       
-      // WebSocket reference (not persisted)
+      // Socket.io reference (not persisted)
       socket: null,
       
       // Actions
@@ -45,6 +45,7 @@ export const useChatStore = create(
       
       // Initialize a chat session
       initSession: (sessionId, customerInfo = {}) => {
+        console.log(`Initializing chat session: ${sessionId}`, customerInfo);
         const { sessions } = get();
         if (!sessions[sessionId]) {
           set({
@@ -58,17 +59,42 @@ export const useChatStore = create(
               }
             }
           });
+          console.log(`Created new session: ${sessionId}`);
+        } else {
+          // Update existing session with new info
+          set({
+            sessions: {
+              ...sessions,
+              [sessionId]: {
+                ...sessions[sessionId],
+                customerInfo: {
+                  ...sessions[sessionId].customerInfo,
+                  ...customerInfo
+                },
+                lastActive: Date.now()
+              }
+            }
+          });
+          console.log(`Updated existing session: ${sessionId}`);
         }
       },
       
       // Add a new message to a specific session
       addMessage: (sessionId, message) => {
+        console.log(`Adding message to session ${sessionId}:`, message);
         const { sessions, activeSessionId } = get();
         const session = sessions[sessionId] || { messages: [], lastActive: Date.now(), unreadCount: 0 };
         
         // Update unread count if this isn't the active session for admin
         const isUnread = message.sender !== 'admin' && activeSessionId !== sessionId;
         const unreadCount = isUnread ? session.unreadCount + 1 : session.unreadCount;
+        
+        // Check for duplicate message
+        const isDuplicate = session.messages.some(m => m.id === message.id);
+        if (isDuplicate) {
+          console.log(`Duplicate message detected, skipping: ${message.id}`);
+          return;
+        }
         
         // Play notification sound for new messages
         if (message.sender === 'user') {
@@ -99,6 +125,8 @@ export const useChatStore = create(
             }
           }
         });
+        
+        console.log(`Message added to session ${sessionId}, new count: ${session.messages.length + 1}`);
       },
       
       // Mark all messages in a session as read
@@ -118,12 +146,12 @@ export const useChatStore = create(
         }
       },
       
-      // Send a message through WebSocket
+      // Send a message through Socket.io
       sendMessage: (sessionId, content, type = 'message') => {
         const { socket } = get();
         
-        if (!socket || socket.readyState !== WebSocket.OPEN) {
-          console.error("WebSocket not connected");
+        if (!socket || !socket.connected) {
+          console.error("Socket.io not connected");
           return false;
         }
         
@@ -143,21 +171,18 @@ export const useChatStore = create(
         // Add message to local state immediately
         get().addMessage(sessionId, messageObj);
         
-        // Send message via WebSocket
-        const wsMessage = {
-          type,
-          messageId,
-          sessionId,
-          content,
-          sender,
-          timestamp
-        };
-        
+        // Send message via Socket.io
         try {
-          socket.send(JSON.stringify(wsMessage));
+          socket.emit('message', {
+            messageId,
+            sessionId,
+            content,
+            sender,
+            timestamp
+          });
           return true;
         } catch (error) {
-          console.error("Error sending message via WebSocket:", error);
+          console.error("Error sending message via Socket.io:", error);
           return false;
         }
       },

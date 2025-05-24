@@ -36,6 +36,7 @@ const CollectionsPage = () => {
   const [currentCollection, setCurrentCollection] = useState(null);
   const [collectionProducts, setCollectionProducts] = useState([]);
   const [selectedVariants, setSelectedVariants] = useState({});
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
   
   // Get collections from store - Make sure these are actual functions
   const collectionsStore = useCollectionsStore();
@@ -608,20 +609,32 @@ const CollectionsPage = () => {
     // You can add navigation here if needed in the admin context
   };
 
+  // Add resize handler to detect mobile view
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
-      <div className="flex-1 ml-64">
+      <div className={`flex-1 ${isMobileView ? '' : 'ml-64'}`}>
         {loading && <LoadingOverlay />}
         
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-4">
-            <div className="relative">
+        <div className="p-2 sm:p-4">
+          <div className="flex flex-wrap sm:flex-nowrap justify-between items-center mb-4 gap-3">
+            <div className="relative w-full sm:w-auto">
               <input
                 type="text"
                 placeholder="Search collections..."
-                className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
@@ -639,25 +652,25 @@ const CollectionsPage = () => {
           
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             {viewingCollectionProducts ? (
-              // Redesigned collection products view to match ShopCategory/FashionShop
+              // Redesigned collection products view for mobile
               <>
-                <div className="flex justify-between items-center p-4 border-b">
-                  <div className="flex items-center">
+                <div className="flex flex-wrap justify-between items-center p-3 sm:p-4 border-b">
+                  <div className="flex items-center w-full sm:w-auto mb-2 sm:mb-0">
                     <button 
                       onClick={handleBackToCollections}
-                      className="mr-3 text-gray-500 hover:text-gray-700"
+                      className="mr-3 text-gray-500 hover:text-gray-700 p-1"
                     >
                       <FaArrowLeft className="text-lg" />
                     </button>
-                    <h2 className="text-lg font-medium text-gray-800">
+                    <h2 className="text-base sm:text-lg font-medium text-gray-800 truncate">
                       {currentCollection?.name} - Products ({collectionProducts.length})
                     </h2>
                   </div>
                 </div>
 
                 {collectionProducts.length > 0 ? (
-                  // New grid layout for products
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
+                  // Responsive grid layout for products
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 p-3 sm:p-6">
                     {collectionProducts.map((product) => {
                       const variantIndex = selectedVariants[product._id] || 0;
                       const variants = product.variants || [];
@@ -673,7 +686,7 @@ const CollectionsPage = () => {
                       return (
                         <div 
                           key={product._id} 
-                          className="border rounded-lg overflow-hidden hover:shadow-md cursor-pointer"
+                          className="border rounded-lg overflow-hidden hover:shadow-md transition duration-200 cursor-pointer"
                           onClick={() => handleProductClick(product)}
                         >
                           <div className="relative">
@@ -708,7 +721,7 @@ const CollectionsPage = () => {
                                   {variants.map((variant, index) => (
                                     <button
                                       key={index}
-                                      className={`w-4 h-4 rounded-full border border-gray-300 ${
+                                      className={`w-5 h-5 rounded-full border border-gray-300 ${
                                         variantIndex === index ? 'ring-1 ring-black ring-offset-1' : ''
                                       }`}
                                       style={{ backgroundColor: variant.color || "#000000" }}
@@ -724,13 +737,13 @@ const CollectionsPage = () => {
                               {/* Remove from collection button */}
                               <div className="mt-3 flex justify-end">
                                 <button 
-                                  className="text-xs text-red-600 hover:text-red-900 flex items-center"
+                                  className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleRemoveProductFromCollection(product._id);
                                   }}
                                 >
-                                  <FaTrash className="mr-1" /> Remove
+                                  <FaTrash className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>
@@ -740,22 +753,22 @@ const CollectionsPage = () => {
                     })}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-20">
-                    <div className="h-24 w-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                      <FaShoppingBag className="h-10 w-10 text-gray-300" />
+                  <div className="flex flex-col items-center justify-center py-12 sm:py-20 px-4 text-center">
+                    <div className="h-16 w-16 sm:h-24 sm:w-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <FaShoppingBag className="h-8 w-8 sm:h-10 sm:w-10 text-gray-300" />
                     </div>
-                    <h3 className="text-xl font-medium text-gray-700 mb-1">No products in this collection</h3>
-                    <p className="text-gray-500">Add products to this collection from the Products page</p>
+                    <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-1">No products in this collection</h3>
+                    <p className="text-gray-500 text-sm sm:text-base">Add products to this collection from the Products page</p>
                   </div>
                 )}
               </>
             ) : (
               // Collections view
               <>
-                <div className="flex justify-between items-center p-4 border-b">
-                  <h2 className="text-lg font-medium text-gray-800">Product Collections</h2>
+                <div className="flex flex-wrap justify-between items-center p-3 sm:p-4 border-b">
+                  <h2 className="text-base sm:text-lg font-medium text-gray-800 mb-2 sm:mb-0 w-full sm:w-auto">Product Collections</h2>
                   <button
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center w-full sm:w-auto justify-center sm:justify-start"
                     onClick={handleAddCollectionOpen}
                   >
                     <FaPlus className="mr-2" /> Add Collection
@@ -763,10 +776,10 @@ const CollectionsPage = () => {
                 </div>
                 
                 {paginatedCollections.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 p-3 sm:p-4">
                     {paginatedCollections.map((collection) => (
                       <div key={collection._id} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                        <div className="relative h-40 bg-gray-100 overflow-hidden">
+                        <div className="relative h-36 sm:h-40 bg-gray-100 overflow-hidden">
                           <img 
                             src={collection.image} 
                             alt={collection.name}
@@ -786,30 +799,30 @@ const CollectionsPage = () => {
                             {collection.productCount || collection.products?.length || 0} Products
                           </div>
                         </div>
-                        <div className="p-4">
-                          <h3 className="font-medium text-gray-900">{collection.name}</h3>
-                          <p className="text-gray-500 text-sm mt-1 line-clamp-2">{collection.description}</p>
-                          <div className="flex items-center justify-between mt-3">
+                        <div className="p-3 sm:p-4">
+                          <h3 className="font-medium text-gray-900 text-sm sm:text-base">{collection.name}</h3>
+                          <p className="text-gray-500 text-xs sm:text-sm mt-1 line-clamp-2">{collection.description}</p>
+                          <div className="flex flex-wrap items-center justify-between mt-3 gap-2">
                             <button
-                              className="px-2 py-1 text-sm text-purple-600 border border-purple-200 rounded hover:bg-purple-50 flex items-center"
+                              className="px-2 py-1 text-xs sm:text-sm text-purple-600 border border-purple-200 rounded hover:bg-purple-50 flex items-center"
                               onClick={() => handleViewCollectionProducts(collection)}
                             >
                               <FaEye className="w-3 h-3 mr-1" /> View Products
                             </button>
                             <div className="flex space-x-2">
                               <button
-                                className="p-1 text-blue-600 hover:text-blue-800"
+                                className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100"
                                 onClick={() => handleEditCollectionOpen(collection)}
                                 title="Edit collection"
                               >
-                                <FaEdit />
+                                <FaEdit className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                className="p-1 text-red-600 hover:text-red-800"
+                                className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100"
                                 onClick={() => handleDeleteConfirmation(collection)}
                                 title="Delete collection"
                               >
-                                <FaTrash />
+                                <FaTrash className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
@@ -818,12 +831,12 @@ const CollectionsPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-20">
-                    <div className="h-24 w-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                      <FaImage className="h-10 w-10 text-gray-300" />
+                  <div className="flex flex-col items-center justify-center py-12 sm:py-20 px-4 text-center">
+                    <div className="h-16 w-16 sm:h-24 sm:w-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <FaImage className="h-8 w-8 sm:h-10 sm:w-10 text-gray-300" />
                     </div>
-                    <h3 className="text-xl font-medium text-gray-700 mb-1">No collections found</h3>
-                    <p className="text-gray-500">Create your first collection to organize your products</p>
+                    <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-1">No collections found</h3>
+                    <p className="text-gray-500 text-sm sm:text-base">Create your first collection to organize your products</p>
                     <button
                       className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
                       onClick={handleAddCollectionOpen}
@@ -834,18 +847,18 @@ const CollectionsPage = () => {
                 )}
                 
                 {collections.length > 0 && totalPages > 1 && (
-                  <div className="px-6 py-4 flex items-center justify-between border-t">
+                  <div className="px-3 sm:px-6 py-3 sm:py-4 flex flex-wrap sm:flex-nowrap items-center justify-between border-t gap-3">
                     <div>
                       <p className="text-sm text-gray-700">
-                        Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                        Page <span className="font-medium">{currentPage}</span> of{' '}
                         <span className="font-medium">{totalPages}</span>
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto justify-end">
                       <button
                         onClick={() => setCurrentPage(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className={`px-3 py-1 border rounded ${
+                        className={`px-3 py-1 border rounded flex-1 sm:flex-auto ${
                           currentPage === 1
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -856,7 +869,7 @@ const CollectionsPage = () => {
                       <button
                         onClick={() => setCurrentPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className={`px-3 py-1 border rounded ${
+                        className={`px-3 py-1 border rounded flex-1 sm:flex-auto ${
                           currentPage === totalPages
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -874,20 +887,20 @@ const CollectionsPage = () => {
         
         {/* Add Collection Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-3 sm:p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center p-6 border-b">
-                <h2 className="text-xl font-bold text-gray-900">Add New Collection</h2>
+              <div className="flex justify-between items-center p-3 sm:p-6 border-b">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Add New Collection</h2>
                 <button 
                   onClick={handleAddCollectionClose}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-500 hover:text-gray-700 p-1"
                 >
                   <FaTimes />
                 </button>
               </div>
               
-              <div className="p-6">
-                <form className="space-y-6">
+              <div className="p-3 sm:p-6">
+                <form className="space-y-4 sm:space-y-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                       Collection Name <span className="text-red-500">*</span>
@@ -953,11 +966,11 @@ const CollectionsPage = () => {
                   
                   {/* Product Selection Section */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 sm:mb-3">
                       Select Products for this Collection
                     </label>
                     
-                    <div className="mb-4">
+                    <div className="mb-3 sm:mb-4">
                       <div className="relative">
                         <input
                           type="text"
@@ -978,21 +991,21 @@ const CollectionsPage = () => {
                       )}
                     </div>
                     
-                    <div className="border border-gray-200 rounded-md max-h-96 overflow-y-auto">
+                    <div className="border border-gray-200 rounded-md max-h-60 sm:max-h-96 overflow-y-auto">
                       {Object.entries(getProductsByCategory()).map(([category, products]) => (
                         <div key={category} className="border-b border-gray-200 last:border-b-0">
                           <div 
                             className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
                             onClick={() => toggleCategory(category)}
                           >
-                            <div className="font-medium">{category} ({products.length})</div>
+                            <div className="font-medium text-sm sm:text-base">{category} ({products.length})</div>
                             <div>
                               {expandedCategories.includes(category) ? <FaChevronDown /> : <FaChevronRight />}
                             </div>
                           </div>
                           
                           {expandedCategories.includes(category) && (
-                            <div className="pl-4 pb-2">
+                            <div className="pl-3 sm:pl-4 pb-2">
                               {products.map(product => {
                                 // Log product selection image source paths
                                 const mainImage = product.image;
@@ -1071,22 +1084,22 @@ const CollectionsPage = () => {
                     </div>
                     <div className="ml-3 text-sm">
                       <label htmlFor="featured" className="font-medium text-gray-700">Featured Collection</label>
-                      <p className="text-gray-500">Featured collections will be highlighted on the homepage</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">Featured collections will be highlighted on the homepage</p>
                     </div>
                   </div>
                   
-                  <div className="flex justify-end pt-4 border-t">
+                  <div className="flex flex-wrap sm:flex-nowrap justify-end gap-2 pt-4 border-t">
                     <button
                       type="button"
                       onClick={handleAddCollectionClose}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md mr-3 hover:bg-gray-50"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
                       onClick={handleAddCollection}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                      className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
                     >
                       Save Collection
                     </button>
@@ -1097,22 +1110,23 @@ const CollectionsPage = () => {
           </div>
         )}
         
-        {/* Edit Collection Modal */}
+        {/* Edit Collection Modal - Same mobile optimizations as Add modal */}
         {showEditModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-3 sm:p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center p-6 border-b">
-                <h2 className="text-xl font-bold text-gray-900">Edit Collection</h2>
+              <div className="flex justify-between items-center p-3 sm:p-6 border-b">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Edit Collection</h2>
                 <button 
                   onClick={handleEditCollectionClose}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-500 hover:text-gray-700 p-1"
                 >
                   <FaTimes />
                 </button>
               </div>
               
-              <div className="p-6">
-                <form className="space-y-6">
+              {/* Same form structure as Add modal but with edit specific handlers */}
+              <div className="p-3 sm:p-6">
+                <form className="space-y-4 sm:space-y-6">
                   <div>
                     <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700 mb-1">
                       Collection Name <span className="text-red-500">*</span>
@@ -1178,11 +1192,11 @@ const CollectionsPage = () => {
                   
                   {/* Product Selection Section */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 sm:mb-3">
                       Select Products for this Collection
                     </label>
                     
-                    <div className="mb-4">
+                    <div className="mb-3 sm:mb-4">
                       <div className="relative">
                         <input
                           type="text"
@@ -1203,21 +1217,21 @@ const CollectionsPage = () => {
                       )}
                     </div>
                     
-                    <div className="border border-gray-200 rounded-md max-h-96 overflow-y-auto">
+                    <div className="border border-gray-200 rounded-md max-h-60 sm:max-h-96 overflow-y-auto">
                       {Object.entries(getProductsByCategory()).map(([category, products]) => (
                         <div key={category} className="border-b border-gray-200 last:border-b-0">
                           <div 
                             className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
                             onClick={() => toggleCategory(category)}
                           >
-                            <div className="font-medium">{category} ({products.length})</div>
+                            <div className="font-medium text-sm sm:text-base">{category} ({products.length})</div>
                             <div>
                               {expandedCategories.includes(category) ? <FaChevronDown /> : <FaChevronRight />}
                             </div>
                           </div>
                           
                           {expandedCategories.includes(category) && (
-                            <div className="pl-4 pb-2">
+                            <div className="pl-3 sm:pl-4 pb-2">
                               {products.map(product => {
                                 // Log product selection image source paths
                                 const mainImage = product.image;
@@ -1296,22 +1310,22 @@ const CollectionsPage = () => {
                     </div>
                     <div className="ml-3 text-sm">
                       <label htmlFor="edit-featured" className="font-medium text-gray-700">Featured Collection</label>
-                      <p className="text-gray-500">Featured collections will be highlighted on the homepage</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">Featured collections will be highlighted on the homepage</p>
                     </div>
                   </div>
                   
-                  <div className="flex justify-end pt-4 border-t">
+                  <div className="flex flex-wrap sm:flex-nowrap justify-end gap-2 pt-4 border-t">
                     <button
                       type="button"
                       onClick={handleEditCollectionClose}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md mr-3 hover:bg-gray-50"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
                       onClick={handleUpdateCollection}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                      className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
                     >
                       Update Collection
                     </button>
@@ -1324,37 +1338,37 @@ const CollectionsPage = () => {
         
         {/* Delete Confirmation Modal */}
         {showDeleteModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-3 sm:p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4 sm:p-6">
               <div className="mb-4">
                 <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                   <FaTrash className="h-6 w-6 text-red-600" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 text-center">Delete Collection</h3>
-                <p className="text-gray-500 text-center mt-2">
+                <p className="text-gray-500 text-center mt-2 text-sm sm:text-base">
                   Are you sure you want to delete <span className="font-medium">{collectionToDelete?.name}</span>? This action cannot be undone.
                 </p>
                 {collectionToDelete?.productCount > 0 && (
                   <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <p className="text-yellow-700 text-sm">
+                    <p className="text-yellow-700 text-xs sm:text-sm">
                       This collection contains {collectionToDelete.productCount} products. Deleting this collection will not delete the products.
                     </p>
                   </div>
                 )}
               </div>
               
-              <div className="flex justify-end gap-3 mt-6">
+              <div className="flex flex-wrap sm:flex-nowrap justify-end gap-2 mt-6">
                 <button
                   type="button"
                   onClick={closeDeleteModal}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={confirmDeleteCollection}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                 >
                   Delete
                 </button>

@@ -23,6 +23,7 @@ const ProductsPage = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
   
   // Product store
   const productStore = useProductStore();
@@ -61,7 +62,12 @@ const ProductsPage = () => {
     collectionId: '',
     platformId: '',
     isFeatured: false,
-    isSample: false
+    isSample: false,
+    // Add new shipping fields
+    airShippingPrice: '',
+    airShippingDuration: '',
+    seaShippingPrice: '',
+    seaShippingDuration: ''
   });
 
   useEffect(() => {
@@ -367,7 +373,12 @@ const ProductsPage = () => {
         ...newProduct,
         basePrice: Number(newProduct.basePrice),
         salePrice: newProduct.salePrice ? Number(newProduct.salePrice) : 0,
-        stock: parseInt(newProduct.stock)
+        stock: parseInt(newProduct.stock),
+        // Convert shipping values to numbers
+        airShippingPrice: newProduct.airShippingPrice ? Number(newProduct.airShippingPrice) : 0,
+        airShippingDuration: newProduct.airShippingDuration ? Number(newProduct.airShippingDuration) : 0,
+        seaShippingPrice: newProduct.seaShippingPrice ? Number(newProduct.seaShippingPrice) : 0,
+        seaShippingDuration: newProduct.seaShippingDuration ? Number(newProduct.seaShippingDuration) : 0
       };
       
       // Send data to API
@@ -443,7 +454,12 @@ const ProductsPage = () => {
           collectionId: '',
           platformId: '',
           isFeatured: false,
-          isSample: false
+          isSample: false,
+          // Reset shipping fields
+          airShippingPrice: '',
+          airShippingDuration: '',
+          seaShippingPrice: '',
+          seaShippingDuration: ''
         });
         
         // Refresh products list
@@ -616,7 +632,12 @@ const ProductsPage = () => {
       collectionId: product.collectionId || '',
       platformId: product.platformId || '',
       isFeatured: !!product.isFeatured,
-      isSample: !!product.isSample
+      isSample: !!product.isSample,
+      // Add shipping fields
+      airShippingPrice: product.airShippingPrice ? String(product.airShippingPrice) : '',
+      airShippingDuration: product.airShippingDuration ? String(product.airShippingDuration) : '',
+      seaShippingPrice: product.seaShippingPrice ? String(product.seaShippingPrice) : '',
+      seaShippingDuration: product.seaShippingDuration ? String(product.seaShippingDuration) : ''
     };
     
     // Log the converted price values for debugging
@@ -661,7 +682,12 @@ const ProductsPage = () => {
       collectionId: '',
       platformId: '',
       isFeatured: false,
-      isSample: false
+      isSample: false,
+      // Reset shipping fields
+      airShippingPrice: '',
+      airShippingDuration: '',
+      seaShippingPrice: '',
+      seaShippingDuration: ''
     });
   };
   
@@ -708,7 +734,12 @@ const ProductsPage = () => {
         slug: newProduct.slug, // Preserve original slug
         sku: newProduct.sku, // Preserve original SKU
         isFeatured: !!newProduct.isFeatured,
-        isSample: !!newProduct.isSample
+        isSample: !!newProduct.isSample,
+        // Convert shipping values to numbers
+        airShippingPrice: newProduct.airShippingPrice ? Number(newProduct.airShippingPrice) : 0,
+        airShippingDuration: newProduct.airShippingDuration ? Number(newProduct.airShippingDuration) : 0,
+        seaShippingPrice: newProduct.seaShippingPrice ? Number(newProduct.seaShippingPrice) : 0,
+        seaShippingDuration: newProduct.seaShippingDuration ? Number(newProduct.seaShippingDuration) : 0
       };
       
       // Log the formatted data for debugging
@@ -819,20 +850,160 @@ const ProductsPage = () => {
     </div>
   );
 
+  // Mobile product card component
+  const ProductCard = ({ product }) => (
+    <div className="bg-white rounded-lg shadow-sm p-4 mb-3">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center">
+          <div className="h-12 w-12 flex-shrink-0">
+            <img 
+              className="h-12 w-12 rounded-lg object-cover" 
+              src={product.variants?.[0]?.additionalImages?.[0] || product.image} 
+              alt={product.name}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'https://via.placeholder.com/50?text=No+Image';
+              }}
+            />
+          </div>
+          <div className="ml-3">
+            <div className="text-sm font-medium text-gray-900 flex items-center">
+              {product.name}
+              {product.isFeatured && (
+                <span title="Featured product" className="ml-2 text-yellow-500">
+                  <FaStar size={14} />
+                </span>
+              )}
+              {product.isSample && (
+                <span title="Sample product" className="ml-2 text-blue-500">
+                  <FaImage size={14} />
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500">{product.sku || 'No SKU'}</div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <span className="text-xs text-gray-500">Category:</span>
+          <p className="text-sm text-gray-700">{product.category}</p>
+        </div>
+        <div>
+          <span className="text-xs text-gray-500">Price:</span>
+          <p className="text-sm text-gray-700">GH₵ {product.basePrice?.toFixed(2) || "0.00"}</p>
+        </div>
+      </div>
+      
+      <div className="flex justify-between items-center">
+        <span className={`px-2 py-1 rounded-full text-xs
+          ${product.stock > 10 ? 'bg-green-100 text-green-800' : 
+            product.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 
+            'bg-red-100 text-red-800'}
+        `}>
+          {product.stock > 0 
+            ? <span><strong>{product.stock}</strong> in stock</span> 
+            : 'Out of stock'}
+        </span>
+        
+        <div className="flex space-x-3">
+          <button 
+            className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditProductOpen(product);
+            }}
+            title="Edit product"
+          >
+            <FaEdit size={14} />
+          </button>
+          <button 
+            className="p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDuplicateProduct(product);
+            }}
+            title="Duplicate product"
+          >
+            <FaCopy size={14} />
+          </button>
+          <button 
+            className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteConfirmation(product);
+            }}
+            title="Delete product"
+          >
+            <FaTrash size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Mobile skeleton for card view
+  const ProductCardSkeleton = () => (
+    <div className="animate-pulse bg-white rounded-lg shadow-sm p-4 mb-3">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center">
+          <div className="h-12 w-12 bg-gray-200 rounded-lg"></div>
+          <div className="ml-3">
+            <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded w-16"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <div className="h-3 bg-gray-200 rounded w-16 mb-1"></div>
+          <div className="h-4 bg-gray-200 rounded w-20"></div>
+        </div>
+        <div>
+          <div className="h-3 bg-gray-200 rounded w-12 mb-1"></div>
+          <div className="h-4 bg-gray-200 rounded w-16"></div>
+        </div>
+      </div>
+      
+      <div className="flex justify-between items-center">
+        <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+        <div className="flex space-x-2">
+          <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+          <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+          <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Add resize handler to detect mobile view
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
-      <div className="flex-1 ml-64">
+      <div className={`flex-1 ${isMobileView ? '' : 'ml-64'}`}>
         {loading && <LoadingOverlay />}
         
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-4">
-            <div className="relative">
+        <div className="p-2 sm:p-4">
+          <div className="flex flex-wrap sm:flex-nowrap justify-between items-center mb-4 gap-3">
+            <div className="relative w-full sm:w-auto">
               <input
                 type="text"
                 placeholder="Search..."
-                className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
@@ -849,12 +1020,12 @@ const ProductsPage = () => {
           </div>
           
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b">
-              <div className="flex gap-4">
+            <div className={`border-b ${isMobileView ? 'p-3' : 'p-4'}`}>
+              <div className="flex flex-wrap gap-2 sm:gap-4 mb-3 sm:mb-0">
                 <select
                   value={categoryFilter}
                   onChange={handleCategoryChange}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 w-full sm:w-auto"
                 >
                   <option value="all">All Categories</option>
                   <option value="NEW ARRIVALS">NEW ARRIVALS</option>
@@ -864,41 +1035,45 @@ const ProductsPage = () => {
                   <option value="BOTTOMS">BOTTOMS</option>
                   <option value="BACK IN STOCK">BACK IN STOCK</option>
                 </select>
-                <button
-                  onClick={refreshProductStock}
-                  disabled={stockRefreshing}
-                  className={`flex items-center px-4 py-2 border rounded-lg ${
-                    stockRefreshing ? 'text-gray-400 border-gray-300 bg-gray-50' : 'text-blue-600 border-blue-300 hover:bg-blue-50'
-                  }`}
-                >
-                  <FaSync className={`mr-2 ${stockRefreshing ? 'animate-spin' : ''}`} /> 
-                  {stockRefreshing ? 'Refreshing...' : 'Refresh Stock'}
-                </button>
-                <button
-                  onClick={toggleFeaturedFilter}
-                  className={`flex items-center px-4 py-2 border rounded-lg ${
-                    showFeaturedOnly 
-                      ? 'text-yellow-600 border-yellow-300 bg-yellow-50' 
-                      : 'text-gray-600 border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <FaStar className="mr-2" /> 
-                  {showFeaturedOnly ? 'Show All Products' : 'Show Featured Only'}
-                </button>
-                <button
-                  onClick={toggleSampleFilter}
-                  className={`flex items-center px-4 py-2 border rounded-lg ${
-                    showSampleOnly 
-                      ? 'text-green-600 border-green-300 bg-green-50' 
-                      : 'text-gray-600 border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <FaImage className="mr-2" /> 
-                  {showSampleOnly ? 'Show All Products' : 'Show Sample Only'}
-                </button>
+                
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={refreshProductStock}
+                    disabled={stockRefreshing}
+                    className={`flex items-center px-3 py-2 text-sm border rounded-lg flex-grow sm:flex-grow-0 ${
+                      stockRefreshing ? 'text-gray-400 border-gray-300 bg-gray-50' : 'text-blue-600 border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <FaSync className={`mr-2 ${stockRefreshing ? 'animate-spin' : ''}`} /> 
+                    {stockRefreshing ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                  <button
+                    onClick={toggleFeaturedFilter}
+                    className={`flex items-center px-3 py-2 text-sm border rounded-lg flex-grow sm:flex-grow-0 ${
+                      showFeaturedOnly 
+                        ? 'text-yellow-600 border-yellow-300 bg-yellow-50' 
+                        : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <FaStar className="mr-2" /> 
+                    {showFeaturedOnly ? 'All' : 'Featured'}
+                  </button>
+                  <button
+                    onClick={toggleSampleFilter}
+                    className={`flex items-center px-3 py-2 text-sm border rounded-lg flex-grow sm:flex-grow-0 ${
+                      showSampleOnly 
+                        ? 'text-green-600 border-green-300 bg-green-50' 
+                        : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <FaImage className="mr-2" /> 
+                    {showSampleOnly ? 'All' : 'Sample'}
+                  </button>
+                </div>
               </div>
+              
               <button
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center relative z-10"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center w-full sm:w-auto justify-center sm:justify-start mt-3 sm:mt-0 sm:float-right"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleAddProductOpen();
@@ -906,145 +1081,172 @@ const ProductsPage = () => {
               >
                 <FaPlus className="mr-2" /> Add Product
               </button>
+              <div className="clear-both"></div>
             </div>
             
-            <div className="min-w-full divide-y divide-gray-200">
-              <div className="bg-gray-50 grid grid-cols-6 gap-4 px-6 py-3">
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">
-                  Product
+            {/* Desktop Table View */}
+            {!isMobileView && (
+              <div className="min-w-full divide-y divide-gray-200">
+                <div className="bg-gray-50 grid grid-cols-6 gap-4 px-6 py-3">
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">
+                    Product
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Price
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Stock
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                    Actions
+                  </div>
                 </div>
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
-                </div>
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price
-                </div>
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stock
-                </div>
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
-                  Actions
-                </div>
-              </div>
-              
-              {/* Show shimmer loading for products if stock is refreshing */}
-              {stockRefreshing ? (
-                <div className="bg-white divide-y divide-gray-200">
-                  {Array(products.length || 5).fill(0).map((_, index) => (
-                    <ProductRowSkeleton key={index} />
-                  ))}
-                </div>
-              ) : products.length > 0 ? (
-                <div className="bg-white divide-y divide-gray-200">
-                  {products.map((product) => (
-                    <div key={product._id} className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50">
-                      <div className="col-span-2">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 flex-shrink-0">
-                            <img 
-                              className="h-10 w-10 rounded-lg object-cover" 
-                              src={product.variants?.[0]?.additionalImages?.[0] || product.image} 
-                              alt={product.name}
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = 'https://via.placeholder.com/50?text=No+Image';
-                              }}
-                            />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 flex items-center">
-                              {product.name}
-                              {product.isFeatured && (
-                                <span title="Featured product" className="ml-2 text-yellow-500">
-                                  <FaStar size={14} />
-                                </span>
-                              )}
-                              {product.isSample && (
-                                <span title="Sample product" className="ml-2 text-blue-500">
-                                  <FaImage size={14} />
-                                </span>
-                              )}
+                
+                {/* Show shimmer loading for products if stock is refreshing */}
+                {stockRefreshing ? (
+                  <div className="bg-white divide-y divide-gray-200">
+                    {Array(products.length || 5).fill(0).map((_, index) => (
+                      <ProductRowSkeleton key={index} />
+                    ))}
+                  </div>
+                ) : products.length > 0 ? (
+                  <div className="bg-white divide-y divide-gray-200">
+                    {products.map((product) => (
+                      <div key={product._id} className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50">
+                        <div className="col-span-2">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 flex-shrink-0">
+                              <img 
+                                className="h-10 w-10 rounded-lg object-cover" 
+                                src={product.variants?.[0]?.additionalImages?.[0] || product.image} 
+                                alt={product.name}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = 'https://via.placeholder.com/50?text=No+Image';
+                                }}
+                              />
                             </div>
-                            <div className="text-sm text-gray-500">{product.sku || 'No SKU'}</div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900 flex items-center">
+                                {product.name}
+                                {product.isFeatured && (
+                                  <span title="Featured product" className="ml-2 text-yellow-500">
+                                    <FaStar size={14} />
+                                  </span>
+                                )}
+                                {product.isSample && (
+                                  <span title="Sample product" className="ml-2 text-blue-500">
+                                    <FaImage size={14} />
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500">{product.sku || 'No SKU'}</div>
+                            </div>
                           </div>
                         </div>
+                        <div className="text-sm text-gray-500 self-center">
+                          {product.category}
+                        </div>
+                        <div className="text-sm text-gray-500 self-center">
+                          GH₵ {product.basePrice?.toFixed(2) || "0.00"}
+                        </div>
+                        <div className="text-sm self-center">
+                          <span className={`px-2 py-1 rounded-full text-xs
+                            ${product.stock > 10 ? 'bg-green-100 text-green-800' : 
+                              product.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 
+                              'bg-red-100 text-red-800'}
+                          `}>
+                            {product.stock > 0 
+                              ? <span><strong>{product.stock}</strong> in stock</span> 
+                              : 'Out of stock'}
+                          </span>
+                        </div>
+                        <div className="flex justify-center space-x-3 self-center">
+                          <button 
+                            className="text-blue-600 hover:text-blue-900"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditProductOpen(product);
+                            }}
+                            title="Edit product"
+                          >
+                            <FaEdit />
+                          </button>
+                          <button 
+                            className="text-green-600 hover:text-green-900"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicateProduct(product);
+                            }}
+                            title="Duplicate product"
+                          >
+                            <FaCopy />
+                          </button>
+                          <button 
+                            className="text-red-600 hover:text-red-900"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteConfirmation(product);
+                            }}
+                            title="Delete product"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500 self-center">
-                        {product.category}
-                      </div>
-                      <div className="text-sm text-gray-500 self-center">
-                        GH₵ {product.basePrice?.toFixed(2) || "0.00"}
-                      </div>
-                      <div className="text-sm self-center">
-                        <span className={`px-2 py-1 rounded-full text-xs
-                          ${product.stock > 10 ? 'bg-green-100 text-green-800' : 
-                            product.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 
-                            'bg-red-100 text-red-800'}
-                        `}>
-                          {product.stock > 0 
-                            ? <span><strong>{product.stock}</strong> in stock</span> 
-                            : 'Out of stock'}
-                        </span>
-                      </div>
-                      <div className="flex justify-center space-x-3 self-center">
-                        <button 
-                          className="text-blue-600 hover:text-blue-900"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditProductOpen(product);
-                          }}
-                          title="Edit product"
-                        >
-                          <FaEdit />
-                        </button>
-                        <button 
-                          className="text-green-600 hover:text-green-900"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDuplicateProduct(product);
-                          }}
-                          title="Duplicate product"
-                        >
-                          <FaCopy />
-                        </button>
-                        <button 
-                          className="text-red-600 hover:text-red-900"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteConfirmation(product);
-                          }}
-                          title="Delete product"
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                  </svg>
-                  <h3 className="text-xl font-medium text-gray-700 mb-1">No products found</h3>
-                  <p className="text-gray-500">Add some products to your inventory</p>
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20">
+                    <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                    <h3 className="text-xl font-medium text-gray-700 mb-1">No products found</h3>
+                    <p className="text-gray-500">Add some products to your inventory</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Mobile Card View */}
+            {isMobileView && (
+              <div className="p-3">
+                {stockRefreshing ? (
+                  Array(products.length || 3).fill(0).map((_, index) => (
+                    <ProductCardSkeleton key={index} />
+                  ))
+                ) : products.length > 0 ? (
+                  products.map(product => (
+                    <ProductCard key={product._id} product={product} />
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                    <h3 className="text-lg font-medium text-gray-700 mb-1">No products found</h3>
+                    <p className="text-sm text-gray-500">Add products to your inventory</p>
+                  </div>
+                )}
+              </div>
+            )}
             
             {products.length > 0 && !stockRefreshing && (
-              <div className="px-6 py-4 flex items-center justify-between border-t">
+              <div className="px-4 py-3 sm:px-6 sm:py-4 flex flex-wrap sm:flex-nowrap items-center justify-between border-t gap-3">
                 <div>
                   <p className="text-sm text-gray-700">
-                    Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                    Page <span className="font-medium">{currentPage}</span> of{' '}
                     <span className="font-medium">{totalPages}</span>
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto justify-end">
                   <button
                     onClick={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className={`px-3 py-1 border rounded ${
+                    className={`px-3 py-1 border rounded flex-1 sm:flex-auto ${
                       currentPage === 1
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -1055,7 +1257,7 @@ const ProductsPage = () => {
                   <button
                     onClick={() => setCurrentPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className={`px-3 py-1 border rounded ${
+                    className={`px-3 py-1 border rounded flex-1 sm:flex-auto ${
                       currentPage === totalPages
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -1072,7 +1274,7 @@ const ProductsPage = () => {
         {/* Add Product Modal */}
         {showAddModal && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
             onClick={(e) => e.target === e.currentTarget && handleAddProductClose()}
           >
             <div 
@@ -1080,8 +1282,8 @@ const ProductsPage = () => {
               onClick={(e) => e.stopPropagation()}
               style={{ isolation: "isolate" }}
             >
-              <div className="flex justify-between items-center p-6 border-b">
-                <h2 className="text-xl font-bold text-gray-900">Add New Product</h2>
+              <div className="flex justify-between items-center p-4 sm:p-6 border-b">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Add New Product</h2>
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1093,13 +1295,13 @@ const ProductsPage = () => {
                 </button>
               </div>
               
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <form>
                   {/* Basic Info Section */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">Basic Information</h3>
+                  <div className="mb-6 sm:mb-8">
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-3 sm:mb-4 pb-2 border-b">Basic Information</h3>
                     
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
                       <div>
                         <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                           Product Name <span className="text-red-500">*</span>
@@ -1231,6 +1433,87 @@ const ProductsPage = () => {
                           className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
                           min="0"
                           required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Shipping Information Section for Add Product Modal */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">Shipping Information</h3>
+                    
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                      <div>
+                        <label htmlFor="airShippingPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                          Air Shipping Price (GHS)
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500">GH₵</span>
+                          </div>
+                          <input
+                            type="number"
+                            id="airShippingPrice"
+                            name="airShippingPrice"
+                            value={newProduct.airShippingPrice}
+                            onChange={handleNewProductChange}
+                            className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                            placeholder="0.00"
+                            step="any"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="airShippingDuration" className="block text-sm font-medium text-gray-700 mb-1">
+                          Air Shipping Duration (days)
+                        </label>
+                        <input
+                          type="number"
+                          id="airShippingDuration"
+                          name="airShippingDuration"
+                          value={newProduct.airShippingDuration}
+                          onChange={handleNewProductChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="e.g. 5"
+                          min="1"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="seaShippingPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                          Sea Shipping Price (GHS)
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500">GH₵</span>
+                          </div>
+                          <input
+                            type="number"
+                            id="seaShippingPrice"
+                            name="seaShippingPrice"
+                            value={newProduct.seaShippingPrice}
+                            onChange={handleNewProductChange}
+                            className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                            placeholder="0.00"
+                            step="any"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="seaShippingDuration" className="block text-sm font-medium text-gray-700 mb-1">
+                          Sea Shipping Duration (days)
+                        </label>
+                        <input
+                          type="number"
+                          id="seaShippingDuration"
+                          name="seaShippingDuration"
+                          value={newProduct.seaShippingDuration}
+                          onChange={handleNewProductChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="e.g. 30"
+                          min="1"
                         />
                       </div>
                     </div>
@@ -1733,6 +2016,87 @@ const ProductsPage = () => {
                           className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
                           min="0"
                           required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Shipping Information Section for Edit Product Modal */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">Shipping Information</h3>
+                    
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                      <div>
+                        <label htmlFor="edit-airShippingPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                          Air Shipping Price (GHS)
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500">GH₵</span>
+                          </div>
+                          <input
+                            type="number"
+                            id="edit-airShippingPrice"
+                            name="airShippingPrice"
+                            value={newProduct.airShippingPrice}
+                            onChange={handleNewProductChange}
+                            className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                            placeholder="0.00"
+                            step="any"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="edit-airShippingDuration" className="block text-sm font-medium text-gray-700 mb-1">
+                          Air Shipping Duration (days)
+                        </label>
+                        <input
+                          type="number"
+                          id="edit-airShippingDuration"
+                          name="airShippingDuration"
+                          value={newProduct.airShippingDuration}
+                          onChange={handleNewProductChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="e.g. 5"
+                          min="1"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="edit-seaShippingPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                          Sea Shipping Price (GHS)
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500">GH₵</span>
+                          </div>
+                          <input
+                            type="number"
+                            id="edit-seaShippingPrice"
+                            name="seaShippingPrice"
+                            value={newProduct.seaShippingPrice}
+                            onChange={handleNewProductChange}
+                            className="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                            placeholder="0.00"
+                            step="any"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="edit-seaShippingDuration" className="block text-sm font-medium text-gray-700 mb-1">
+                          Sea Shipping Duration (days)
+                        </label>
+                        <input
+                          type="number"
+                          id="edit-seaShippingDuration"
+                          name="seaShippingDuration"
+                          value={newProduct.seaShippingDuration}
+                          onChange={handleNewProductChange}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="e.g. 30"
+                          min="1"
                         />
                       </div>
                     </div>

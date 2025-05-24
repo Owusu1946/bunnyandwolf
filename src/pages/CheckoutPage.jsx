@@ -34,12 +34,10 @@ const CheckoutPage = () => {
   const { user } = useAuth();
   const orderStore = useOrderStore();
   const { 
-    shippingMethods: storeShippingMethods, 
     defaultTaxRate, 
-    fetchShippingMethods, 
+    fetchTaxRates, 
     getTaxRateForCountry, 
     loading: settingsLoading,
-    fetchTaxRates
   } = useSettingsStore();
   
   // Coupon store integration
@@ -147,62 +145,46 @@ const CheckoutPage = () => {
   
   // Fetch shipping methods from settings
   useEffect(() => {
-    // Fetch shipping methods on component mount
-    fetchShippingMethods();
-    
-    // Fetch tax rates on component mount
+    // We only need to fetch tax rates, not shipping methods since we're using product-specific shipping
     fetchTaxRates();
-  }, [fetchShippingMethods, fetchTaxRates]);
+  }, [fetchTaxRates]);
   
-  // Refresh shipping methods whenever the shipping step is active
-  useEffect(() => {
-    if (step === 3) {
-      console.log('🔄 [CheckoutPage] Refreshing shipping methods for delivery step');
-      fetchShippingMethods().then(refreshedMethods => {
-        // If we have a currently selected shipping method, verify it still exists
-        if (shippingMethod) {
-          const methodStillExists = refreshedMethods && 
-            refreshedMethods.some(method => method.id === shippingMethod);
-          
-          if (!methodStillExists) {
-            console.log('⚠️ [CheckoutPage] Selected shipping method no longer exists, resetting selection');
-            setShippingMethod('');
-            setShippingCost(0);
-            setEstimatedDelivery('');
-          }
-        }
-      });
-    }
-  }, [step, fetchShippingMethods, shippingMethod]);
-  
-  // Use shipping methods from store or fallback to defaults
-  const availableShippingMethods = storeShippingMethods.length > 0 
-    ? storeShippingMethods 
-    : [
+  // Shipping methods with product-specific pricing
+  const availableShippingMethods = [
     {
-      id: 'standard',
-      name: 'Standard Shipping',
-      description: '3-5 business days',
-      price: 5.99,
+      id: 'air',
+      name: 'Air Shipping',
+      description: 'Fast delivery by air',
+      price: 0, // Will be calculated based on products
       carrier: 'DHL',
-      estimatedDelivery: '3-5 business days'
+      estimatedDelivery: 'Calculated based on products',
+      type: 'air'
     },
     {
-      id: 'express',
-      name: 'Express Shipping',
-      description: '1-2 business days',
-      price: 14.99,
-      carrier: 'FedEx',
-      estimatedDelivery: '1-2 business days'
+      id: 'sea',
+      name: 'Sea Shipping',
+      description: 'Economic shipping by sea',
+      price: 0, // Will be calculated based on products
+      carrier: 'Maersk',
+      estimatedDelivery: 'Calculated based on products',
+      type: 'sea'
     },
-    {
-      id: 'sameday',
-      name: 'Same Day Delivery',
-      description: 'Delivered today (order before 2pm)',
-      price: 24.99,
-      carrier: 'Local Courier',
-      estimatedDelivery: 'Today'
-    },
+    // {
+    //   id: 'express',
+    //   name: 'Local Express Delivery',
+    //   description: '1-2 business days (local only)',
+    //   price: 14.99,
+    //   carrier: 'FedEx',
+    //   estimatedDelivery: '1-2 business days'
+    // },
+    // {
+    //   id: 'standard',
+    //   name: 'Local Standard Delivery',
+    //   description: '3-5 business days (local only)',
+    //   price: 5.99,
+    //   carrier: 'DHL',
+    //   estimatedDelivery: '3-5 business days'
+    // }
   ];
   
   // Available countries
@@ -265,7 +247,93 @@ const CheckoutPage = () => {
     setTotal(calculatedTotal);
   }, [productInfo, shippingCost, discount, taxRate, isFromCart, location.state, cartItems]);
   
-  // Handle shipping method selection with better store integration
+  // Update the calculateShippingDetails function to properly access product shipping data with better logging
+  const calculateShippingDetails = (method, products) => {
+    // If not air or sea shipping, return the standard price and delivery time
+    if (method.id !== 'air' && method.id !== 'sea') {
+      return {
+        price: method.price,
+        estimatedDelivery: method.estimatedDelivery
+      };
+    }
+
+    console.log(`🚢 SHIPPING: Calculating ${method.id.toUpperCase()} shipping for ${products.length} products`);
+    
+    let totalPrice = 0;
+    let maxDuration = 0;
+    let hasValidShippingData = false;
+    
+    // Calculate the shipping price and find the maximum duration for all products
+    products.forEach(product => {
+      // Get product details from cart or single product
+      const productDetails = isFromCart 
+        ? cartItems.find(item => item.id === product.id || item._id === product.id)
+        : productInfo;
+      
+      if (!productDetails) {
+        console.warn('⚠️ SHIPPING: Product details not found for', product);
+        return;
+      }
+      
+      console.log(`🚢 SHIPPING: Processing product for shipping calculation:`, {
+        id: productDetails.id || productDetails._id,
+        name: productDetails.name,
+        quantity: productDetails.quantity || 1,
+        airShippingPrice: productDetails.airShippingPrice,
+        airShippingDuration: productDetails.airShippingDuration,
+        seaShippingPrice: productDetails.seaShippingPrice,
+        seaShippingDuration: productDetails.seaShippingDuration
+      });
+      
+      // Calculate price based on shipping method (air or sea)
+      const quantity = productDetails.quantity || 1;
+      
+      if (method.id === 'air') {
+        // Use air shipping price from the product
+        const airShippingPrice = parseFloat(productDetails.airShippingPrice || 0);
+        const airShippingDuration = parseInt(productDetails.airShippingDuration || 0);
+        
+        if (airShippingPrice > 0 || airShippingDuration > 0) {
+          hasValidShippingData = true;
+        }
+        
+        totalPrice += airShippingPrice * quantity;
+        maxDuration = Math.max(maxDuration, airShippingDuration);
+        
+        console.log(`✈️ AIR SHIPPING: Product "${productDetails.name}" - Price: ${airShippingPrice} × ${quantity} = ${airShippingPrice * quantity} GHS, Duration: ${airShippingDuration} days`);
+      } else {
+        // Use sea shipping price from the product
+        const seaShippingPrice = parseFloat(productDetails.seaShippingPrice || 0);
+        const seaShippingDuration = parseInt(productDetails.seaShippingDuration || 0);
+        
+        if (seaShippingPrice > 0 || seaShippingDuration > 0) {
+          hasValidShippingData = true;
+        }
+        
+        totalPrice += seaShippingPrice * quantity;
+        maxDuration = Math.max(maxDuration, seaShippingDuration);
+        
+        console.log(`🚢 SEA SHIPPING: Product "${productDetails.name}" - Price: ${seaShippingPrice} × ${quantity} = ${seaShippingPrice * quantity} GHS, Duration: ${seaShippingDuration} days`);
+      }
+    });
+    
+    // If no products with shipping data, set default values
+    if (maxDuration === 0) {
+      maxDuration = method.id === 'air' ? 7 : 30;
+      console.log(`⚠️ SHIPPING: No valid duration found, using default: ${maxDuration} days`);
+    }
+    
+    console.log(`🚢 SHIPPING: Final calculation for ${method.id} shipping: Price: ${totalPrice} GHS, Duration: ${maxDuration} days`);
+    console.log(`🚢 SHIPPING: Products have shipping data set: ${hasValidShippingData ? 'YES' : 'NO'}`);
+    
+    return {
+      price: totalPrice,
+      estimatedDelivery: `${maxDuration} days`,
+      hasValidShippingData
+    };
+  };
+
+  // Update handleShippingMethodSelect to use the new calculation
   const handleShippingMethodSelect = (methodId) => {
     setShippingMethod(methodId);
     
@@ -282,9 +350,40 @@ const CheckoutPage = () => {
         clearActiveCoupon();
       }
       
-      setShippingCost(method.price);
-      setEstimatedDelivery(method.estimatedDelivery);
-      console.log(`Selected shipping method: ${method.name}, price: ${method.price}`);
+      // Get products for shipping calculation - include full product objects with shipping data
+      let productsForShipping;
+      
+      if (isFromCart) {
+        console.log('🛒 CHECKOUT: Getting shipping data for cart items');
+        productsForShipping = cartItems.map(item => {
+          console.log(`📦 CART ITEM SHIPPING DATA:`, {
+            id: item.id || item._id,
+            name: item.name,
+            airShippingPrice: item.airShippingPrice,
+            airShippingDuration: item.airShippingDuration,
+            seaShippingPrice: item.seaShippingPrice,
+            seaShippingDuration: item.seaShippingDuration
+          });
+          return item;
+        });
+      } else {
+        console.log('🛍️ CHECKOUT: Getting shipping data for single product');
+        console.log(`📦 PRODUCT SHIPPING DATA:`, {
+          id: productInfo.id || productInfo._id,
+          name: productInfo.name,
+          airShippingPrice: productInfo.airShippingPrice,
+          airShippingDuration: productInfo.airShippingDuration,
+          seaShippingPrice: productInfo.seaShippingPrice,
+          seaShippingDuration: productInfo.seaShippingDuration
+        });
+        productsForShipping = [productInfo];
+      }
+      
+      const shippingDetails = calculateShippingDetails(method, productsForShipping);
+      
+      setShippingCost(shippingDetails.price);
+      setEstimatedDelivery(shippingDetails.estimatedDelivery);
+      console.log(`✅ CHECKOUT: Selected shipping method: ${method.name}, price: ${shippingDetails.price}, delivery: ${shippingDetails.estimatedDelivery}`);
     }
   };
   
@@ -518,7 +617,12 @@ const CheckoutPage = () => {
             quantity: item.quantity,
             image: item.image,
             colorName: item.colorName,
-            size: item.size
+            size: item.size,
+            // Include shipping information
+            airShippingPrice: parseFloat(item.airShippingPrice || 0),
+            airShippingDuration: parseInt(item.airShippingDuration || 0),
+            seaShippingPrice: parseFloat(item.seaShippingPrice || 0),
+            seaShippingDuration: parseInt(item.seaShippingDuration || 0)
           }))
         : [{
             id: productInfo.id || productInfo._id,
@@ -527,7 +631,12 @@ const CheckoutPage = () => {
             quantity: productInfo.quantity || 1,
             image: productInfo.image,
             colorName: productInfo.colorName || 'Default',
-            size: productInfo.size || 'One Size'
+            size: productInfo.size || 'One Size',
+            // Include shipping information
+            airShippingPrice: parseFloat(productInfo.airShippingPrice || 0),
+            airShippingDuration: parseInt(productInfo.airShippingDuration || 0),
+            seaShippingPrice: parseFloat(productInfo.seaShippingPrice || 0),
+            seaShippingDuration: parseInt(productInfo.seaShippingDuration || 0)
           }];
 
       // Calculate subtotal
@@ -557,7 +666,7 @@ const CheckoutPage = () => {
       const discountAmount = discount || 0;
       
       // Calculate total
-      const totalCalc = subtotalCalc + selectedShippingMethod.price + taxCalc - discountAmount;
+      const totalCalc = subtotalCalc + shippingCost + taxCalc - discountAmount;
       
       // Track coupon usage if a coupon was applied
       if (appliedCoupon && appliedCoupon._id) {
@@ -576,6 +685,7 @@ const CheckoutPage = () => {
         subtotal: subtotalCalc,
         shippingCost: selectedShippingMethod.price,
         shippingMethod: selectedShippingMethod.name,
+        shippingType: selectedShippingMethod.type || 'standard', // Include shipping type (air/sea)
         tax: taxCalc,
         taxRate: appliedTaxRate,
         discount: discountAmount,
@@ -623,8 +733,9 @@ const CheckoutPage = () => {
         shippingMethod: selectedShippingMethod.id,
         shippingMethodName: selectedShippingMethod.name,
         shippingCarrier: selectedShippingMethod.carrier || 'Standard',
+        shippingType: selectedShippingMethod.type || 'standard', // Add shipping type (air/sea)
         subtotal: subtotalCalc,
-        shipping: selectedShippingMethod.price,
+        shipping: shippingCost,
         tax: taxCalc,
         taxRate: appliedTaxRate,
         discount: discountAmount,
@@ -656,7 +767,7 @@ const CheckoutPage = () => {
         items: orderProducts,
         totalAmount: totalCalc,
         subtotal: subtotalCalc,
-        shipping: selectedShippingMethod.price,
+        shipping: shippingCost,
         tax: taxCalc,
         taxRate: appliedTaxRate,
         discount: discountAmount,
@@ -682,6 +793,7 @@ const CheckoutPage = () => {
         customerName: `${addressInfo.firstName} ${addressInfo.lastName}`,
         customerEmail: contactInfo.email,
         shippingMethod: selectedShippingMethod.name,
+        shippingType: selectedShippingMethod.type || 'standard', // Add shipping type to draft order
         shippingCarrier: selectedShippingMethod.carrier || 'Standard',
         createdAt: new Date().toISOString()
       };
@@ -988,8 +1100,42 @@ const CheckoutPage = () => {
     }
   };
 
-  // Update the renderDeliveryStep function to make better use of store data
+  // Update the renderDeliveryStep function to only show air/sea shipping if products have shipping data
   const renderDeliveryStep = () => {
+    // Filter available shipping methods based on products
+    let productsForShipping;
+    let filteredShippingMethods = [...availableShippingMethods];
+    
+    if (isFromCart) {
+      productsForShipping = cartItems;
+    } else {
+      productsForShipping = [productInfo];
+    }
+    
+    // Check if any products have air shipping data
+    const airShippingDetails = calculateShippingDetails(
+      availableShippingMethods.find(m => m.id === 'air'),
+      productsForShipping
+    );
+    
+    // Check if any products have sea shipping data
+    const seaShippingDetails = calculateShippingDetails(
+      availableShippingMethods.find(m => m.id === 'sea'),
+      productsForShipping
+    );
+    
+    // Only show air shipping if at least one product has air shipping data
+    if (!airShippingDetails.hasValidShippingData) {
+      filteredShippingMethods = filteredShippingMethods.filter(m => m.id !== 'air');
+      console.log('🚢 SHIPPING: Hiding air shipping option - no products have air shipping data');
+    }
+    
+    // Only show sea shipping if at least one product has sea shipping data
+    if (!seaShippingDetails.hasValidShippingData) {
+      filteredShippingMethods = filteredShippingMethods.filter(m => m.id !== 'sea');
+      console.log('🚢 SHIPPING: Hiding sea shipping option - no products have sea shipping data');
+    }
+    
     return (
       <div className="space-y-8">
         <div>
@@ -997,19 +1143,26 @@ const CheckoutPage = () => {
           <p className="text-gray-500 text-sm mt-1">Select a shipping method for this order</p>
         </div>
         
-        {settingsLoading ? (
-          <div className="p-4 text-center">
-            <Loader className="inline w-6 h-6 text-blue-500 animate-spin" />
-            <p className="mt-2 text-sm text-gray-500">Loading shipping methods...</p>
+        {/* Show message if no shipping methods available */}
+        {filteredShippingMethods.length === 0 ? (
+          <div className="p-4 text-center border rounded-lg">
+            <p className="text-sm text-gray-500">No shipping methods available for your selected products.</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {availableShippingMethods.length === 0 ? (
-              <div className="p-4 text-center">
-                <p className="text-sm text-gray-500">No shipping methods available. Please try again later.</p>
-              </div>
-            ) : (
-              availableShippingMethods.map((method) => (
+            {filteredShippingMethods.map((method) => {
+              // Calculate shipping details for this method
+              const products = isFromCart ? cartItems : [productInfo];
+              const shippingDetails = calculateShippingDetails(method, products);
+              
+              // Update method with calculated values
+              const displayMethod = {
+                ...method,
+                price: shippingDetails.price,
+                estimatedDelivery: shippingDetails.estimatedDelivery
+              };
+              
+              return (
                 <div 
                   key={method.id}
                   onClick={() => handleShippingMethodSelect(method.id)}
@@ -1028,19 +1181,22 @@ const CheckoutPage = () => {
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-medium">{method.name}</h4>
-                          <p className="text-sm text-gray-500 mt-1">{method.description}</p>
-                          {method.carrier && (
-                            <p className="text-xs text-gray-400 mt-1">via {method.carrier}</p>
+                          <h4 className="font-medium">{displayMethod.name}</h4>
+                          <p className="text-sm text-gray-500 mt-1">{displayMethod.description}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Estimated delivery: {displayMethod.estimatedDelivery}
+                          </p>
+                          {displayMethod.carrier && (
+                            <p className="text-xs text-gray-400 mt-1">via {displayMethod.carrier}</p>
                           )}
                         </div>
-                        <span className="font-medium">GH₵{method.price.toFixed(2)}</span>
+                        <span className="font-medium">GH₵{displayMethod.price.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-              ))
-            )}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1293,289 +1449,54 @@ const CheckoutPage = () => {
                 <ChevronRight className="w-5 h-5 text-gray-400" />
                 <div className="flex items-center">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 4 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                    <CreditCard className="w-4 h-4" />
+                    <ShoppingBag className="w-4 h-4" />
                   </div>
-                  <span className={`ml-2 font-medium ${step >= 4 ? 'text-blue-600' : 'text-gray-600'}`}>Payment</span>
+                  <span className={`ml-2 font-medium ${step >= 4 ? 'text-blue-600' : 'text-gray-600'}`}>Review</span>
                 </div>
               </div>
             </div>
             
-            {/* Step 1: Contact Information */}
-            {step === 1 && (
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Contact Information</h2>
-                {formError && (
-                  <div className="mb-4 p-3 bg-red-50 rounded-md text-red-700 text-sm">
-                    {formError}
-                  </div>
-                )}
-                {renderContactStep()}
-              </div>
-            )}
-            
-            {/* Step 2: Shipping Address */}
-            {step === 2 && (
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Shipping Address</h2>
-                {formError && (
-                  <div className="mb-4 p-3 bg-red-50 rounded-md text-red-700 text-sm">
-                    {formError}
-                  </div>
-                )}
-                {renderAddressStep()}
-              </div>
-            )}
-            
-            {/* Step 3: Delivery Options */}
-            {step === 3 && (
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Delivery Method</h2>
-                {formError && (
-                  <div className="mb-4 p-3 bg-red-50 rounded-md text-red-700 text-sm">
-                    {formError}
-                  </div>
-                )}
-                {renderDeliveryStep()}
-              </div>
-            )}
-            
-            {/* Step 4: Review Order */}
-            {step === 4 && (
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Review Your Order</h2>
-                
-                {formError && (
-                  <div className="mb-4 p-3 bg-red-50 rounded-md text-red-700 text-sm">
-                    {formError}
-                  </div>
-                )}
-                
-                {renderReviewStep()}
-              </div>
-            )}
-            
-            {/* Navigation buttons */}
-            <div className="flex justify-between mt-6">
-              <button
-                type="button"
-                onClick={handlePrevStep}
-                className="bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-50 font-medium flex items-center w-full sm:w-auto"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {step === 1 ? 'Back to Shopping' : 'Previous Step'}
-              </button>
-              
-              <button
-                type="button"
-                onClick={handleNextStep}
-                className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 font-medium flex items-center w-full sm:w-auto"
-              >
-                {step === 4 ? 'Proceed to Payment' : 'Continue'}
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </button>
-            </div>
+            {renderStepContent()}
           </div>
           
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white p-6 rounded-lg shadow-sm sticky top-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Order Summary</h2>
-              
-              {/* Display cart items in summary when coming from cart */}
-              {isFromCart && cartItems.length > 0 && (
-                <div className="mb-4 max-h-80 overflow-auto border-b border-gray-200 pb-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Items ({cartItems.length})</h3>
-                  {cartItems.map((item, idx) => (
-                    <div key={`${item.id}-${item.size}-${item.color}-${idx}`} className="flex items-center mb-3">
-                      <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="h-full w-full object-cover object-center"
-                        />
-                      </div>
-                      <div className="ml-3 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {item.colorName} | {item.size} | Qty: {item.quantity}
-                        </p>
-                      </div>
-                      <p className="text-sm font-medium text-gray-900">{item.price}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Display single product in summary when coming from Buy Now */}
-              {!isFromCart && productInfo && (
-                <div className="mb-4 border-b border-gray-200 pb-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Item</h3>
-                  <div className="flex items-center mb-3">
-                    <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-md">
-                      <img
-                        src={productInfo.image}
-                        alt={productInfo.name}
-                        className="h-full w-full object-cover object-center"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://via.placeholder.com/150?text=No+Image';
-                        }}
-                      />
-                    </div>
-                    <div className="ml-3 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">{productInfo.name}</p>
-                      <p className="text-xs text-gray-500">
-                        Color: {productInfo.colorName || 'Default'} | Size: {productInfo.size || 'One Size'} | Qty: {productInfo.quantity || 1}
-                      </p>
-                    </div>
-                    <p className="text-sm font-medium text-gray-900">{productInfo.price}</p>
-                  </div>
-                </div>
-              )}
-              
+          {/* Checkout Summary */}
+          <div className="lg:col-span-1 space-y-8">
+            {/* Summary */}
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <h2 className="text-2xl font-bold mb-4">Order Summary</h2>
               <div className="space-y-4">
-                <div className="flex justify-between py-2 border-b border-gray-200">
+                <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
                   <span className="font-medium">GH₵{subtotal.toFixed(2)}</span>
                 </div>
-                
-                <div className="flex justify-between py-2 border-b border-gray-200">
+                <div className="flex justify-between">
                   <span className="text-gray-600">Shipping</span>
-                  <span className="font-medium">
-                    {settingsLoading ? (
-                      <Loader className="inline w-3 h-3 text-gray-400 animate-spin" />
-                    ) : (
-                      `GH₵${shippingCost.toFixed(2)}`
-                    )}
-                  </span>
+                  <span className="font-medium">GH₵{shippingCost.toFixed(2)}</span>
                 </div>
-                
-                <div className="flex justify-between py-2 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <span className="text-gray-600">Tax ({(taxRate * 100).toFixed(1)}%)</span>
-                    {addressInfo.country && (
-                      <div className="relative ml-1 group">
-                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                          Tax rate for {addressInfo.country}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tax</span>
                   <span className="font-medium">GH₵{(subtotal * taxRate).toFixed(2)}</span>
                 </div>
-                
                 {discount > 0 && (
-                  <div className="flex justify-between py-2 border-b border-gray-200 text-green-600">
+                  <div className="flex justify-between text-green-600">
                     <span>Discount</span>
-                    <span className="font-medium">-GH₵{parseFloat(discount).toFixed(2)}</span>
+                    <span>-GH₵{parseFloat(discount).toFixed(2)}</span>
                   </div>
                 )}
-                
-                <div className="flex justify-between py-2 text-lg font-bold">
+                <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
                   <span>GH₵{parseFloat(total).toFixed(2)}</span>
                 </div>
-                
-                {/* Coupon Code */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <label htmlFor="couponCode" className="block text-sm font-medium text-gray-700 mb-2">Apply Coupon Code</label>
-                  <div className="flex flex-col sm:flex-row">
-                    <input
-                      type="text"
-                      id="couponCode"
-                      value={couponCode}
-                      onChange={(e) => {
-                        setCouponCode(e.target.value);
-                        setCouponError('');
-                        setCouponSuccess('');
-                      }}
-                      disabled={appliedCoupon || isCouponLoading}
-                      className="flex-1 py-2 px-3 border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500 mb-2 sm:mb-0"
-                      placeholder="Enter code"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleApplyCoupon}
-                      disabled={!couponCode.trim() || appliedCoupon || isCouponLoading}
-                      className={`py-2 px-4 rounded-r-lg font-medium flex items-center justify-center min-w-[80px] w-full sm:w-auto ${
-                        !couponCode.trim() || appliedCoupon ? 
-                        'bg-gray-200 text-gray-500 cursor-not-allowed' : 
-                        'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                    >
-                      {isCouponLoading || couponLoading ? (
-                        <Loader className="w-4 h-4 animate-spin" />
-                      ) : appliedCoupon ? (
-                        <Check className="w-4 h-4" />
-                      ) : (
-                        'Apply'
-                      )}
-                    </button>
-                  </div>
-                  
-                  {couponError && (
-                    <p className="mt-2 text-xs text-red-600">{couponError}</p>
-                  )}
-                  
-                  {couponSuccess && (
-                    <div className="mt-2 text-xs text-green-600 flex items-center">
-                      <Check className="w-3 h-3 mr-1" />
-                      {couponSuccess}
-                    </div>
-                  )}
-                  
-                  {appliedCoupon ? (
-                    <div className="mt-2 flex justify-between items-center">
-                      <span className="text-xs text-gray-500">Coupon applied: {appliedCoupon.code}</span>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          setDiscount(0);
-                          setCouponCode('');
-                          setAppliedCoupon(null);
-                          setCouponSuccess('');
-                          clearActiveCoupon();
-                          if (appliedCoupon.code === 'FREESHIP') {
-                            // Reset shipping cost based on selected method
-                            const method = availableShippingMethods.find(m => m.id === shippingMethod);
-                            if (method) {
-                              setShippingCost(method.price);
-                            }
-                          }
-                        }}
-                        className="text-xs text-red-600 hover:text-red-800"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="mt-1 text-xs text-gray-500">
-                      Enter a valid coupon code to get discounts on your order
-                    </p>
-                  )}
-                </div>
-                
-                {/* Estimated Delivery */}
-                {estimatedDelivery && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="flex items-center">
-                      <Truck className="w-5 h-5 text-gray-600 mr-2" />
-                      <span className="font-medium">Estimated Delivery</span>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-600">{estimatedDelivery}</p>
-                  </div>
-                )}
-                
-                {/* Secure Checkout Notice */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-                    <ShoppingBag className="w-4 h-4" />
-                    <span>Secure Checkout</span>
-                  </div>
-                </div>
               </div>
             </div>
+            
+            {/* Payment Button */}
+            <button
+              onClick={handleNextStep}
+              className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition-colors duration-200"
+            >
+              Proceed to Payment
+            </button>
           </div>
         </div>
       </main>
@@ -1585,4 +1506,4 @@ const CheckoutPage = () => {
   );
 };
 
-export default CheckoutPage; 
+export default CheckoutPage;
