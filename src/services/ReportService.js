@@ -658,7 +658,7 @@ class ReportService {
       csvData = data.customers.map(customer => [
         customer.name,
         customer.email,
-        customer.phone,
+        customer.phoneNumber || customer.phone || '-',
         customer.totalSpent.toFixed(2),
         customer.orderCount,
         customer.lastOrderDate,
@@ -772,7 +772,7 @@ class ReportService {
         ...data.customers.map(customer => [
           customer.name,
           customer.email,
-          customer.phone,
+          customer.phoneNumber || customer.phone || '-',
           `${data.summary.currency}${customer.totalSpent.toFixed(2)}`,
           customer.orderCount,
           customer.lastOrderDate,

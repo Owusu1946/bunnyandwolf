@@ -150,8 +150,13 @@ const Sidebar = () => {
   const downloadReport = async () => {
     try {
       setGeneratingReport(true);
+      console.log(`Generating ${reportType} report for ${reportPeriod} period in ${reportFormat} format`);
       
-      const response = await axios.get(`${apiConfig.baseURL}/admin/reports/generate`, {
+      // Create the API endpoint URL
+      const apiEndpoint = `${apiConfig.baseURL}/admin/reports/generate`;
+      console.log(`Calling API endpoint: ${apiEndpoint}`);
+      
+      const response = await axios.get(apiEndpoint, {
         params: {
           type: reportType,
           period: reportPeriod,
@@ -161,8 +166,23 @@ const Sidebar = () => {
           ...apiConfig.headers,
           ...apiConfig.getAuthHeader()
         },
-        responseType: 'blob' // Important for file downloads
+        responseType: 'blob', // Important for file downloads
+        timeout: 30000 // Increase timeout for large reports
       });
+      
+      console.log('Response received, content type:', response.headers['content-type']);
+      
+      // Check if the response is an error message
+      if (response.data.size < 100 && response.headers['content-type'].includes('application/json')) {
+        const reader = new FileReader();
+        reader.onload = function() {
+          const errorJson = JSON.parse(reader.result);
+          console.error('API returned error:', errorJson);
+          alert(`Failed to generate report: ${errorJson.error || 'Unknown error'}`);
+        };
+        reader.readAsText(response.data);
+        return;
+      }
       
       // Create a download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -171,16 +191,43 @@ const Sidebar = () => {
       
       // Set filename based on report type and date
       const date = new Date().toISOString().split('T')[0];
-      link.setAttribute('download', `${reportType}-report-${date}.${reportFormat}`);
+      const filename = `${reportType}-report-${date}.${reportFormat}`;
+      link.setAttribute('download', filename);
+      
+      console.log(`Downloading file as: ${filename}`);
       
       document.body.appendChild(link);
       link.click();
       link.remove();
       
+      console.log('Download initiated successfully');
       setShowReportModal(false);
     } catch (error) {
       console.error('Error generating report:', error);
-      alert('Failed to generate report. Please try again later.');
+      
+      let errorMessage = 'Failed to generate report. Please try again later.';
+      
+      if (error.response) {
+        // The request was made and the server responded with an error status
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+        
+        if (typeof error.response.data === 'object') {
+          errorMessage = error.response.data.error || errorMessage;
+        } else if (error.response.status === 401) {
+          errorMessage = 'Authentication error. Please log in again.';
+        } else if (error.response.status === 403) {
+          errorMessage = 'You do not have permission to generate reports.';
+        } else if (error.response.status === 500) {
+          errorMessage = 'Server error generating report. Please try again later.';
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        errorMessage = 'No response from server. Please check your connection.';
+      }
+      
+      alert(errorMessage);
     } finally {
       setGeneratingReport(false);
     }

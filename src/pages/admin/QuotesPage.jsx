@@ -629,12 +629,22 @@ const QuotesPage = () => {
                       <p className="text-sm text-gray-500">
                         <HighlightText text={quote.email} searchTerms={searchTerms} />
                       </p>
+                      {quote.phone && (
+                        <p className="text-sm text-gray-500">
+                          <span className="font-medium">Phone:</span> <HighlightText text={quote.phone} searchTerms={searchTerms} />
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="mb-2">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(quote.status)}`}>
+                    <button
+                      className={`px-2 py-1 text-xs rounded-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 ${getStatusColor(quote.status)}`}
+                      onClick={() => openStatusModal(quote)}
+                      title="Change status"
+                      type="button"
+                    >
                       {getStatusLabel(quote.status || 'pending')}
-                    </span>
+                    </button>
                   </div>
                   <p className="text-sm text-gray-700 mb-2">
                     <span className="font-medium">Product:</span>{' '}
@@ -1007,6 +1017,50 @@ const QuotesPage = () => {
                   </a>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Update Modal */}
+      {showStatusModal && quoteToUpdate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-medium text-gray-900">Update Quote Status</h3>
+              <button onClick={() => setShowStatusModal(false)} className="text-gray-400 hover:text-gray-500">
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                value={newStatus}
+                onChange={e => setNewStatus(e.target.value)}
+                className="block w-full border border-gray-300 rounded-md py-2 px-3"
+              >
+                <option value="pending">Pending</option>
+                <option value="reviewing">Reviewing</option>
+                <option value="quoted">Quoted</option>
+                <option value="negotiating">Negotiating</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+                <option value="completed">Completed</option>
+              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Note (optional)</label>
+              <textarea
+                value={statusNote}
+                onChange={e => setStatusNote(e.target.value)}
+                className="block w-full border border-gray-300 rounded-md py-2 px-3"
+              />
+            </div>
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">
+              <button
+                onClick={confirmStatusUpdate}
+                className="py-2 px-4 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+              >
+                Update Status
+              </button>
             </div>
           </div>
         </div>

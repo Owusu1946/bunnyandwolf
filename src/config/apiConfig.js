@@ -58,7 +58,8 @@ const apiConfig = {
     contact: '/contact',
     quote: '/quote',
     search: '/search',
-    aiSearch: '/search/ai'
+    aiSearch: '/search/ai',
+    reports: '/admin/reports/generate'
   },
   
   // Default headers for all requests

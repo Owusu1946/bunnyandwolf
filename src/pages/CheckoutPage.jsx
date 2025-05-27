@@ -1461,6 +1461,44 @@ const CheckoutPage = () => {
           
           {/* Checkout Summary */}
           <div className="lg:col-span-1 space-y-8">
+            {/* Coupon Input */}
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <h2 className="text-xl font-semibold mb-3">Have a Coupon?</h2>
+              <div className="flex items-center space-x-2 mb-2">
+                <input
+                  type="text"
+                  className="flex-1 rounded-full bg-gray-50 border-0 px-4 py-2 text-sm shadow-sm focus:ring-2 focus:ring-purple-400 focus:bg-white transition placeholder-gray-400"
+                  placeholder="Enter coupon code"
+                  value={couponCode}
+                  onChange={e => setCouponCode(e.target.value)}
+                  disabled={isCouponLoading || (appliedCoupon && appliedCoupon.code)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <button
+                  onClick={handleApplyCoupon}
+                  className={`rounded-full px-5 py-2 text-sm font-semibold shadow-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400
+                    ${isCouponLoading || (appliedCoupon && appliedCoupon.code)
+                      ? 'bg-blue-200 text-white cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                  disabled={isCouponLoading || (appliedCoupon && appliedCoupon.code)}
+                  type="button"
+                >
+                  {isCouponLoading ? (
+                    <span className="flex items-center"><svg className="animate-spin h-4 w-4 mr-2 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Applying...</span>
+                  ) : (appliedCoupon && appliedCoupon.code ? 'Applied' : 'Apply')}
+                </button>
+              </div>
+              {couponError && (
+                <div className="flex items-center text-xs text-red-500 mt-1"><svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{couponError}</div>
+              )}
+              {couponSuccess && (
+                <div className="flex items-center text-xs text-green-600 mt-1"><svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>{couponSuccess}</div>
+              )}
+              {appliedCoupon && appliedCoupon.code && (
+                <div className="text-xs text-gray-500 mt-1">Coupon <span className="font-semibold">{appliedCoupon.code}</span> applied.</div>
+              )}
+            </div>
             {/* Summary */}
             <div className="bg-white p-4 rounded-lg shadow-sm">
               <h2 className="text-2xl font-bold mb-4">Order Summary</h2>
