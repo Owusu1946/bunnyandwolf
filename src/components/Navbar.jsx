@@ -177,8 +177,8 @@ const Navbar = () => {
           </div>
 
           <div className="nav-center">
-            <Link to="/" className="logo">
-              Bunny & Wolf
+            <Link to="/sinosply-stores" className="logo">
+              Sinosply Stores
             </Link>
           </div>
 

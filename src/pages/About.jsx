@@ -16,87 +16,71 @@ const About = () => {
     }
   };
   
-  // Team members data
-  const teamMembers = [
+  // Service categories data
+  const services = [
     {
-      name: 'Benjie Agyare',
-      position: 'Founder & CEO',
-      bio: 'With 15+ years in sourcing and quality control, Benjie founded Sinosply to bridge the gap between global buyers and Chinese manufacturers.',
-      image: '/team/benjie.jpg'
+      title: 'Product Discovery & Development',
+      items: [
+        'Concept sourcing and prototype support',
+        'Market research & trend analysis',
+        'Material selection and sample refinement'
+      ],
+      icon: <FaPuzzlePiece className="w-6 h-6" />
     },
     {
-      name: 'Michael Wong',
-      position: 'Operations Director',
-      bio: 'Michael oversees our sourcing network and ensures seamless logistics across our sourcing operations in China.',
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
-    },
-    {
-      name: 'Li Wei',
-      position: 'Quality Control Manager',
-      bio: 'Based in Guangzhou, Li Wei leads our on-the-ground quality control team ensuring all products meet international standards.',
-      image: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
-    },
-    {
-      name: 'David Osei',
-      position: 'Customer Success Manager',
-      bio: 'David ensures our clients have a seamless experience from their first quote to final delivery.',
-      image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
-    }
-  ];
-  
-  // Values data
-  const values = [
-    {
-      title: 'Trust & Transparency',
-      description: 'We believe in complete transparency throughout the entire sourcing process.',
+      title: 'Supplier Matching & Negotiation',
+      items: [
+        'Hand-picked, audit-passed factories',
+        'Volume-based pricing and flexible minimum order quantities',
+        'Contract drafting and terms management'
+      ],
       icon: <FaUserCheck className="w-6 h-6" />
     },
     {
-      title: 'Quality Commitment',
-      description: 'We never compromise on quality standards and thorough product verification.',
+      title: 'Quality Control & Inspection',
+      items: [
+        'Factory Visits: On-site checks during production',
+        'Sample Verification: Detailed review of pre-production samples',
+        'Pefect Reporting: Photos and reports on any issues, plus corrective action plans'
+      ],
       icon: <FaAward className="w-6 h-6" />
     },
     {
-      title: 'Global Perspective',
-      description: 'Our diverse team brings international expertise while understanding local markets.',
-      icon: <FaGlobeAsia className="w-6 h-6" />
+      title: 'Order Management & Logistics',
+      items: [
+        'Real-time production updates',
+        'Multi-modal shipping coordination (air, sea, express)',
+        'Customs clearance and last-mile delivery'
+      ],
+      icon: <FaShippingFast className="w-6 h-6" />
     },
     {
-      title: 'Customer Partnership',
-      description: 'We view our clients as partners in a shared journey toward business growth.',
-      icon: <FaPuzzlePiece className="w-6 h-6" />
+      title: 'Brand Partnership & Store Enablement',
+      items: [
+        'Turnkey support for launching niche online brands',
+        'Integrated inventory feeds straight from factories',
+        'White-label packaging and custom branding solutions'
+      ],
+      icon: <FaGlobeAsia className="w-6 h-6" />
     }
   ];
   
-  // Certifications data
-  const certifications = [
+  // Differentiators data
+  const differentiators = [
     {
-      name: 'ISO 9001:2015',
-      issuer: 'International Organization for Standardization',
-      description: 'Quality Management System',
-      year: '2021',
-      icon: <FaCertificate />
+      title: 'Verified Partners',
+      description: 'Every factory we work with passes a rigorous audit for quality, ethics, and capacity.',
+      icon: <FaUserCheck className="w-6 h-6" />
     },
     {
-      name: 'SEDEX',
-      issuer: 'Supplier Ethical Data Exchange',
-      description: 'Supply Chain Ethics Compliance',
-      year: '2020',
-      icon: <FaCertificate />
+      title: 'Lean & Flexible',
+      description: 'No bulky warehouses. We coordinate smart batch runs and express shipping so you stay nimble.',
+      icon: <FaShippingFast className="w-6 h-6" />
     },
     {
-      name: 'Authorized Economic Operator',
-      issuer: 'World Customs Organization',
-      description: 'AEO Export & Import Certified',
-      year: '2019',
-      icon: <FaCertificate />
-    },
-    {
-      name: 'Global Freight Alliance',
-      issuer: 'International Freight Forwarder Association',
-      description: 'Premium Member',
-      year: '2018',
-      icon: <FaShippingFast />
+      title: 'End-to-End Care',
+      description: 'Product development, price negotiation, quality checks, order management, and worldwide logistics—all under one roof.',
+      icon: <FaGlobeAsia className="w-6 h-6" />
     }
   ];
 
@@ -127,12 +111,12 @@ const About = () => {
             transition={{ delay: 0.2 }}
             className="text-red-100 max-w-3xl mx-auto text-lg mb-8"
           >
-            Your trusted partner for China sourcing and global supply chain solutions
+            Your Bridge to Smarter Product & Brand Growth
           </motion.p>
         </div>
       </section>
       
-      {/* Our Story Section */}
+      {/* Introduction Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -142,23 +126,19 @@ const About = () => {
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">Our Story</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">Who We Are</h2>
               <div className="w-24 h-1 bg-red-600 mb-6"></div>
               <p className="text-gray-600 mb-6">
-                Founded in 2014, Sinosply began with a simple mission: to make sourcing from China accessible, 
-                transparent, and hassle-free for businesses of all sizes.
+                At Sinosply, we believe great products deserve the shortest path from factory floor to front door.
               </p>
               <p className="text-gray-600 mb-6">
-                Our founder, Benjie Agyare, experienced firsthand the challenges businesses face when trying to 
-                navigate China's complex manufacturing landscape. After 15 years in international trade and 
-                supply chain management, he assembled a team of experts to create a comprehensive sourcing 
-                solution.
+                A team of sourcing specialists with deep roots in China's manufacturing hubs, we've helped startups, e‑commerce brands, 
+                and retail innovators cut through red tape and inventory headaches.
               </p>
+              <h3 className="text-xl font-bold text-gray-900 mb-3 mt-8">Our Mission</h3>
               <p className="text-gray-600">
-                Today, Sinosply has grown from a small team to a network of over 50 professionals across Ghana 
-                and China, connecting businesses with over 2,000 verified manufacturers and handling millions in 
-                procurement annually. Our success is built on our commitment to quality, transparency, and 
-                unparalleled customer service.
+                To power your growth by combining factory‑direct efficiency with white‑glove service. From the first sample to final 
+                shipment, our goal is always the same: deliver quality, cut costs, and free you to focus on what matters—building your brand.
               </p>
             </motion.div>
             
@@ -180,7 +160,7 @@ const About = () => {
         </div>
       </section>
       
-      {/* Our Values Section */}
+      {/* Why We're Different Section */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
@@ -190,15 +170,15 @@ const About = () => {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl font-bold text-gray-900">Our Values</h2>
+            <h2 className="text-3xl font-bold text-gray-900">Why We're Different</h2>
             <div className="mt-2 w-24 h-1 bg-red-600 mx-auto"></div>
             <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
-              The core principles that guide everything we do
+              What sets us apart from traditional sourcing companies
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {values.map((value, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {differentiators.map((item, index) => (
               <motion.div 
                 key={index}
                 className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow duration-300"
@@ -208,17 +188,28 @@ const About = () => {
                 viewport={{ once: true }}
               >
                 <div className="w-12 h-12 rounded-full bg-red-600/10 flex items-center justify-center mb-4 text-red-600">
-                  {value.icon}
+                  {item.icon}
                 </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">{value.title}</h3>
-                <p className="text-gray-600">{value.description}</p>
+                <h3 className="text-xl font-bold mb-2 text-gray-900">{item.title}</h3>
+                <p className="text-gray-600">{item.description}</p>
               </motion.div>
             ))}
           </div>
+          
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            viewport={{ once: true }}
+            className="text-gray-600 text-center mt-10 max-w-3xl mx-auto"
+          >
+            As we expand, we're also proud to introduce three live, consumer‑facing brands powered by our model. 
+            Explore them under "Products" below—each one a testament to our curated, factory‑direct approach.
+          </motion.p>
         </div>
       </section>
       
-      {/* Meet Our Team Section */}
+      {/* Services Section */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
@@ -228,34 +219,38 @@ const About = () => {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl font-bold text-gray-900">Meet Our Team</h2>
+            <h2 className="text-3xl font-bold text-gray-900">Our Services</h2>
             <div className="mt-2 w-24 h-1 bg-red-600 mx-auto"></div>
             <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
-              Expert professionals dedicated to your sourcing success
+              We take the complexity out of global sourcing and brand fulfillment so you can scale confidently.
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {teamMembers.map((member, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {services.map((service, index) => (
               <motion.div 
                 key={index}
-                className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300"
+                className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 viewport={{ once: true }}
               >
-                <div className="h-64 overflow-hidden">
-                  <img 
-                    src={member.image} 
-                    alt={member.name} 
-                    className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                  />
+                <div className="p-6 border-b-2 border-red-600">
+                  <div className="w-12 h-12 rounded-full bg-red-600/10 flex items-center justify-center mb-4 text-red-600">
+                    {service.icon}
+                  </div>
+                  <h3 className="text-xl font-bold mb-4">{service.title}</h3>
                 </div>
-                <div className="p-6 border-t-2 border-red-600">
-                  <h3 className="text-xl font-bold mb-1">{member.name}</h3>
-                  <p className="text-red-600 text-sm mb-3">{member.position}</p>
-                  <p className="text-gray-600 text-sm">{member.bio}</p>
+                <div className="p-6">
+                  <ul className="space-y-2">
+                    {service.items.map((item, i) => (
+                      <li key={i} className="flex items-start">
+                        <span className="text-red-600 mr-2">•</span>
+                        <span className="text-gray-600">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </motion.div>
             ))}
@@ -263,7 +258,7 @@ const About = () => {
         </div>
       </section>
       
-      {/* Certifications Section */}
+      {/* CTA Quote Request Section */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
@@ -273,62 +268,22 @@ const About = () => {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl font-bold text-gray-900">Our Certifications</h2>
+            <h2 className="text-3xl font-bold text-gray-900">Custom Quote Requests</h2>
             <div className="mt-2 w-24 h-1 bg-red-600 mx-auto"></div>
             <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
-              International standards and certifications that validate our quality and ethical practices
+              Fill out a quick form with your product specs and timelines—get tailored pricing and lead times within 48 hours.
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {certifications.map((cert, index) => (
-              <motion.div 
-                key={index}
-                className="relative"
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                whileHover={{ 
-                  y: -5,
-                  transition: { duration: 0.2 }
-                }}
-              >
-                {/* Certificate Background with Border */}
-                <div className="absolute inset-0 bg-gradient-to-b from-amber-50 to-amber-100 rounded-lg transform rotate-1"></div>
-                
-                {/* Main Certificate */}
-                <div className="relative bg-white border-4 border-double border-amber-300 rounded-lg p-6 shadow-md overflow-hidden">
-                  {/* Gold Seal */}
-                  <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full opacity-20"></div>
-                  
-                  {/* Red Ribbon */}
-                  <div className="absolute -top-1 -right-1 w-16 h-16">
-                    <div className="absolute transform rotate-45 w-32 h-4 bg-red-600 right-0 top-6"></div>
-                  </div>
-                  
-                  {/* Certificate Content */}
-                  <div className="text-center mb-4">
-                    <div className="flex justify-center mb-4">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-white text-2xl">
-                        {cert.icon}
-                      </div>
-                    </div>
-                    
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">{cert.issuer}</p>
-                    <h3 className="text-xl font-bold text-gray-900 mb-1">{cert.name}</h3>
-                    <div className="w-12 h-1 bg-amber-300 mx-auto my-2"></div>
-                    <p className="text-sm font-medium text-gray-700 mb-3">{cert.description}</p>
-                    
-                    <div className="flex items-center justify-center">
-                      <div className="px-3 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">
-                        Since {cert.year}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+          <div className="flex justify-center">
+            <motion.a
+              href="/quote"
+              className="inline-flex items-center px-8 py-4 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors duration-300 text-lg"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Request a Quote
+            </motion.a>
           </div>
         </div>
       </section>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FaCheck, FaShieldAlt, FaTruck, FaSearch, FaFileInvoiceDollar, FaHandshake } from 'react-icons/fa';
+import { FaCheck, FaShieldAlt, FaSearch, FaLightbulb, FaStore, FaHandshake } from 'react-icons/fa';
 import HomeNavbar from '../components/HomeNavbar';
 import Footer from '../components/Footer';
 import '../styles/Home.css';
@@ -21,7 +21,7 @@ const Services = () => {
   const services = [
     {
       id: 1,
-      title: 'Sourcing',
+      title: 'Product Sourcing',
       description: 'We connect you with verified manufacturers in China, ensuring quality products at competitive prices.',
       icon: <FaSearch className="h-8 w-8" />,
       features: [
@@ -45,26 +45,26 @@ const Services = () => {
     },
     {
       id: 3,
-      title: 'Shipping & Logistics',
-      description: 'We handle the entire shipping process from factory to your doorstep, including customs clearance.',
-      icon: <FaTruck className="h-8 w-8" />,
+      title: 'Product Development',
+      description: 'Transform your ideas into market-ready products with our comprehensive development service.',
+      icon: <FaLightbulb className="h-8 w-8" />,
       features: [
-        'Air, sea, and rail freight options',
-        'Customs documentation handling',
-        'Door-to-door delivery',
-        'Real-time tracking'
+        'Product design consultation',
+        'Prototype creation and testing',
+        'Material and component sourcing',
+        'Manufacturing process optimization'
       ]
     },
     {
       id: 4,
-      title: 'Financial Services',
-      description: 'Flexible payment options and financial solutions to help you manage cash flow efficiently.',
-      icon: <FaFileInvoiceDollar className="h-8 w-8" />,
+      title: 'Launch Your Brand',
+      description: 'Start your own niche store or drop shipping company with our Brand Partnership program.',
+      icon: <FaStore className="h-8 w-8" />,
       features: [
-        'Flexible payment terms',
-        'Currency exchange services',
-        'Escrow protection',
-        'Invoice financing options'
+        'Launch faster with turnkey solutions',
+        'Manage smarter with our platform',
+        'Grow without inventory headaches',
+        'Dedicated brand strategy support'
       ]
     }
   ];
@@ -72,18 +72,18 @@ const Services = () => {
   // Specialized services data
   const specializedServices = [
     {
-      title: 'Product Development',
-      description: 'Turn your ideas into market-ready products with our end-to-end development service.',
-      image: 'https://images.unsplash.com/photo-1581094794329-c8112a89e64e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
+      title: 'Brand Partnership Program',
+      description: 'Our exclusive program helps entrepreneurs launch successful e-commerce businesses without the traditional barriers.',
+      image: 'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     },
     {
       title: 'Private Labeling',
-      description: 'Build your brand identity with custom packaging and labeling solutions.',
+      description: 'Build your brand identity with custom packaging and labeling solutions designed to stand out in the market.',
       image: 'https://images.unsplash.com/photo-1635405074683-96d6921a2a68?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     },
     {
       title: 'Amazon FBA Prep',
-      description: 'We prepare your products for Amazon FBA with proper labeling and packaging requirements.',
+      description: 'We prepare your products for Amazon FBA with proper labeling, packaging, and compliance requirements.',
       image: 'https://images.unsplash.com/photo-1575997759258-91792eaaf87b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     }
   ];
@@ -115,7 +115,7 @@ const Services = () => {
             transition={{ delay: 0.2 }}
             className="text-red-100 max-w-3xl mx-auto text-lg mb-8"
           >
-            End-to-end solutions to simplify your China sourcing journey
+            End-to-end solutions to simplify your China sourcing and brand launch journey
           </motion.p>
         </div>
       </section>
@@ -133,7 +133,7 @@ const Services = () => {
             <h2 className="text-3xl font-bold text-gray-900">Our Core Services</h2>
             <div className="mt-2 w-24 h-1 bg-red-600 mx-auto"></div>
             <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
-              We simplify the entire import process from China to ensure you receive quality products at competitive prices.
+              From product development to brand launch, we provide comprehensive solutions for your business growth.
             </p>
           </motion.div>
           
@@ -165,6 +165,68 @@ const Services = () => {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+      
+      {/* Brand Partnership Program Highlight */}
+      <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            className="bg-gradient-to-r from-red-600 to-black rounded-2xl overflow-hidden shadow-xl"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <div className="md:flex">
+              <div className="md:w-1/2 p-10 md:p-12">
+                <h2 className="text-3xl font-bold text-white mb-4">Brand Partnership Program</h2>
+                <p className="text-red-100 mb-6">
+                  Launch faster, manage smarter, and grow without inventory headaches. Our exclusive program helps entrepreneurs start successful e-commerce businesses.
+                </p>
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-start">
+                    <FaCheck className="text-white mt-1 mr-3 flex-shrink-0" />
+                    <span className="text-white">Complete brand setup and storefront design</span>
+                  </li>
+                  <li className="flex items-start">
+                    <FaCheck className="text-white mt-1 mr-3 flex-shrink-0" />
+                    <span className="text-white">Product sourcing and inventory management</span>
+                  </li>
+                  <li className="flex items-start">
+                    <FaCheck className="text-white mt-1 mr-3 flex-shrink-0" />
+                    <span className="text-white">Marketing strategy and support</span>
+                  </li>
+                  <li className="flex items-start">
+                    <FaCheck className="text-white mt-1 mr-3 flex-shrink-0" />
+                    <span className="text-white">Ongoing business coaching</span>
+                  </li>
+                </ul>
+                <Link 
+                  to="/quote"
+                  className="inline-flex items-center px-6 py-3 bg-white text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors duration-300"
+                >
+                  Learn More About Partnership
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
+              <div className="md:w-1/2 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1556740738-b6a63e27c4df?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80')" }}>
+                <div className="h-full w-full bg-black bg-opacity-30 p-12 flex items-center justify-center">
+                  <div className="text-center">
+                    <h3 className="text-white text-2xl font-bold mb-4">Ready to Launch Your Brand?</h3>
+                    <Link 
+                      to="/quote"
+                      className="inline-flex items-center px-6 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-red-600 transition-colors duration-300"
+                    >
+                      Get Started Today
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
       
@@ -230,9 +292,9 @@ const Services = () => {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl font-bold mb-6">Ready to start your sourcing journey?</h2>
+            <h2 className="text-3xl font-bold mb-6">Ready to transform your business?</h2>
             <p className="text-lg text-red-100 mb-8 max-w-3xl mx-auto">
-              Get personalized service and expert guidance throughout your entire sourcing process.
+              Get personalized service and expert guidance to launch or scale your e-commerce business.
             </p>
             <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
               <Link 

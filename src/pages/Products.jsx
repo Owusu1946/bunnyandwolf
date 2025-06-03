@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import HomeNavbar from '../components/HomeNavbar';
 import Footer from '../components/Footer';
 import CTAFooter from '../components/CTAFooter';
-import { FaFilter, FaSearch, FaTimes, FaShoppingBag, FaHeart, FaStar, FaGlobe, FaStore } from 'react-icons/fa';
+import { FaFilter, FaSearch, FaTimes, FaShoppingBag, FaHeart, FaStar, FaGlobe, FaStore, FaLongArrowAltRight, FaChevronRight, FaUsers, FaCubes, FaInfoCircle, FaExternalLinkAlt } from 'react-icons/fa';
 import { useProductStore } from '../store/productStore';
 import { usePlatformsStore } from '../store/platformsStore';
 import '../styles/Home.css';
@@ -31,7 +31,8 @@ const Products = () => {
   const {
     platforms,
     fetchPlatformsFromAPI,
-    getPlatformById
+    getPlatformById,
+    loading: platformsLoading
   } = usePlatformsStore();
   
   // State for filters
@@ -44,6 +45,104 @@ const Products = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [displayProducts, setDisplayProducts] = useState([]);
+  const [storeData, setStoreData] = useState([]);
+  const [activeStore, setActiveStore] = useState(null);
+  const [showProductPreview, setShowProductPreview] = useState(null);
+
+  // Fallback data if API fails
+  const fallbackStores = [
+    {
+      _id: '1',
+      name: 'SHLTR',
+      description: 'Space‑Smart Furniture & Home Goods',
+      longDescription: 'Discover modular sofas, fold‑flat beds, and innovative storage solutions engineered for modern living. Curated designs meet durable construction, all shipped straight from our trusted production partners.',
+      logoUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
+      domain: 'shltr.sinosply.com',
+      sampleProducts: [
+        { name: 'Expandable Coffee Table', price: 299, image: 'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
+        { name: 'Modular Sofa System', price: 899, image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
+        { name: 'Compact Desk', price: 249, image: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' }
+      ]
+    },
+    {
+      _id: '2',
+      name: 'EzzyBuyz',
+      description: 'Tech Gadgets & Everyday Accessories',
+      longDescription: 'Stay ahead of the curve with sleek power banks, smart home helpers, and trend‑setting travel essentials. Each item is vetted for performance and style, so you can shop with confidence.',
+      logoUrl: 'https://images.unsplash.com/photo-1546054454-aa26e2b734c7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
+      domain: 'ezzybuyz.sinosply.com',
+      sampleProducts: [
+        { name: 'Smart Power Bank', price: 49, image: 'https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
+        { name: 'Wireless Earbuds', price: 89, image: 'https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
+        { name: 'Smart Watch', price: 129, image: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' }
+      ]
+    },
+    {
+      _id: '3',
+      name: 'Bunny & Wolf',
+      description: 'Stylish Matching Outfits for Couples',
+      longDescription: 'Celebrate your connection with coordinated looks designed for two. From weekend casuals to date‑night statements, each set is handpicked for style harmony and quality fit—so you and your partner can step out in sync.',
+      logoUrl: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
+      domain: 'bunnyandwolf.sinosply.com',
+      sampleProducts: [
+        { name: 'Matching Sweater Set', price: 149, image: 'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
+        { name: 'Dual Denim Jackets', price: 179, image: 'https://images.unsplash.com/photo-1548883354-94bcfe321cbb?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
+        { name: 'Coordinated Accessories', price: 59, image: 'https://images.unsplash.com/photo-1556774687-0e2fdd0116c0?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' }
+      ]
+    }
+  ];
+
+  // Fetch platforms when component mounts
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        console.log('Fetching platforms from API in Products.jsx');
+        await fetchPlatformsFromAPI();
+        setLoading(false);
+      } catch (err) {
+        console.error('Error loading platforms data:', err);
+        setError('Failed to load stores. Please try again later.');
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [fetchPlatformsFromAPI]);
+
+  // Process platform data after it's loaded
+  useEffect(() => {
+    console.log('Platforms data updated:', platforms);
+    
+    if (platforms && platforms.length > 0) {
+      // Try to find our three specific platforms in the data
+      const shltr = platforms.find(p => p.name?.toLowerCase().includes('shltr')) || fallbackStores[0];
+      const ezzyBuyz = platforms.find(p => p.name?.toLowerCase().includes('ezzy')) || fallbackStores[1];
+      const bunnyWolf = platforms.find(p => p.name?.toLowerCase().includes('bunny')) || fallbackStores[2];
+      
+      const storesList = [shltr, ezzyBuyz, bunnyWolf];
+      console.log('Processed store data:', storesList);
+      
+      setStoreData(storesList);
+    } else if (!loading) {
+      console.log('Using fallback store data');
+      setStoreData(fallbackStores);
+    }
+  }, [platforms, loading]);
+  
+  // Combine platform data with additional descriptions
+  const enhancedStoreData = useMemo(() => {
+    return storeData.map((store, index) => {
+      const fallbackStore = fallbackStores[index];
+      return {
+        ...store,
+        description: store.description || fallbackStore.description,
+        longDescription: store.longDescription || fallbackStore.longDescription,
+        domain: store.domain || fallbackStore.domain,
+        sampleProducts: store.sampleProducts || fallbackStore.sampleProducts
+      };
+    });
+  }, [storeData]);
 
   // Fetch products and platforms when component mounts
   useEffect(() => {
@@ -193,21 +292,24 @@ const Products = () => {
     return getPlatformById(platformId);
   };
 
-  // Price formatter
+  // Format currency
   const formatPrice = (price) => {
-    if (typeof price === 'undefined' || price === null) return 'Price not available';
-    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'GHS',
       minimumFractionDigits: 2
-    }).format(typeof price === 'number' ? price : parseFloat(price));
+    }).format(price);
   };
-  
-  // Calculate sale price with discount
-  const calculateSalePrice = (price, discount) => {
-    if (!price) return 0;
-    return parseFloat(price) - (parseFloat(price) * (discount / 100));
+
+  // Get store URL from domain
+  const getStoreUrl = (domain) => {
+    if (!domain) return '#';
+    
+    if (domain.startsWith('http://') || domain.startsWith('https://')) {
+      return domain;
+    }
+    
+    return `https://${domain}`;
   };
 
   // Reset filters
@@ -259,13 +361,32 @@ const Products = () => {
     return `https://via.placeholder.com/400x500?text=${encodeURIComponent(product.name || 'Product')}`;
   };
 
+  // Handle store mouse enter for hover effects
+  const handleStoreHover = (id) => {
+    setActiveStore(id);
+  };
+
+  // Handle toggle product preview
+  const toggleProductPreview = (id) => {
+    if (showProductPreview === id) {
+      setShowProductPreview(null);
+    } else {
+      setShowProductPreview(id);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <HomeNavbar />
       
       {/* Hero Banner */}
-      <section className="relative bg-black pt-20">
-        <div className="bg-gradient-to-r from-black to-red-800 py-20 px-4">
+      <section className="relative bg-black pt-20 overflow-hidden">
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute h-96 w-96 -left-24 -top-24 bg-red-700 rounded-full blur-3xl"></div>
+          <div className="absolute h-96 w-96 right-0 top-48 bg-red-500 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="bg-gradient-to-r from-black via-black to-red-900 py-20 px-4 relative">
           <div className="max-w-7xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -273,209 +394,53 @@ const Products = () => {
               transition={{ duration: 0.5 }}
               className="text-center"
             >
-              <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-                {selectedCategory !== 'all' ? `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}` : 'Our Products'}
-              </h1>
-              <p className="text-xl text-gray-200 max-w-3xl mx-auto">
-                Browse our extensive collection of high-quality products sourced directly from trusted Chinese manufacturers.
-              </p>
+              <motion.h1 
+                className="text-4xl md:text-6xl font-bold text-white mb-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Our Partner Brands
+              </motion.h1>
+              
+              <motion.p
+                className="text-xl text-gray-200 max-w-3xl mx-auto"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+              >
+                Each of our partner brands brings you factory‑direct selection, quality guarantees, and fast, trackable delivery—backed by the same Sinosply expertise.
+              </motion.p>
+              
+              <motion.div 
+                className="mt-8 flex justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.8, delay: 0.6 }}
+              >
+                <a 
+                  href="#stores" 
+                  className="inline-flex items-center px-8 py-3 bg-red-600 text-white rounded-full font-medium hover:bg-red-700 transition-colors"
+                >
+                  Explore Stores
+                  <motion.span 
+                    className="ml-2"
+                    animate={{ y: [0, 3, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                  >
+                    ↓
+                  </motion.span>
+                </a>
+              </motion.div>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Products Section */}
-      <section className="py-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Search and Filter Bar */}
-          <div className="bg-white rounded-lg shadow-md p-4 mb-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              {/* Search */}
-              <form onSubmit={handleSearch} className="relative flex-grow max-w-md">
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                />
-                <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
-                <button type="submit" className="hidden">Search</button>
-              </form>
-              
-              {/* Desktop Filters */}
-              <div className="hidden md:flex items-center gap-4 flex-wrap">
-                {/* Categories */}
-                <select
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-                  value={selectedCategory}
-                  onChange={handleCategoryChange}
-                >
-                  <option value="all">All Categories</option>
-                  {categories.map(category => (
-                    <option key={category} value={category}>{category.charAt(0).toUpperCase() + category.slice(1)}</option>
-                  ))}
-                </select>
-                
-                {/* Platforms */}
-                <select
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-                  value={selectedPlatform}
-                  onChange={handlePlatformChange}
-                >
-                  <option value="all">All Platforms</option>
-                  {platforms.map(platform => (
-                    <option key={platform._id} value={platform._id}>
-                      {platform.name}
-                    </option>
-                  ))}
-                </select>
-                
-                {/* Sort */}
-                <select
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="rating">Highest Rated</option>
-                </select>
-                
-                <button
-                  onClick={resetFilters}
-                  className="px-4 py-3 text-gray-600 hover:text-red-600"
-                >
-                  Reset
-                </button>
-              </div>
-              
-              {/* Mobile Filter Toggle */}
-              <button
-                className="md:hidden flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg"
-                onClick={toggleFilters}
-              >
-                <FaFilter className="mr-2" /> Filters
-              </button>
-            </div>
-            
-            {/* Mobile Filter Panel */}
-            {showFilters && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="md:hidden mt-4 pt-4 border-t border-gray-200"
-              >
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-                      value={selectedCategory}
-                      onChange={handleCategoryChange}
-                    >
-                      <option value="all">All Categories</option>
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category.charAt(0).toUpperCase() + category.slice(1)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Platform</label>
-                    <select
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-                      value={selectedPlatform}
-                      onChange={handlePlatformChange}
-                    >
-                      <option value="all">All Platforms</option>
-                      {platforms.map(platform => (
-                        <option key={platform._id} value={platform._id}>
-                          {platform.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
-                    <select
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                    >
-                      <option value="newest">Newest First</option>
-                      <option value="price-low">Price: Low to High</option>
-                      <option value="price-high">Price: High to Low</option>
-                      <option value="rating">Highest Rated</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Price Range: GH₵{priceRange.min} - GH₵{priceRange.max}
-                    </label>
-                    <div className="flex items-center space-x-4">
-                      <input
-                        type="range"
-                        min="0"
-                        max="5000"
-                        step="100"
-                        value={priceRange.min}
-                        onChange={(e) => setPriceRange({ ...priceRange, min: Number(e.target.value) })}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <input
-                        type="range"
-                        min="0"
-                        max="5000"
-                        step="100"
-                        value={priceRange.max}
-                        onChange={(e) => setPriceRange({ ...priceRange, max: Number(e.target.value) })}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-between pt-2">
-                    <button
-                      onClick={resetFilters}
-                      className="px-4 py-2 text-gray-600 hover:text-red-600 flex items-center"
-                    >
-                      <FaTimes className="mr-2" /> Reset All
-                    </button>
-                    <button
-                      onClick={toggleFilters}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg"
-                    >
-                      Apply Filters
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </div>
-          
-          {/* Results Count */}
-          <div className="flex justify-between items-center mb-6">
-            <p className="text-gray-700">
-              Showing <span className="font-semibold">{displayProducts.length}</span> products
-            </p>
-            {selectedCategory !== 'all' || selectedPlatform !== 'all' || searchQuery || priceRange.min > 0 || priceRange.max < 5000 ? (
-              <button
-                onClick={resetFilters}
-                className="text-red-600 hover:text-red-800 text-sm flex items-center"
-              >
-                <FaTimes className="mr-1" /> Clear filters
-              </button>
-            ) : null}
-          </div>
-          
-          {/* Products Grid */}
-          {loading ? (
+      {/* Stores Section */}
+      <section id="stores" className="py-24 px-4">
+        <div className="max-w-6xl mx-auto">
+          {loading || platformsLoading ? (
             <div className="flex justify-center items-center py-20">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div>
             </div>
@@ -483,174 +448,226 @@ const Products = () => {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-center">
               {error}
             </div>
-          ) : displayProducts.length === 0 ? (
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <FaSearch className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">No products found</h3>
-              <p className="mt-2 text-gray-500">Try adjusting your search or filter criteria</p>
-              <button
-                onClick={resetFilters}
-                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg"
-              >
-                Reset Filters
-              </button>
-            </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {displayProducts.map((product, index) => {
-                // Determine product price and discount
-                const price = typeof product.basePrice === 'number' ? product.basePrice : parseFloat(product.basePrice || 0);
-                const discount = product.discount || 0;
-                const hasDiscount = discount > 0;
-                const salePrice = hasDiscount ? calculateSalePrice(price, discount) : price;
-                
-                // Get product image
-                const imageUrl = getProductImage(product);
-                
-                // Get platform info
-                const platform = getPlatformInfo(product.platformId);
-                
-                return (
-                  <motion.div
-                    key={product._id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.05 }}
-                    className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group product-card"
-                    onClick={() => handleProductClick(product)}
-                  >
-                    <div className="relative product-image-wrapper">
-                      <img 
-                        src={imageUrl}
-                        alt={product.name}
-                        className="w-full h-64 object-cover transition-transform duration-500 product-image"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = `https://via.placeholder.com/400x500?text=${encodeURIComponent(product.name || 'Product')}`;
-                        }}
-                      />
-                      {hasDiscount && (
-                        <div className="product-card-badge">
-                          -{discount}%
-                        </div>
-                      )}
-                      
-                      {/* Product actions */}
-                      <div className="product-actions">
-                        <button 
-                          className="bg-white text-black p-2 rounded-full hover:bg-red-600 hover:text-white transition-all duration-300 transform hover:scale-105"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Add to cart logic would go here
+            <div className="space-y-24">
+              {enhancedStoreData.map((store, index) => (
+                <motion.div 
+                  key={store._id}
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  transition={{ duration: 0.7, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className={`relative ${index !== enhancedStoreData.length - 1 ? 'pb-16 border-b border-gray-200' : ''}`}
+                  onMouseEnter={() => handleStoreHover(store._id)}
+                  onMouseLeave={() => handleStoreHover(null)}
+                >
+                  {/* Decorative elements */}
+                  <div className="hidden md:block absolute -right-16 top-0 h-64 w-64 bg-red-50 rounded-full opacity-30 z-0"></div>
+                  {index % 2 === 1 && (
+                    <div className="hidden md:block absolute -left-16 bottom-0 h-40 w-40 bg-red-50 rounded-full opacity-30 z-0"></div>
+                  )}
+                  
+                  <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center mb-8">
+                    {/* Store image */}
+                    <div className="w-full md:w-1/2 order-1 md:order-none">
+                      <motion.div 
+                        className="relative overflow-hidden rounded-lg aspect-[4/3] shadow-lg"
+                        whileHover={{ scale: 1.02 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <img 
+                          src={store.logoUrl || store.bannerUrl}
+                          alt={store.name} 
+                          className="w-full h-full object-cover transition-all duration-700 hover:scale-110"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/600x450?text=" + store.name;
                           }}
-                          aria-label="Add to cart"
-                        >
-                          <FaShoppingBag />
-                        </button>
-                        <button
-                          className="bg-white text-black p-2 rounded-full hover:bg-red-600 hover:text-white transition-all duration-300 transform hover:scale-105"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Add to wishlist logic would go here
-                          }}
-                          aria-label="Add to wishlist"
-                        >
-                          <FaHeart />
-                        </button>
-                      </div>
-                      
-                      {/* Category tag */}
-                      {product.category && (
-                        <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                          {product.category}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                        <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                          <h3 className="text-2xl md:text-3xl font-bold">{store.name}</h3>
+                          <p className="text-white/90">{store.description}</p>
                         </div>
-                      )}
-                      
-                      {/* Platform tag */}
-                      {platform && (
-                        <div className="absolute top-9 left-2 bg-blue-600 bg-opacity-70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                          <FaGlobe className="text-[10px]" />
-                          {platform.name}
-                        </div>
-                      )}
+                      </motion.div>
                     </div>
                     
-                    <div className="p-5">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-lg font-bold text-gray-900 group-hover:text-red-600 transition-colors truncate">
-                          {product.name}
-                        </h3>
-                        <div className="flex items-center">
-                          <FaStar className="text-yellow-500" />
-                          <span className="text-sm text-gray-600 ml-1">{product.rating || '4.5'}</span>
-                        </div>
-                      </div>
-                      
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
-                      
-                      <div className="flex justify-between items-center">
-                        <div>
-                          {hasDiscount ? (
-                            <div>
-                              <span className="text-gray-400 line-through text-sm">
-                                {formatPrice(price)}
-                              </span>
-                              <span className="text-red-600 font-bold ml-2">
-                                {formatPrice(salePrice)}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-900 font-bold">
-                              {formatPrice(price)}
-                            </span>
-                          )}
+                    {/* Store details */}
+                    <div className="w-full md:w-1/2 order-2 md:order-none">
+                      <div className="bg-white rounded-xl p-6 md:p-8 shadow-lg">
+                        <div className="flex items-center mb-3">
+                          <FaStore className="text-red-600 mr-2 text-xl" />
+                          <h3 className="text-2xl md:text-3xl font-bold text-gray-900">{store.name}</h3>
                         </div>
                         
-                        <div className="flex items-center gap-2">
-                          {platform && (
-                            <span className="flex items-center text-xs text-blue-600 font-medium">
-                              <FaStore className="mr-1 text-[10px]" />
-                            </span>
+                        <h4 className="text-xl font-semibold text-gray-700 mb-4">{store.description}</h4>
+                        
+                        <p className="text-gray-600 mb-6 leading-relaxed">
+                          {store.longDescription}
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-3">
+                          {store.domain && (
+                            <a 
+                              href={getStoreUrl(store.domain)}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                            >
+                              Visit Store <FaExternalLinkAlt className="ml-2 text-sm" />
+                            </a>
                           )}
+                          
                           <button
-                            className="px-3 py-1 bg-gray-100 hover:bg-red-600 hover:text-white text-gray-700 text-sm rounded-full transition-colors"
+                            onClick={() => toggleProductPreview(store._id)}
+                            className="inline-flex items-center px-6 py-3 border border-red-600 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors"
                           >
-                            View
+                            {showProductPreview === store._id ? 'Hide Products' : 'Preview Products'}
+                            {showProductPreview === store._id ? (
+                              <motion.span
+                                animate={{ rotate: 90 }}
+                                initial={{ rotate: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="ml-2"
+                              >
+                                <FaChevronRight />
+                              </motion.span>
+                            ) : (
+                              <FaChevronRight className="ml-2" />
+                            )}
                           </button>
                         </div>
                       </div>
                     </div>
-                  </motion.div>
-                );
-              })}
+                  </div>
+                  
+                  {/* Product Preview Section */}
+                  <AnimatePresence>
+                    {showProductPreview === store._id && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="py-6 mt-4">
+                          <h4 className="text-xl font-semibold mb-6 flex items-center">
+                            <FaInfoCircle className="text-red-600 mr-2" /> 
+                            Featured products from {store.name}
+                          </h4>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {store.sampleProducts && store.sampleProducts.map((product, idx) => (
+                              <motion.div
+                                key={idx}
+                                className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300"
+                                whileHover={{ 
+                                  y: -5,
+                                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                                }}
+                              >
+                                <div className="h-48 overflow-hidden">
+                                  <img 
+                                    src={product.image} 
+                                    alt={product.name} 
+                                    className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
+                                  />
+                                </div>
+                                <div className="p-4">
+                                  <h5 className="font-bold text-gray-900 mb-1">{product.name}</h5>
+                                  <div className="flex justify-between items-center">
+                                    <p className="text-red-600 font-semibold">{formatPrice(product.price)}</p>
+                                    <button className="p-2 rounded-full bg-gray-100 hover:bg-red-600 hover:text-white transition-colors">
+                                      <FaShoppingBag size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                          
+                          {store.domain && (
+                            <div className="flex justify-center mt-8">
+                              <a 
+                                href={getStoreUrl(store.domain)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors"
+                              >
+                                View all products <FaLongArrowAltRight className="ml-2" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              ))}
             </div>
           )}
           
-          {/* Pagination */}
-          {/* Implement proper pagination when backend supports it */}
-          {!loading && displayProducts.length > 0 && (
-            <div className="mt-12 flex justify-center">
-              <div className="flex space-x-2">
-                <button
-                  className="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50"
-                  disabled
-                >
-                  Previous
-                </button>
-                
-                <button className="px-4 py-2 border border-red-600 bg-red-600 text-white rounded-lg">
-                  1
-                </button>
-                
-                <button
-                  className="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50"
-                  disabled
-                >
-                  Next
-                </button>
-              </div>
+          {/* Partnership CTA */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="mt-24 rounded-2xl overflow-hidden shadow-xl relative"
+          >
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-black to-gray-800"></div>
+              <div className="absolute -right-24 -top-24 h-64 w-64 bg-red-600/30 rounded-full blur-3xl"></div>
+              <div className="absolute -left-24 -bottom-24 h-64 w-64 bg-red-800/20 rounded-full blur-3xl"></div>
             </div>
-          )}
+            
+            <div className="relative p-8 md:p-12 text-center">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                viewport={{ once: true }}
+                className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6"
+              >
+                <FaStore className="text-red-600 text-2xl" />
+              </motion.div>
+              
+              <motion.h3 
+                className="text-2xl md:text-3xl font-bold mb-4 text-white"
+                initial={{ y: 20, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                viewport={{ once: true }}
+              >
+                Want to launch your own niche store?
+              </motion.h3>
+              
+              <motion.p 
+                className="mb-8 text-gray-300 max-w-2xl mx-auto text-lg"
+                initial={{ y: 20, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                viewport={{ once: true }}
+              >
+                Ask us about our Brand Partnership program—launch faster, manage smarter, and grow without inventory headaches.
+              </motion.p>
+              
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                viewport={{ once: true }}
+              >
+                <Link 
+                  to="/contact" 
+                  className="inline-flex items-center px-8 py-4 bg-white text-gray-900 rounded-lg font-medium hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl hover:-translate-y-1 transform transition-transform"
+                >
+                  Contact Us <FaLongArrowAltRight className="ml-2" />
+                </Link>
+              </motion.div>
+            </div>
+          </motion.div>
         </div>
       </section>
       

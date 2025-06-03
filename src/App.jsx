@@ -40,7 +40,7 @@ import PlatformsPage from './pages/admin/PlatformsPage'
 import PlatformDetailsPage from './pages/admin/PlatformDetailsPage'
 import QuotesPage from './pages/admin/QuotesPage'
 import FeaturedCollectionPage from './pages/FeaturedCollectionPage'
-import BunnyAndWolf from './pages/BunnyAndWolf'
+import SinosplyStores from './pages/SinosplyStores'
 import Stores from './pages/Stores'
 import Quote from './pages/Quote'
 import Products from './pages/Products'
@@ -176,7 +176,7 @@ const AppWrapper = () => {
                 <Route path="/tops" element={<TopsPage />} />
                 <Route path="/bottoms" element={<BottomsPage />} />
                 <Route path="/back-in-stock" element={<BackInStockPage />} />
-                <Route path="/bunny-and-wolf" element={<BunnyAndWolf />} />
+                <Route path="/sinosply-stores" element={<SinosplyStores />} />
                 
                 <Route 
                   path="/profile" 
