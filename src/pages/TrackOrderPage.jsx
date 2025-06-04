@@ -12,7 +12,10 @@ import {
   ChevronRight,
   Share2,
   Phone,
-  Printer
+  Printer,
+  Search,
+  ShieldAlert,
+  HelpCircle
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -27,8 +30,11 @@ const TrackOrderPage = () => {
   const [orderInfo, setOrderInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [errorType, setErrorType] = useState(''); // 'not_found', 'invalid_format', 'server_error'
   const [currentStatus, setCurrentStatus] = useState('');
   const [packageHistory, setPackageHistory] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [querySource, setQuerySource] = useState(''); // Track where order data came from
   
   // API URL - Update with environment variable
   const API_URL = apiConfig.baseURL;
@@ -42,27 +48,154 @@ const TrackOrderPage = () => {
     { key: 'delivered', label: 'Delivered', icon: <CheckCircle size={22} /> }
   ];
   
-  useEffect(() => {
-    // Use orderInfo from location.state or Zustand store
-    const infoFromState = location.state?.orderInfo || orderStore.orderInfo;
-    console.log("Initial data:", { 
-      fromState: !!location.state?.orderInfo, 
-      fromStore: !!orderStore.orderInfo,
-      trackingNumber
-    });
-
-    // If we have state data, use it immediately
-    if (infoFromState) {
-      console.log("Using order info from state:", infoFromState);
-      setOrderInfo(infoFromState);
-      mapStatusToDeliveryStage(infoFromState.status || 'processing');
-    } else {
-      console.log("No state data available, will fetch from API");
+  // Basic validation for tracking/order number format
+  const validateTrackingNumber = (number) => {
+    if (!number) return { valid: false, reason: 'empty' };
+    if (number.length < 5) return { valid: false, reason: 'too_short' };
+    if (number.length > 30) return { valid: false, reason: 'too_long' };
+    
+    // Most tracking numbers are alphanumeric with possible hyphen
+    if (!/^[a-zA-Z0-9-]+$/.test(number)) {
+      return { valid: false, reason: 'invalid_chars' };
     }
     
-    // Always fetch the latest data from the API regardless
-    fetchOrderByTracking(trackingNumber);
-  }, [trackingNumber, location.state, orderStore.orderInfo]);
+    return { valid: true };
+  };
+  
+  useEffect(() => {
+    // Clean the tracking number to handle any special characters or spaces
+    const cleanedTrackingNumber = trackingNumber ? trackingNumber.trim() : '';
+    
+    console.log("Initial tracking lookup:", { 
+      rawNumber: trackingNumber,
+      cleanedNumber: cleanedTrackingNumber,
+      fromState: !!location.state?.orderInfo, 
+      fromStore: !!orderStore.orderInfo,
+    });
+
+    if (!cleanedTrackingNumber) {
+      setError('No tracking number provided. Please enter a valid tracking number.');
+      setErrorType('not_found');
+      setLoading(false);
+      return;
+    }
+    
+    // Validate tracking number format
+    const validationResult = validateTrackingNumber(cleanedTrackingNumber);
+    if (!validationResult.valid) {
+      let errorMessage = 'Invalid tracking number format.';
+      switch (validationResult.reason) {
+        case 'too_short':
+          errorMessage = 'The tracking number is too short. Please check and try again.';
+          break;
+        case 'too_long':
+          errorMessage = 'The tracking number is too long. Please check and try again.';
+          break;
+        case 'invalid_chars':
+          errorMessage = 'The tracking number contains invalid characters. Tracking numbers typically contain only letters, numbers, and hyphens.';
+          break;
+        default:
+          errorMessage = 'Invalid tracking number format. Please check and try again.';
+      }
+      setError(errorMessage);
+      setErrorType('invalid_format');
+      setLoading(false);
+      return;
+    }
+
+    // Use orderInfo from location.state or Zustand store
+    const infoFromState = location.state?.orderInfo;
+    const infoFromStore = orderStore.orderInfo;
+    let shouldFetchFromAPI = true;
+
+    // If we have state data that matches the tracking number, use it immediately
+    if (infoFromState && 
+        (infoFromState.trackingNumber === cleanedTrackingNumber || 
+         infoFromState.orderNumber === cleanedTrackingNumber)) {
+      console.log("Using order info from navigation state:", infoFromState);
+      setOrderInfo(infoFromState);
+      mapStatusToDeliveryStage(infoFromState.status || 'processing');
+      shouldFetchFromAPI = false;
+      setQuerySource('navigation');
+    }
+    // Then check store data
+    else if (infoFromStore && 
+        (infoFromStore.trackingNumber === cleanedTrackingNumber || 
+         infoFromStore.orderNumber === cleanedTrackingNumber)) {
+      console.log("Using order info from store:", infoFromStore);
+      
+      // Get formatted shipping address using the store helper
+      const formattedShippingAddress = orderStore.getFormattedShippingAddress() || {
+        name: 'Customer',
+        street: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: '',
+        phone: ''
+      };
+      
+      // Format the order from store
+      const orderData = {
+        ...infoFromStore,
+        trackingNumber: infoFromStore.trackingNumber,
+        // Use formatted shipping address from store
+        shippingAddress: formattedShippingAddress,
+        // Ensure we have items for display
+        items: infoFromStore.items || []
+      };
+      
+      setOrderInfo(orderData);
+      mapStatusToDeliveryStage(orderData.status || 'processing');
+      shouldFetchFromAPI = false;
+      setQuerySource('store');
+    }
+    // Otherwise check all orders in the store that match
+    else {
+      const allOrders = orderStore.getOrders();
+      if (allOrders && allOrders.length > 0) {
+        const matchingOrder = allOrders.find(order => 
+          order.trackingNumber === cleanedTrackingNumber || 
+          order.orderNumber === cleanedTrackingNumber
+        );
+        
+        if (matchingOrder) {
+          console.log("Found matching order in store orders collection:", matchingOrder);
+          setOrderInfo({
+            ...matchingOrder,
+            orderDate: matchingOrder.formattedOrderDate || new Date(matchingOrder.createdAt || new Date()).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+            estimatedDelivery: matchingOrder.estimatedDelivery
+              ? new Date(matchingOrder.estimatedDelivery).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })
+              : 'Not available'
+          });
+          mapStatusToDeliveryStage(matchingOrder.status || 'processing');
+          shouldFetchFromAPI = false;
+          setQuerySource('orders collection');
+        }
+      }
+    }
+    
+    // Always fetch from API if we couldn't find the data locally
+    // or if we're arriving from an email link
+    const isFromEmail = new URLSearchParams(window.location.search).get('source') === 'email';
+    
+    if (shouldFetchFromAPI || isFromEmail) {
+      fetchOrderByTracking(cleanedTrackingNumber);
+    } else {
+      setLoading(false);
+    }
+  }, [trackingNumber, location.state, orderStore]);
   
   // Map backend status to our frontend delivery stages
   const mapStatusToDeliveryStage = (status) => {
@@ -70,6 +203,7 @@ const TrackOrderPage = () => {
     
     switch(status?.toLowerCase()) {
       case 'pending':
+      case 'order_placed':
         mappedStage = 'order_placed';
         break;
       case 'processing':
@@ -77,6 +211,9 @@ const TrackOrderPage = () => {
         break;
       case 'shipped':
         mappedStage = 'shipped';
+        break;
+      case 'out_for_delivery':
+        mappedStage = 'out_for_delivery';
         break;
       case 'delivered':
         mappedStage = 'delivered';
@@ -97,86 +234,33 @@ const TrackOrderPage = () => {
   const fetchOrderByTracking = async (tracking) => {
     if (!tracking) {
       console.error("No tracking number provided");
-      setError('No tracking number provided. Please try again with a valid tracking number.');
+      setError('No tracking number provided. Please enter a valid tracking number.');
+      setErrorType('not_found');
       setLoading(false);
       return;
     }
 
     setLoading(true);
+    console.log(`🔍 [TrackOrderPage] Fetching order with tracking number: ${tracking}`);
     
     try {
-      // For demo purposes: First attempt to get data from the store
-      // This ensures we use real checkout data when available
-      const storeOrder = orderStore.orderInfo;
+      // Make API call to fetch order details
+      const response = await axios.get(`${API_URL}/orders/track/${tracking}`);
       
-      // If we have valid order data from store and matching tracking/order number
-      if (storeOrder && 
-          (storeOrder.orderNumber === tracking || 
-           storeOrder.trackingNumber === tracking)) {
+      if (response.data.success && response.data.data) {
+        const orderData = response.data.data;
+        console.log("✅ [TrackOrderPage] Successfully retrieved order data from API:", orderData);
         
-        console.log("Using order data from store:", storeOrder);
-        
-        // Get formatted shipping address using the store helper
-        const formattedShippingAddress = orderStore.getFormattedShippingAddress() || {
-          name: 'Customer',
-          street: '',
-          addressLine2: '',
-          city: '',
-          state: '',
-          zip: '',
-          country: '',
-          phone: ''
-        };
-        
-        // Format the order from store
-        const orderData = {
-          ...storeOrder,
-          trackingNumber: storeOrder.trackingNumber,
-          // Use formatted shipping address from store
-          shippingAddress: formattedShippingAddress,
-          // Ensure we have items for display
-          items: storeOrder.items || []
-        };
-        
-        setOrderInfo(orderData);
-        mapStatusToDeliveryStage(orderData.status || 'processing');
-        setLoading(false);
-        return;
-      }
-      
-      // If no valid data in store or API, try using tracked info from location state
-      const infoFromState = location.state?.orderInfo;
-      if (infoFromState) {
-        console.log("Using order data from navigation state:", infoFromState);
-        setOrderInfo(infoFromState);
-        mapStatusToDeliveryStage(infoFromState.status || 'processing');
-        setLoading(false);
-        return;
-      }
-      
-      // If no valid data in store or state, try API or use mock data
-      console.log("No matching order in store, using mock data");
-      
-      // For a real app, uncomment this:
-      // const response = await axios.get(`${API_URL}/orders/track/${tracking}`);
-      // const orderData = response.data.data;
-      
-      // Mock response for development
-      const orderData = createMockOrderData(tracking);
-      
-      // If successful, update state with API data
-      if (orderData) {
-        console.log("Setting order info with mock data:", orderData);
-        setOrderInfo(prev => ({
-          ...prev,
+        // Format dates for display
+        const formattedOrderData = {
           ...orderData,
-          // Format dates for display if they aren't already
-          orderDate: orderData.formattedOrderDate || new Date(orderData.createdAt || new Date()).toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }),
+          orderDate: orderData.formattedOrderDate || 
+            new Date(orderData.createdAt || new Date()).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
           estimatedDelivery: orderData.estimatedDelivery
             ? new Date(orderData.estimatedDelivery).toLocaleDateString('en-US', {
                 weekday: 'long',
@@ -185,17 +269,63 @@ const TrackOrderPage = () => {
                 day: 'numeric'
               })
             : 'Not available'
-        }));
+        };
         
+        setOrderInfo(formattedOrderData);
         mapStatusToDeliveryStage(orderData.status || 'processing');
+        setQuerySource('api');
+        setError(null);
+        setErrorType('');
+      } else {
+        throw new Error(response.data.error || 'Failed to retrieve order data');
+      }
+    } catch (err) {
+      console.error('❌ [TrackOrderPage] Error fetching order:', err);
+
+      // Set appropriate error message
+      const errorMessage = err.response?.data?.error || 
+                        `We couldn't find any tracking information for ${tracking}. Please verify you entered the correct number.`;
+      
+      // Set error type based on response or validation
+      if (err.response?.status === 404) {
+        setErrorType('not_found');
+      } else if (err.response?.status === 400) {
+        setErrorType('invalid_format');
+      } else {
+        setErrorType('server_error');
       }
       
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching order:', err);
-      // If API fails but we have state data, keep using that
-      if (!orderInfo) {
-        setError('Unable to fetch tracking information. Please try again later.');
+      setError(errorMessage);
+      
+      // Only use mock data in development IF specifically testing with valid test tracking numbers
+      // Do not show mock data for genuinely invalid tracking numbers
+      if (process.env.NODE_ENV === 'development' && tracking.startsWith('TEST-')) {
+        console.log("ℹ️ [TrackOrderPage] Using mock data for test tracking number");
+        const orderData = createMockOrderData(tracking);
+        
+        setOrderInfo({
+          ...orderData,
+          orderDate: orderData.formattedOrderDate || 
+            new Date(orderData.createdAt || new Date()).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+          estimatedDelivery: orderData.estimatedDelivery
+            ? new Date(orderData.estimatedDelivery).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })
+            : 'Not available'
+        });
+        
+        mapStatusToDeliveryStage(orderData.status || 'processing');
+        setQuerySource('mock');
+        setError(null);
+        setErrorType('');
       }
     } finally {
       setLoading(false);
@@ -215,7 +345,7 @@ const TrackOrderPage = () => {
     return {
       id: `ORDER-${Math.floor(Math.random() * 1000000)}`,
       orderNumber: trackingNumber,
-      trackingNumber: `TRK${Math.floor(Math.random() * 10000000000)}`,
+      trackingNumber: trackingNumber.startsWith('TRK') ? trackingNumber : `TRK${Math.floor(Math.random() * 10000000000)}`,
       status: 'processing',
       createdAt: orderDate.toISOString(),
       estimatedDelivery: estimatedDelivery.toISOString(),
@@ -333,11 +463,72 @@ const TrackOrderPage = () => {
     window.print();
   };
   
+  // Handle search submit
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      navigate(`/track-order/${searchTerm.trim()}`);
+    }
+  };
+  
+  // Error message based on error type
+  const getErrorMessage = () => {
+    switch (errorType) {
+      case 'not_found':
+        return (
+          <div className="mb-4">
+            <AlertCircle size={40} className="mx-auto text-red-500 mb-4" />
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Tracking Information Not Found</h1>
+            <p className="text-gray-600 mb-2">{error || `We couldn't find any information for tracking number ${trackingNumber}.`}</p>
+            <p className="text-sm text-gray-500">This may be because:</p>
+            <ul className="text-sm text-gray-500 list-disc pl-5 mt-2">
+              <li>The order number or tracking number was entered incorrectly</li>
+              <li>The order was placed very recently and hasn't been processed yet</li>
+              <li>The order was placed more than 90 days ago</li>
+            </ul>
+          </div>
+        );
+      case 'invalid_format':
+        return (
+          <div className="mb-4">
+            <ShieldAlert size={40} className="mx-auto text-amber-500 mb-4" />
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Invalid Tracking Format</h1>
+            <p className="text-gray-600 mb-2">{error}</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Order numbers typically start with "ORD-" followed by numbers. 
+              Tracking numbers are typically alphanumeric and may contain hyphens.
+            </p>
+          </div>
+        );
+      case 'server_error':
+        return (
+          <div className="mb-4">
+            <HelpCircle size={40} className="mx-auto text-blue-500 mb-4" />
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Server Error</h1>
+            <p className="text-gray-600 mb-2">We're having trouble connecting to our tracking system.</p>
+            <p className="text-sm text-gray-500">Please try again later or contact customer support for assistance.</p>
+          </div>
+        );
+      default:
+        return (
+          <div className="mb-4">
+            <AlertCircle size={40} className="mx-auto text-red-500 mb-4" />
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">Tracking Information Not Found</h1>
+            <p className="text-gray-600 mb-6">{error || `We couldn't find any information for tracking number ${trackingNumber}.`}</p>
+          </div>
+        );
+    }
+  };
+  
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-      </div>
+      <>
+        <Navbar />
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+        </div>
+        <Footer />
+      </>
     );
   }
   
@@ -345,16 +536,57 @@ const TrackOrderPage = () => {
     return (
       <>
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 py-12 min-h-[60vh] flex flex-col items-center justify-center">
-          <AlertCircle size={40} className="text-red-500 mb-4" />
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Tracking Information Not Found</h1>
-          <p className="text-gray-600 mb-6">{error || `We couldn't find any information for tracking number ${trackingNumber}.`}</p>
-          <button 
-            onClick={handleBack}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Go Back
-          </button>
+        <div className="max-w-4xl mx-auto px-4 py-12 min-h-[60vh]">
+          <div className="text-center mb-8">
+            {getErrorMessage()}
+          </div>
+
+          {/* Search form to try again with different tracking number */}
+          <div className="bg-white rounded-lg shadow-md p-8 mb-8">
+            <h2 className="text-lg font-semibold mb-4">Try searching again with a different tracking number</h2>
+            <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-grow">
+                <input
+                  type="text"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-3 px-4"
+                  placeholder="Enter tracking number or order number"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+              </div>
+              <button 
+                type="submit"
+                className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Track
+              </button>
+            </form>
+            <div className="mt-3 text-sm text-gray-500">
+              <p>Example formats:</p>
+              <ul className="list-disc pl-5 mt-1">
+                <li>Order number: ORD-12345</li>
+                <li>Tracking number: TRK123456789XY</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="flex justify-center space-x-4">
+            <button 
+              onClick={() => navigate('/track')}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+            >
+              Go to Tracking Page
+            </button>
+            <button 
+              onClick={handleBack}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
         </div>
         <Footer />
       </>

@@ -3,6 +3,7 @@ import { ArrowLeft, Lock, Upload, Check, ExternalLink, Link as LinkIcon, AlertCi
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useOrderStore } from '../store/orderStore';
 import apiConfig from '../config/apiConfig';
+import axios from 'axios';
 
 const PaymentPage = () => {
   const location = useLocation();
@@ -137,140 +138,6 @@ const PaymentPage = () => {
     return receiptLink && receiptLink.includes('pay.chippercash.com/api/pdfs/receipt');
   };
 
-  const navigateToOrderConfirmation = (paymentMethod, transactionId, amount) => {
-    try {
-      // Get user ID from localStorage if available
-      const token = localStorage.getItem('token');
-      const userId = localStorage.getItem('userId');
-      
-      // Ensure numeric values for prices
-      const calculatedAmount = parsePrice(amount || formData.amount || 0);
-      const subtotal = parsePrice(orderInfo?.subtotal || calculatedAmount);
-      const shipping = parsePrice(orderInfo?.shipping || 0);
-      const tax = parsePrice(orderInfo?.tax || 0);
-      const discount = parsePrice(orderInfo?.discount || 0);
-      const total = subtotal + shipping + tax - discount;
-      
-      // Process order items to ensure valid prices and quantities
-      const processedItems = Array.isArray(orderInfo?.products) 
-        ? orderInfo.products.map(item => ({
-            id: item.id,
-            name: item.name || 'Product',
-            price: parsePrice(item.price),
-            quantity: parseInt(item.quantity) || 1,
-            image: item.image,
-            colorName: item.colorName,
-            size: item.size
-          }))
-        : [];
-
-      // Create payment receipt object
-      const paymentReceipt = {
-        type: receiptType, // 'image' or 'link'
-        imageData: receiptType === 'image' ? receiptPreview : null,
-        link: receiptType === 'link' ? receiptLink : null,
-        uploadedAt: new Date()
-      };
-
-      // Validate receipt type vs content
-      if (!paymentReceipt.type || paymentReceipt.type === '') {
-        if (paymentReceipt.imageData) {
-          paymentReceipt.type = 'image';
-          console.log('📝 Receipt type corrected to "image" based on content');
-        } else if (paymentReceipt.link) {
-          paymentReceipt.type = 'link';
-          console.log('📝 Receipt type corrected to "link" based on content');
-        } else {
-          paymentReceipt.type = 'none';
-          console.log('📝 Receipt type set to "none" due to missing content');
-        }
-      }
-
-      // Ensure we never have null or undefined values in the receipt
-      paymentReceipt.imageData = paymentReceipt.imageData || '';
-      paymentReceipt.link = paymentReceipt.link || '';
-
-      console.log('📝 Order - Creating order with receipt:', {
-        receiptType: paymentReceipt.type,
-        hasImageData: !!paymentReceipt.imageData,
-        imageDataLength: paymentReceipt.imageData ? paymentReceipt.imageData.length : 0,
-        link: paymentReceipt.link
-      });
-
-      // Create order details for confirmation page
-      const orderDetails = {
-        id: transactionId || `txn-${Date.now()}`,
-        orderNumber: orderInfo?.orderNumber || `ORD-${Date.now()}`,
-        userId: userId, // Add user ID
-        user: userId, // Add user ID in expected format for MongoDB
-        date: new Date().toISOString(),
-        paymentMethod: paymentMethod,
-        transactionId: transactionId,
-        amount: calculatedAmount,
-        subtotal: subtotal,
-        shipping: shipping,
-        tax: tax,
-        discount: discount,
-        total: total,
-        items: processedItems.length > 0 ? processedItems : [{
-          id: 'default-item',
-          name: productInfo.name,
-          price: parsePrice(productInfo.price),
-          quantity: 1,
-          image: productInfo.image,
-          colorName: productInfo.colorName,
-          size: productInfo.size
-        }],
-        customer: {
-          name: orderInfo?.contactInfo?.name || 'Customer',
-          email: formData.email || orderInfo?.contactInfo?.email || 'customer@example.com'
-        },
-        shippingAddress: orderInfo?.shippingAddress || null,
-        billingAddress: orderInfo?.billingAddress || orderInfo?.shippingAddress || null,
-        shippingMethod: orderInfo?.shippingMethod || 'Standard Shipping',
-        paymentReceipt: paymentReceipt // Add the payment receipt information
-      };
-
-      // Update the payment status in the store
-      orderStore.setPaymentStatus({
-        status: 'success',
-        userId: userId, // Add user ID
-        transactionId: transactionId,
-        paymentMethod: paymentMethod,
-        date: new Date(),
-        receiptType: receiptType,
-        receiptImage: receiptType === 'image' ? receiptPreview : null,
-        receiptLink: receiptType === 'link' ? receiptLink : null
-      });
-      
-      // Save the order to the store with user association
-      console.log('💾 Order - Saving order to store with receipt included');
-      orderStore.addOrder({
-        ...orderDetails,
-        status: 'Processing',
-        createdAt: new Date().toISOString(),
-        customerEmail: formData.email || orderInfo?.contactInfo?.email || 'customer@example.com',
-        customerName: orderInfo?.contactInfo?.name || 'Customer'
-      });
-      
-      console.log("🔄 Order - Navigating to order confirmation with:", {
-        orderId: orderDetails.id, 
-        orderNumber: orderDetails.orderNumber,
-        hasReceipt: !!orderDetails.paymentReceipt,
-        receiptType: orderDetails.paymentReceipt?.type
-      });
-      
-      // Navigate to order confirmation page
-      navigate('/order-confirmation', {
-        state: { orderDetails }
-      });
-    } catch (error) {
-      console.error('❌ Navigation error:', error);
-      setIsProcessing(false);
-    }
-  };
-
-  // Handle Chipper Cash payment - modified to open in new tab and change state
   const handleChipperCashPayment = async () => {
     try {
       setIsProcessing(true);
@@ -319,7 +186,6 @@ const PaymentPage = () => {
     }
   };
 
-  // Handle receipt file upload
   const handleReceiptUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -391,7 +257,6 @@ const PaymentPage = () => {
     }
   };
 
-  // Function to compress images using canvas - updated to use apiConfig settings
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -444,14 +309,13 @@ const PaymentPage = () => {
     });
   };
   
-  // Handle mark as paid button
-  const handleMarkAsPaid = () => {
+  const handleMarkAsPaid = async () => {
     setIsProcessing(true);
     
     // In a real app, you would upload the receipt to your server here
     // For now, we'll simulate a successful upload and payment verification
     
-    setTimeout(() => {
+    try {
       // Extract reference from receipt link if available
       let transactionId = `CHIP-MANUAL-${Date.now()}`;
       
@@ -471,9 +335,199 @@ const PaymentPage = () => {
         transactionId
       });
       
+      // Create order data for confirmation
+      const orderData = createOrderData(transactionId);
+      
+      // Send email notification - call backend API to send email
+      try {
+        console.log('📧 [PaymentPage] Preparing to send order confirmation email to:', orderData.customer.email);
+        
+        const emailData = {
+          email: orderData.customer.email,
+          subject: `Your Sinosply Order Confirmation - Order #${orderData.orderNumber}`,
+          orderDetails: {
+            orderNumber: orderData.orderNumber,
+            date: orderData.date,
+            items: orderData.items,
+            customer: orderData.customer,
+            shipping: orderData.shipping,
+            subtotal: orderData.subtotal,
+            tax: orderData.tax,
+            discount: orderData.discount,
+            total: orderData.total,
+            shippingAddress: orderData.shippingAddress || {},
+            paymentMethod: orderData.paymentMethod
+          }
+        };
+        
+        console.log('📧 [PaymentPage] Email data prepared:', {
+          recipient: emailData.email,
+          subject: emailData.subject,
+          orderNumber: emailData.orderDetails.orderNumber,
+          itemCount: emailData.orderDetails.items.length,
+          total: emailData.orderDetails.total
+        });
+        
+        console.log(`📧 [PaymentPage] Calling API endpoint: ${apiConfig.apiUrl}/api/v1/email/order-confirmation`);
+        
+        const response = await axios.post(`${apiConfig.apiUrl}/api/v1/email/order-confirmation`, emailData);
+        
+        if (response.data.success) {
+          console.log('✅ [PaymentPage] Order confirmation email sent successfully:', {
+            messageId: response.data.messageId,
+            status: response.status
+          });
+        } else {
+          console.error('❌ [PaymentPage] Failed to send order confirmation email:', {
+            error: response.data.error,
+            status: response.status
+          });
+        }
+      } catch (emailError) {
+        console.error('❌ [PaymentPage] Error sending order confirmation email:', {
+          error: emailError.message,
+          stack: emailError.stack
+        });
+        
+        // Additional details about the request
+        if (emailError.response) {
+          console.error('❌ [PaymentPage] API response error details:', {
+            status: emailError.response.status,
+            data: emailError.response.data,
+            headers: emailError.response.headers
+          });
+        } else if (emailError.request) {
+          console.error('❌ [PaymentPage] API request error:', {
+            request: emailError.request
+          });
+        }
+        
+        // Continue with order confirmation even if email fails
+      }
+      
       // Navigate to order confirmation
       navigateToOrderConfirmation('Chipper Cash', transactionId, formData.amount);
-    }, 1000);
+      
+    } catch (error) {
+      console.error('❌ Payment processing error:', error);
+      setIsProcessing(false);
+    }
+  };
+
+  const createOrderData = (transactionId) => {
+    // Get user ID from localStorage if available
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    
+    // Ensure numeric values for prices
+    const calculatedAmount = parsePrice(formData.amount || 0);
+    const subtotal = parsePrice(orderInfo?.subtotal || calculatedAmount);
+    const shipping = parsePrice(orderInfo?.shipping || 0);
+    const tax = parsePrice(orderInfo?.tax || 0);
+    const discount = parsePrice(orderInfo?.discount || 0);
+    const total = subtotal + shipping + tax - discount;
+    
+    // Process order items to ensure valid prices and quantities
+    const processedItems = Array.isArray(orderInfo?.products) 
+      ? orderInfo.products.map(item => ({
+          id: item.id,
+          name: item.name || 'Product',
+          price: parsePrice(item.price),
+          quantity: parseInt(item.quantity) || 1,
+          image: item.image,
+          colorName: item.colorName,
+          size: item.size
+        }))
+      : [];
+
+    // Generate order number if not already present
+    const orderNumber = orderInfo?.orderNumber || `ORD-${Date.now().toString().slice(-6)}`;
+      
+    // Create payment receipt object
+    const paymentReceipt = {
+      type: receiptType, // 'image' or 'link'
+      imageData: receiptType === 'image' ? receiptPreview : null,
+      link: receiptType === 'link' ? receiptLink : null,
+      uploadedAt: new Date()
+    };
+
+    // Create order details object
+    return {
+      id: transactionId,
+      orderNumber: orderNumber,
+      userId: userId,
+      user: userId,
+      date: new Date().toISOString(),
+      paymentMethod: 'Chipper Cash',
+      transactionId: transactionId,
+      amount: calculatedAmount,
+      subtotal: subtotal,
+      shipping: shipping,
+      tax: tax,
+      discount: discount,
+      total: total,
+      items: processedItems.length > 0 ? processedItems : [{
+        id: 'default-item',
+        name: productInfo.name,
+        price: parsePrice(productInfo.price),
+        quantity: 1,
+        image: productInfo.image,
+        colorName: productInfo.colorName,
+        size: productInfo.size
+      }],
+      customer: {
+        name: orderInfo?.contactInfo?.name || 'Customer',
+        email: formData.email || orderInfo?.contactInfo?.email || 'customer@example.com'
+      },
+      shippingAddress: orderInfo?.shippingAddress || null,
+      billingAddress: orderInfo?.billingAddress || orderInfo?.shippingAddress || null,
+      shippingMethod: orderInfo?.shippingMethod || 'Standard Shipping',
+      paymentReceipt: paymentReceipt
+    };
+  };
+
+  const navigateToOrderConfirmation = (paymentMethod, transactionId, amount) => {
+    try {
+      // Create order details for confirmation page
+      const orderDetails = createOrderData(transactionId);
+      
+      // Update the payment status in the store
+      orderStore.setPaymentStatus({
+        status: 'success',
+        userId: orderDetails.userId,
+        transactionId: transactionId,
+        paymentMethod: paymentMethod,
+        date: new Date(),
+        receiptType: receiptType,
+        receiptImage: receiptType === 'image' ? receiptPreview : null,
+        receiptLink: receiptType === 'link' ? receiptLink : null
+      });
+      
+      // Save the order to the store with user association
+      console.log('💾 Order - Saving order to store with receipt included');
+      orderStore.addOrder({
+        ...orderDetails,
+        status: 'Processing',
+        createdAt: new Date().toISOString(),
+        customerEmail: formData.email || orderInfo?.contactInfo?.email || 'customer@example.com',
+        customerName: orderInfo?.contactInfo?.name || 'Customer'
+      });
+      
+      console.log("🔄 Order - Navigating to order confirmation with:", {
+        orderId: orderDetails.id, 
+        orderNumber: orderDetails.orderNumber,
+        hasReceipt: !!orderDetails.paymentReceipt,
+        receiptType: orderDetails.paymentReceipt?.type
+      });
+      
+      // Navigate to order confirmation page
+      navigate('/order-confirmation', {
+        state: { orderDetails }
+      });
+    } catch (error) {
+      console.error('❌ Navigation error:', error);
+      setIsProcessing(false);
+    }
   };
 
   return (

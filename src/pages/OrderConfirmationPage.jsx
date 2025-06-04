@@ -421,10 +421,19 @@ const OrderConfirmationPage = () => {
     if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
     
+    console.log('🔄 [OrderConfirmationPage] Component initialized, checking for order details');
+    
     // Get order details from location state or Zustand store
     const details = location.state?.orderDetails || orderStore.orderInfo;
     
     if (details) {
+      console.log('✅ [OrderConfirmationPage] Order details found:', {
+        orderNumber: details.orderNumber || details.id,
+        customerEmail: details.customerInfo?.email || details.customer?.email || 'Not available',
+        // This is now showing up on the confirmation page after the email should have been sent in PaymentPage
+        emailStatus: 'Email should have been sent from the payment page'
+      });
+      
       const orderDate = new Date(details.date || new Date());
       // Generate these values once
       const trackingNumber = generateTrackingNumber();
@@ -768,6 +777,55 @@ const OrderConfirmationPage = () => {
     setTimeout(() => setCopySuccess(''), 2000);
   };
   
+  // Handle back button click
+  const handleBack = () => {
+    navigate(-1);
+  };
+  
+  // Handle print tracking info
+  const handlePrint = () => {
+    window.print();
+  };
+  
+  // Handle opening tracking page - this is called when "Track Package" is clicked
+  const handleTrackOrder = () => {
+    console.log('🔍 [OrderConfirmationPage] Opening track order page with data:', {
+      orderNumber: orderDetails.orderNumber || orderDetails.id,
+      trackingNumber: orderDetails.trackingNumber
+    });
+    
+    // Navigate to track order with proper details in state
+    navigate(`/track-order/${orderDetails.orderNumber || orderDetails.id}`, {
+      state: {
+        orderInfo: {
+          id: orderDetails.id || orderDetails.orderNumber,
+          orderNumber: orderDetails.orderNumber || orderDetails.id,
+          trackingNumber: orderDetails.trackingNumber,
+          date: orderDetails.date,
+          orderDate: orderDetails.orderDate || formatDate(new Date(orderDetails.date)),
+          formattedOrderDate: orderDetails.formattedOrderDate || formatDate(new Date(orderDetails.date)),
+          status: orderDetails.status || 'processing',
+          shippingMethod: orderDetails.shippingMethod || 'Standard Shipping',
+          estimatedDelivery: orderDetails.estimatedDelivery || calculateEstimatedDelivery(),
+          items: orderDetails.items || [],
+          // Format shipping address to match expected structure in TrackOrderPage
+          shippingAddress: {
+            name: orderDetails.shippingAddress 
+              ? `${orderDetails.shippingAddress.firstName || ''} ${orderDetails.shippingAddress.lastName || ''}`.trim() || orderDetails.shippingAddress.name || 'Customer'
+              : 'Customer',
+            street: orderDetails.shippingAddress?.address1 || orderDetails.shippingAddress?.street || '',
+            addressLine2: orderDetails.shippingAddress?.address2 || '',
+            city: orderDetails.shippingAddress?.city || '',
+            state: orderDetails.shippingAddress?.state || '',
+            zip: orderDetails.shippingAddress?.zip || orderDetails.shippingAddress?.zipCode || '',
+            country: orderDetails.shippingAddress?.country || '',
+            phone: orderDetails.shippingAddress?.phone || orderDetails.contactInfo?.phone || ''
+          }
+        }
+      }
+    });
+  };
+  
   // Show loading state if order details are not yet available
   if (!orderDetails) {
     return (
@@ -902,38 +960,7 @@ const OrderConfirmationPage = () => {
             
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               <button
-                onClick={() => {
-                  // Navigate to track order with proper details in state
-                  navigate(`/track-order/${orderDetails.orderNumber || orderDetails.id}`, {
-                    state: {
-                      orderInfo: {
-                        id: orderDetails.id || orderDetails.orderNumber,
-                        orderNumber: orderDetails.orderNumber || orderDetails.id,
-                        trackingNumber: orderDetails.trackingNumber,
-                        date: orderDetails.date,
-                        orderDate: orderDetails.orderDate || formatDate(new Date(orderDetails.date)),
-                        formattedOrderDate: orderDetails.formattedOrderDate || formatDate(new Date(orderDetails.date)),
-                        status: orderDetails.status || 'processing',
-                        shippingMethod: orderDetails.shippingMethod || 'Standard Shipping',
-                        estimatedDelivery: orderDetails.estimatedDelivery || calculateEstimatedDelivery(),
-                        items: orderDetails.items || [],
-                        // Format shipping address to match expected structure in TrackOrderPage
-                        shippingAddress: {
-                          name: orderDetails.shippingAddress 
-                            ? `${orderDetails.shippingAddress.firstName || ''} ${orderDetails.shippingAddress.lastName || ''}`.trim() || orderDetails.shippingAddress.name || 'Customer'
-                            : 'Customer',
-                          street: orderDetails.shippingAddress?.address1 || orderDetails.shippingAddress?.street || '',
-                          addressLine2: orderDetails.shippingAddress?.address2 || '',
-                          city: orderDetails.shippingAddress?.city || '',
-                          state: orderDetails.shippingAddress?.state || '',
-                          zip: orderDetails.shippingAddress?.zip || orderDetails.shippingAddress?.zipCode || '',
-                          country: orderDetails.shippingAddress?.country || '',
-                          phone: orderDetails.shippingAddress?.phone || orderDetails.contactInfo?.phone || ''
-                        }
-                      }
-                    }
-                  });
-                }}
+                onClick={handleTrackOrder}
                 className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <Truck className="w-5 h-5 mr-2" />

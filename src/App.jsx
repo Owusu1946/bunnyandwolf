@@ -24,6 +24,7 @@ import WishlistPage from './pages/WishlistPage'
 import OrderConfirmationPage from './pages/OrderConfirmationPage'
 import ProductDetailsPage from './pages/ProductDetailsPage'
 import TrackOrderPage from './pages/TrackOrderPage'
+import TrackingLookupPage from './pages/TrackingLookupPage'
 import OrdersPage from './pages/admin/OrdersPage'
 import AdminOrders from './pages/admin/AdminOrders'
 import ProductsPage from './pages/admin/ProductsPage'
@@ -159,6 +160,7 @@ const AppWrapper = () => {
                 <Route path="/products" element={<Products />} />
                 <Route path="/products/:category" element={<Products />} />
                 <Route path="/product/:id" element={<ProductDetailsPage />} />
+                <Route path="/track" element={<TrackingLookupPage />} />
                 <Route path="/track-order/:trackingNumber" element={<TrackOrderPage />} />
                 <Route path="/collections/:collectionId" element={<FeaturedCollectionPage />} />
                 <Route path="/stores" element={<Stores />} />
@@ -167,6 +169,7 @@ const AppWrapper = () => {
                 <Route path="/about" element={<About />} />
                 <Route path="/search" element={<SearchResults />} />
                 <Route path="/contact" element={<Contact />} />
+                
 
                 
                 {/* Category Pages */}
