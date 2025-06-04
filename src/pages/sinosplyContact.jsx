@@ -111,7 +111,7 @@ const SinosplyContact = () => {
       title: "Call Us",
       details: [
         "+233 20 123 4567",
-        "+86 135 1234 5678"
+        "233 20 123 4567"
       ]
     },
     {
@@ -119,7 +119,7 @@ const SinosplyContact = () => {
       title: "Email Us",
       details: [
         "info@sinosply.com",
-        "support@sinosply.com"
+        "founder@sinosply.com"
       ]
     },
     {
@@ -280,7 +280,7 @@ const SinosplyContact = () => {
                       onChange={handleChange}
                       required
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
-                      placeholder="+1 (234) 567-8900"
+                      placeholder="+233 20 123 4567"
                     />
                   </div>
                   

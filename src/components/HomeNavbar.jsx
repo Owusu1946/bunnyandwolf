@@ -192,9 +192,9 @@ const HomeNavbar = () => {
               <span className={`text-2xl font-bold ${isScrolled ? 'text-red-600' : 'text-white'}`}>
                 Sinosply
               </span>
-              <span className={`ml-1 text-sm font-medium ${isScrolled ? 'text-gray-600' : 'text-white/80'}`}>
+              {/* <span className={`ml-1 text-sm font-medium ${isScrolled ? 'text-gray-600' : 'text-white/80'}`}>
                 Connect
-              </span>
+              </span> */}
             </motion.div>
           </Link>
 
