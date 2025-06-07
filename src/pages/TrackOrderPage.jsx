@@ -301,17 +301,17 @@ const TrackOrderPage = () => {
       // Do not show mock data for genuinely invalid tracking numbers
       if (process.env.NODE_ENV === 'development' && tracking.startsWith('TEST-')) {
         console.log("ℹ️ [TrackOrderPage] Using mock data for test tracking number");
-        const orderData = createMockOrderData(tracking);
-        
+      const orderData = createMockOrderData(tracking);
+      
         setOrderInfo({
           ...orderData,
           orderDate: orderData.formattedOrderDate || 
             new Date(orderData.createdAt || new Date()).toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }),
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }),
           estimatedDelivery: orderData.estimatedDelivery
             ? new Date(orderData.estimatedDelivery).toLocaleDateString('en-US', {
                 weekday: 'long',
@@ -324,7 +324,7 @@ const TrackOrderPage = () => {
         
         mapStatusToDeliveryStage(orderData.status || 'processing');
         setQuerySource('mock');
-        setError(null);
+      setError(null);
         setErrorType('');
       }
     } finally {
@@ -524,9 +524,9 @@ const TrackOrderPage = () => {
     return (
       <>
         <Navbar />
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
         <Footer />
       </>
     );
@@ -580,12 +580,12 @@ const TrackOrderPage = () => {
             >
               Go to Tracking Page
             </button>
-            <button 
-              onClick={handleBack}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              Go Back
-            </button>
+          <button 
+            onClick={handleBack}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Go Back
+          </button>
           </div>
         </div>
         <Footer />

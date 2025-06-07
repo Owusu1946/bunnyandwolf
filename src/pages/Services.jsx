@@ -82,8 +82,8 @@ const Services = () => {
       image: 'https://images.unsplash.com/photo-1635405074683-96d6921a2a68?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     },
     {
-      title: 'Amazon FBA Prep',
-      description: 'We prepare your products for Amazon FBA with proper labeling, packaging, and compliance requirements.',
+      title: 'Dropshipping Shipping',
+      description: 'We facilitate your dropshipping business with reliable shipping solutions, packaging, and logistics support.',
       image: 'https://images.unsplash.com/photo-1575997759258-91792eaaf87b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     }
   ];

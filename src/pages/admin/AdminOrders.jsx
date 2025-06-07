@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaSort, FaFilter, FaEye, FaPencilAlt, FaInfoCircle, FaTimes, FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaSave, FaCheck, FaSync, FaFileInvoiceDollar, FaExternalLinkAlt, FaDownload, FaSearchPlus, FaSearchMinus, FaBell } from 'react-icons/fa';
+import { FaSearch, FaSort, FaFilter, FaEye, FaPencilAlt, FaInfoCircle, FaTimes, FaBox, FaUser, FaMapMarkerAlt, FaCreditCard, FaTruck, FaSave, FaCheck, FaSync, FaFileInvoiceDollar, FaExternalLinkAlt, FaDownload, FaSearchPlus, FaSearchMinus, FaBell, FaTrash } from 'react-icons/fa';
 import { useOrderStore } from '../../store/orderStore';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
@@ -183,6 +183,47 @@ const AdminOrders = () => {
   const [imageZoomLevel, setImageZoomLevel] = useState(100);
   // Add new state for the notification tester
   const [showNotificationTester, setShowNotificationTester] = useState(false);
+  // Add this new state and function
+  const [isStorageQuotaError, setIsStorageQuotaError] = useState(false);
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
+  const [clearingOrders, setClearingOrders] = useState(false);
+  
+  // Function to clear local storage cache
+  const handleClearOrderStorage = () => {
+    try {
+      // First try to use the orderStore's cleanup function
+      if (useOrderStore.getState().cleanupOrderStorage) {
+        console.log('[AdminOrders] Using orderStore cleanup function');
+        const cleanedOrders = useOrderStore.getState().cleanupOrderStorage();
+        setSuccessMessage(`Order storage cleaned up successfully! Reduced to ${cleanedOrders.length} orders.`);
+        setIsStorageQuotaError(false);
+        setError(null);
+        setFilteredOrders(cleanedOrders); // Update UI with cleaned orders
+        
+        // Refresh data display after a short delay
+        setTimeout(() => {
+          filterAndSortOrders();
+        }, 500);
+        
+        return;
+      }
+      
+      // Fallback: manually clear storage
+      localStorage.removeItem('sinosply-order-storage');
+      localStorage.removeItem('sinosply-orders');
+      setSuccessMessage('Order storage cleared successfully! Refreshing...');
+      setIsStorageQuotaError(false);
+      setError(null);
+      
+      // Refresh the page after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err) {
+      console.error('Error clearing storage:', err);
+      setError(`Failed to clear storage: ${err.message}`);
+    }
+  };
 
   // Status options for the dropdown
   const ORDER_STATUSES = [
@@ -520,36 +561,126 @@ const AdminOrders = () => {
     try {
       // Use the enhanced updateOrderStatus which syncs with server
       console.log(`[AdminOrders] Calling updateOrderStatus(${orderId}, ${newStatus})`);
-      const updatedOrder = updateOrderStatus(orderId, newStatus);
       
-      if (updatedOrder) {
-        console.log(`[AdminOrders] Successfully updated order status:`, updatedOrder);
-      setSuccessMessage(`Order status updated to ${newStatus}!`);
-      setTimeout(() => setSuccessMessage(''), 3000);
+      // Find the order to get previous status and customer info
+      const orderToUpdate = orders.find(o => o._id === orderId);
+      const previousStatus = orderToUpdate?.status;
+      const customerEmail = orderToUpdate?.customerEmail;
+      
+      try {
+        const updatedOrder = updateOrderStatus(orderId, newStatus);
         
-        // Log the update
-        console.log(`[AdminOrders] Updated order ${orderId} status to ${newStatus}`);
-        
-        // Manually trigger notification without using require
-        try {
-          console.log('[AdminOrders] Manually triggering notification for order status update');
-          addOrderStatusNotification(updatedOrder);
+        if (updatedOrder) {
+          console.log(`[AdminOrders] Successfully updated order status:`, updatedOrder);
+          setSuccessMessage(`Order status updated to ${newStatus}!`);
+          setTimeout(() => setSuccessMessage(''), 3000);
           
-          // Also dispatch an event for the notification service
-          if (window.dispatchEvent && CustomEvent) {
-            const event = new CustomEvent('order-status-updated', { 
-              detail: { order: updatedOrder } 
-            });
-            window.dispatchEvent(event);
-            console.log('[AdminOrders] Dispatched order-status-updated event');
+          // Log the update
+          console.log(`[AdminOrders] Updated order ${orderId} status to ${newStatus}`);
+          
+          // Manually trigger notification without using require
+          try {
+            console.log('[AdminOrders] Manually triggering notification for order status update');
+            addOrderStatusNotification(updatedOrder);
+            
+            // Also dispatch an event for the notification service
+            if (window.dispatchEvent && CustomEvent) {
+              const event = new CustomEvent('order-status-updated', { 
+                detail: { order: updatedOrder } 
+              });
+              window.dispatchEvent(event);
+              console.log('[AdminOrders] Dispatched order-status-updated event');
+            }
+          } catch (e) {
+            console.error('[AdminOrders] Failed to manually trigger notification:', e);
           }
-        } catch (e) {
-          console.error('[AdminOrders] Failed to manually trigger notification:', e);
+          
+          // Send email notification to customer if email is available
+          if (customerEmail) {
+            console.log(`[AdminOrders] Sending status update email to customer: ${customerEmail}`);
+            sendStatusUpdateEmail(updatedOrder, previousStatus, customerEmail);
+          } else {
+            console.log('[AdminOrders] No customer email available, skipping email notification');
+          }
+        } else {
+          console.error(`[AdminOrders] Failed to update order ${orderId} status to ${newStatus}`);
+          setError('Failed to update order status');
         }
+      } catch (storageError) {
+        console.error('[AdminOrders] Storage error:', storageError);
         
-      } else {
-        console.error(`[AdminOrders] Failed to update order ${orderId} status to ${newStatus}`);
-        setError('Failed to update order status');
+        // Handle localStorage quota exceeded error specifically
+        if (storageError.message && storageError.message.includes('quota')) {
+          setIsStorageQuotaError(true);
+          setError(`Storage quota exceeded. Please clear some data to continue updating orders.`);
+          
+          // Try to handle this without disrupting the UI by using in-memory updates only
+          const ordersCopy = [...orders];
+          const orderIndex = ordersCopy.findIndex(o => o._id === orderId);
+          
+          if (orderIndex !== -1) {
+            // Update in-memory only to preserve UI state
+            ordersCopy[orderIndex] = {
+              ...ordersCopy[orderIndex],
+              status: newStatus,
+              updatedAt: new Date().toISOString()
+            };
+            
+            // Update filtered orders state directly
+            const filteredCopy = [...filteredOrders];
+            const filteredIndex = filteredCopy.findIndex(o => o._id === orderId);
+            if (filteredIndex !== -1) {
+              filteredCopy[filteredIndex] = {
+                ...filteredCopy[filteredIndex],
+                status: newStatus,
+                updatedAt: new Date().toISOString()
+              };
+              setFilteredOrders(filteredCopy);
+            }
+            
+            // Show success message but warn about persistence
+            setSuccessMessage(`Order status updated to ${newStatus} in the UI only. Please clear storage to save permanently.`);
+            setTimeout(() => setSuccessMessage(''), 5000);
+            
+            // Also try to sync the change to the server directly
+            const syncToServer = async () => {
+              try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                  console.warn('[AdminOrders] No auth token found for direct server sync');
+                  return;
+                }
+                
+                console.log(`[AdminOrders] Directly syncing order status to server as fallback: ${orderId} -> ${newStatus}`);
+                
+                await axios.put(
+                  `${apiConfig.baseURL}/orders/${orderId}/status`,
+                  { status: newStatus },
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                
+                console.log(`[AdminOrders] Direct server sync successful`);
+                
+                // Also try to send email notification in this case
+                if (customerEmail) {
+                  // Get the updated order for email
+                  const orderForEmail = {
+                    ...ordersCopy[orderIndex],
+                    status: newStatus
+                  };
+                  sendStatusUpdateEmail(orderForEmail, previousStatus, customerEmail);
+                }
+              } catch (syncError) {
+                console.error('[AdminOrders] Direct server sync failed:', syncError);
+              }
+            };
+            
+            // Try to sync in background
+            syncToServer();
+          }
+        } else {
+          throw storageError; // Re-throw if it's a different type of error
+        }
       }
       
       // Close dropdown
@@ -559,9 +690,54 @@ const AdminOrders = () => {
       }));
     } catch (err) {
       console.error('[AdminOrders] Error updating status:', err);
-      setError(`Error updating status: ${err.message}`);
+      
+      // Check if it's a quota error
+      if (err.message && err.message.includes('quota')) {
+        setIsStorageQuotaError(true);
+        setError(`Storage quota exceeded. You need to clear some data to continue. Click the "Clear Order Storage" button below.`);
+      } else {
+        setError(`Error updating status: ${err.message}`);
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Function to send status update email to customer
+  const sendStatusUpdateEmail = async (order, previousStatus, email) => {
+    try {
+      // Get auth token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('[AdminOrders] No token found, cannot send status update email');
+        return;
+      }
+      
+      console.log('[AdminOrders] Sending status update email to customer:', {
+        email,
+        order: order.orderNumber,
+        previousStatus,
+        newStatus: order.status
+      });
+      
+      // Make API call to send status update email
+      const response = await axios.post(
+        `${apiConfig.baseURL}/email/order-status-update`,
+        {
+          email,
+          orderDetails: order,
+          previousStatus
+        },
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
+      
+      if (response.data.success) {
+        console.log('[AdminOrders] Status update email sent successfully');
+      } else {
+        console.error('[AdminOrders] Failed to send status update email:', response.data.error);
+      }
+    } catch (error) {
+      console.error('[AdminOrders] Error sending status update email:', error);
     }
   };
 
@@ -840,6 +1016,49 @@ const AdminOrders = () => {
     }
   };
 
+  // Function to handle clear all orders
+  const handleClearAllOrders = async () => {
+    if (window.confirm("WARNING! This will permanently delete ALL orders from the database. This action cannot be undone. Are you sure you want to proceed?")) {
+      setClearingOrders(true);
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Authentication error: No token found');
+          setClearingOrders(false);
+          return;
+        }
+
+        // Call the API endpoint
+        const response = await axios.delete(
+          `${apiConfig.baseURL}/admin/orders/clear-all`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+          // Clear orders from store
+          clearOrders();
+          // Reset filtered orders
+          setFilteredOrders([]);
+          // Show success message
+          setSuccessMessage(`Successfully cleared ${response.data.deletedCount} orders from the database`);
+          // Reset page to 1
+          setCurrentPage(1);
+          
+          setTimeout(() => {
+            window.location.reload(); // Refresh page after clearing
+          }, 2000);
+        } else {
+          setError(`Failed to clear orders: ${response.data.error}`);
+        }
+      } catch (error) {
+        console.error('Error clearing orders:', error);
+        setError(`Error clearing orders: ${error.response?.data?.error || error.message}`);
+      } finally {
+        setClearingOrders(false);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <div className="hidden md:block md:fixed md:w-64 md:h-full">
@@ -871,6 +1090,17 @@ const AdminOrders = () => {
                   <FaBell className="inline mr-1" />
                   <span className="hidden xs:inline">Test Notification</span>
                   <span className="xs:hidden">Test</span>
+                </button>
+
+                {/* Add the clear all orders button */}
+                <button 
+                  onClick={handleClearAllOrders}
+                  disabled={clearingOrders}
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded-md transition-colors"
+                >
+                  <FaTrash className="inline mr-1" />
+                  <span className="hidden xs:inline">{clearingOrders ? 'Clearing...' : 'Clear All Orders'}</span>
+                  <span className="xs:hidden">{clearingOrders ? 'Clearing...' : 'Clear All'}</span>
                 </button>
               </div>
             </div>
@@ -990,12 +1220,28 @@ const AdminOrders = () => {
             <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4 sm:mb-6">
               <h3 className="font-semibold mb-2">Error:</h3>
               <p className="text-sm">{error}</p>
-              <button 
-                className="mt-2 text-sm px-3 py-1 bg-red-200 text-red-800 rounded-md hover:bg-red-300"
-                onClick={handleRefresh}
-              >
-                Try Again
-              </button>
+              
+              {isStorageQuotaError ? (
+                <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <button 
+                    className="text-sm px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                    onClick={handleClearOrderStorage}
+                  >
+                    Clear Order Storage
+                  </button>
+                  <p className="text-xs text-red-600">
+                    This will remove cached order data and refresh the page.
+                    Your account data will not be affected.
+                  </p>
+                </div>
+              ) : (
+                <button 
+                  className="mt-2 text-sm px-3 py-1 bg-red-200 text-red-800 rounded-md hover:bg-red-300"
+                  onClick={handleRefresh}
+                >
+                  Try Again
+                </button>
+              )}
             </div>
           )}
           
