@@ -75,7 +75,7 @@ const OrderCardSkeleton = () => {
 
 
 // Mobile Order Card component
-const OrderCard = ({ order, onViewDetails, onEditOrder, onStatusChange, showStatusDropdown, toggleStatusDropdown, getUserForOrder, getCustomerEmail, formatDate, formatPrice }) => {
+const OrderCard = ({ order, onViewDetails, onEditOrder, onStatusChange, showStatusDropdown, toggleStatusDropdown, getUserForOrder, getCustomerEmail, formatDate, formatPrice, openReceiptViewer }) => {
   const getStatusClass = (status) => {
     switch(status) {
       case 'Delivered': return 'bg-green-100 text-green-800';
@@ -110,6 +110,16 @@ const OrderCard = ({ order, onViewDetails, onEditOrder, onStatusChange, showStat
         </div>
       </div>
       
+      {/* Receipt indicator */}
+      {order.paymentReceipt && (order.paymentReceipt.imageData || order.paymentReceipt.link) && (
+        <div className="mb-3 flex items-center">
+          <FaFileInvoiceDollar className="text-purple-500 mr-1" />
+          <span className="text-xs text-purple-600">
+            {order.paymentReceipt.imageData ? 'Receipt image available' : 'Receipt link available'}
+          </span>
+        </div>
+      )}
+      
       <div className="flex justify-between items-center">
         <div className="relative">
           <span 
@@ -140,6 +150,15 @@ const OrderCard = ({ order, onViewDetails, onEditOrder, onStatusChange, showStat
         </div>
         
         <div className="flex space-x-2">
+          {order.paymentReceipt && order.paymentReceipt.imageData && (
+            <button 
+              className="p-2 bg-purple-50 text-purple-600 rounded-full hover:bg-purple-100"
+              onClick={() => openReceiptViewer(order.paymentReceipt.imageData)}
+              aria-label="View receipt"
+            >
+              <FaFileInvoiceDollar className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button 
             className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100"
             onClick={() => onViewDetails(order._id)}
@@ -372,8 +391,6 @@ const AdminOrders = () => {
   useEffect(() => {
     const loadOrders = async () => {
       setIsLoading(true);
-      const startTime = Date.now();
-      
       try {
         console.log('Loading all orders...');
         const result = await fetchOrders();
@@ -394,21 +411,10 @@ const AdminOrders = () => {
         console.error('Error loading orders:', error);
         // Only set error in case of actual exception, not for expected states
       } finally {
-        // Ensure skeleton animation shows for at least 800ms for better UX
-        const elapsedTime = Date.now() - startTime;
-        const minLoadingTime = 800;
+        setIsLoading(false);
         
-        if (elapsedTime < minLoadingTime) {
-          setTimeout(() => {
-            setIsLoading(false);
-            // Apply initial filtering
-            filterAndSortOrders();
-          }, minLoadingTime - elapsedTime);
-        } else {
-          setIsLoading(false);
-          // Apply initial filtering
-          filterAndSortOrders();
-        }
+        // Apply initial filtering
+        filterAndSortOrders();
       }
     };
     
@@ -589,9 +595,8 @@ const AdminOrders = () => {
   const handleRefresh = () => {
     setIsRefreshing(true);
     setCurrentPage(1);
-    const startTime = Date.now();
     
-    // Fetch data with a minimum loading time for better UX
+    // Set a timeout to simulate network request for better UX
     setTimeout(async () => {
       try {
         // If we have orders, fetch fresh user details
@@ -605,19 +610,9 @@ const AdminOrders = () => {
       } catch (err) {
         setError(`Error refreshing orders: ${err.message}`);
       } finally {
-        // Ensure skeleton animation shows for at least 800ms
-        const elapsedTime = Date.now() - startTime;
-        const minLoadingTime = 800;
-        
-        if (elapsedTime < minLoadingTime) {
-          setTimeout(() => {
-            setIsRefreshing(false);
-          }, minLoadingTime - elapsedTime);
-        } else {
-          setIsRefreshing(false);
-        }
+        setIsRefreshing(false);
       }
-    }, 200);
+    }, 1000);
   };
 
   // Handle view order details
@@ -1200,7 +1195,7 @@ const AdminOrders = () => {
       <div className="w-full md:ml-64 max-w-full">
         {isLoading && <LoadingOverlay />}
         
-        <div className="p-3 sm:p-6">
+        <div className="p-3 sm:p-6 overflow-x-auto">
           <div className="mb-4 sm:mb-8">
             <div className="flex justify-between items-center flex-wrap">
               <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Orders Management</h1>
@@ -1327,10 +1322,11 @@ const AdminOrders = () => {
               </div>
               
               <button
-                className={`px-2 py-1 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center col-span-2 md:col-span-1 mt-1 md:mt-0 ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                className={`px-3 py-1 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center col-span-2 md:col-span-1 mt-1 md:mt-0 ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
                 onClick={handleRefresh}
                 disabled={isRefreshing}
               >
+                <FaSync className={`mr-1 ${isRefreshing ? 'animate-spin' : ''}`} size="0.8em" />
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </button>
             </div>
@@ -1378,174 +1374,202 @@ const AdminOrders = () => {
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             {/* Desktop View */}
             <div className="hidden md:block overflow-x-auto w-full">
-              <table className="w-full table-fixed divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th 
-                      scope="col" 
-                      className="w-1/5 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('customerName')}
-                    >
-                      <div className="flex items-center">
-                        Customer
-                        {sortField === 'customerName' && (
-                          <FaSort className="ml-1" />
-                        )}
-                      </div>
-                    </th>
-                    <th scope="col" className="w-1/4 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Order Info
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('createdAt')}
-                    >
-                      <div className="flex items-center">
-                        Date
-                        {sortField === 'createdAt' && (
-                          <FaSort className="ml-1" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('totalAmount')}
-                    >
-                      <div className="flex items-center">
-                        Amount
-                        {sortField === 'totalAmount' && (
-                          <FaSort className="ml-1" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('status')}
-                    >
-                      <div className="flex items-center">
-                        Status
-                        {sortField === 'status' && (
-                          <FaSort className="ml-1" />
-                        )}
-                      </div>
-                    </th>
-                    <th scope="col" className="w-1/12 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {isLoading || isRefreshing ? (
-                    // Show skeleton loaders while loading or refreshing
-                    Array.from({ length: itemsPerPage }).map((_, index) => (
-                      <OrderRowSkeleton key={index} />
-                    ))
-                  ) : currentOrders.length > 0 ? (
-                    currentOrders.map((order) => (
-                      <tr key={order._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 truncate">{formatCustomerName(order)}</div>
-                          <div className="text-sm text-gray-500 truncate">{getCustomerEmail(order)}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 truncate">{order.orderNumber}</div>
-                          <div className="text-sm text-gray-500">
-                            {Array.isArray(order.items) ? order.items.length : 0} items
-                          </div>
-                          {order.trackingNumber && (
-                            <div className="text-xs text-gray-500 truncate max-w-[200px]">
-                              Tracking: {order.trackingNumber}
-                            </div>
+              <div className="overflow-x-auto">
+                <table className="table-auto divide-y divide-gray-200" style={{width: "100%", minWidth: "1100px"}}>
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th 
+                        scope="col" 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('customerName')}
+                      >
+                        <div className="flex items-center">
+                          Customer
+                          {sortField === 'customerName' && (
+                            <FaSort className="ml-1" />
                           )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{formatDate(order.createdAt)}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatPrice(order.totalAmount)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="relative">
-                            <span 
-                              className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer
-                            ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : ''}
-                            ${order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' : ''}
-                            ${order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                            ${order.status === 'Processing' ? 'bg-purple-100 text-purple-800' : ''}
-                            ${order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : ''}
-                            ${order.status === 'Refunded' ? 'bg-gray-100 text-gray-800' : ''}
-                              `}
-                              onClick={() => toggleStatusDropdown(order._id)}
-                            >
-                              {order.status || 'Unknown'}
-                          </span>
-                            
-                            {/* Status dropdown */}
-                            {showStatusDropdown[order._id] && (
-                              <div className="absolute left-0 mt-1 w-40 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                                <ul className="py-1">
-                                  {ORDER_STATUSES.map(status => (
-                                    <li 
-                                      key={status}
-                                      className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100
-                                        ${order.status === status ? 'bg-gray-50 font-medium' : ''}
-                                      `}
-                                      onClick={() => handleStatusChange(order._id, status)}
-                                    >
-                                      {status}
-                                    </li>
-                                  ))}
-                                </ul>
+                        </div>
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Order Info
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('createdAt')}
+                      >
+                        <div className="flex items-center">
+                          Date
+                          {sortField === 'createdAt' && (
+                            <FaSort className="ml-1" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('totalAmount')}
+                      >
+                        <div className="flex items-center">
+                          Amount
+                          {sortField === 'totalAmount' && (
+                            <FaSort className="ml-1" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        scope="col" 
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort('status')}
+                      >
+                        <div className="flex items-center">
+                          Status
+                          {sortField === 'status' && (
+                            <FaSort className="ml-1" />
+                          )}
+                        </div>
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Receipt
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {isRefreshing ? (
+                      // Show skeleton loaders while refreshing
+                      Array.from({ length: itemsPerPage }).map((_, index) => (
+                        <OrderRowSkeleton key={index} />
+                      ))
+                    ) : currentOrders.length > 0 ? (
+                      currentOrders.map((order) => (
+                        <tr key={order._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900 truncate">{formatCustomerName(order)}</div>
+                            <div className="text-sm text-gray-500 truncate">{getCustomerEmail(order)}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 truncate">{order.orderNumber}</div>
+                            <div className="text-sm text-gray-500">
+                              {Array.isArray(order.items) ? order.items.length : 0} items
+                            </div>
+                            {order.trackingNumber && (
+                              <div className="text-xs text-gray-500 truncate max-w-[200px]">
+                                Tracking: {order.trackingNumber}
                               </div>
                             )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{formatDate(order.createdAt)}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatPrice(order.totalAmount)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="relative">
+                              <span 
+                                className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer
+                              ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : ''}
+                              ${order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' : ''}
+                              ${order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : ''}
+                              ${order.status === 'Processing' ? 'bg-purple-100 text-purple-800' : ''}
+                              ${order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : ''}
+                              ${order.status === 'Refunded' ? 'bg-gray-100 text-gray-800' : ''}
+                                `}
+                                onClick={() => toggleStatusDropdown(order._id)}
+                              >
+                                {order.status || 'Unknown'}
+                            </span>
+                              
+                              {/* Status dropdown */}
+                              {showStatusDropdown[order._id] && (
+                                <div className="absolute left-0 mt-1 w-40 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                  <ul className="py-1">
+                                    {ORDER_STATUSES.map(status => (
+                                      <li 
+                                        key={status}
+                                        className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100
+                                          ${order.status === status ? 'bg-gray-50 font-medium' : ''}
+                                        `}
+                                        onClick={() => handleStatusChange(order._id, status)}
+                                      >
+                                        {status}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {order.paymentReceipt && order.paymentReceipt.imageData ? (
+                              <button 
+                                onClick={() => openReceiptViewer(order.paymentReceipt.imageData)}
+                                className="inline-flex items-center justify-center text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-md px-2 py-1"
+                                title="View Receipt"
+                              >
+                                <FaFileInvoiceDollar className="mr-1" /> View
+                              </button>
+                            ) : order.paymentReceipt && order.paymentReceipt.link ? (
+                              <a 
+                                href={order.paymentReceipt.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center text-xs bg-green-50 hover:bg-green-100 text-green-600 rounded-md px-2 py-1"
+                                title="Open Receipt Link"
+                              >
+                                <FaExternalLinkAlt className="mr-1" /> Link
+                              </a>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end space-x-2">
+                              <button 
+                                className="text-indigo-600 hover:text-indigo-900"
+                                title="View Details"
+                                onClick={() => handleViewOrderDetails(order._id)}
+                              >
+                                <FaEye />
+                              </button>
+                              <button 
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Edit Order"
+                                onClick={() => handleEditOrder(order._id)}
+                              >
+                                <FaPencilAlt />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-10 text-center">
+                          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                            <FaBox className="h-8 w-8 text-gray-400" />
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-2">
-                            <button 
-                              className="text-indigo-600 hover:text-indigo-900"
-                              title="View Details"
-                              onClick={() => handleViewOrderDetails(order._id)}
-                            >
-                              <FaEye />
-                            </button>
-                            <button 
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Edit Order"
-                              onClick={() => handleEditOrder(order._id)}
-                            >
-                              <FaPencilAlt />
-                            </button>
-                          </div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-1">No Orders Found</h3>
+                          <p className="text-sm text-gray-500 max-w-md mx-auto">
+                            There are no orders in the system yet. Orders will appear here when customers make purchases.
+                          </p>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="6" className="px-6 py-10 text-center">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                          <FaBox className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-1">No Orders Found</h3>
-                        <p className="text-sm text-gray-500 max-w-md mx-auto">
-                          There are no orders in the system yet. Orders will appear here when customers make purchases.
-                        </p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
             
             {/* Mobile View - Cards */}
             <div className="md:hidden p-3">
               <h3 className="text-sm font-medium text-gray-500 uppercase mb-2">Orders</h3>
               
-              {isLoading || isRefreshing ? (
-                // Skeleton cards for mobile while loading or refreshing
+              {isRefreshing ? (
+                // Skeleton cards for mobile
                 Array.from({ length: 3 }).map((_, index) => (
                   <OrderCardSkeleton key={index} />
                 ))
@@ -1563,6 +1587,7 @@ const AdminOrders = () => {
                     getCustomerEmail={getCustomerEmail}
                     formatDate={formatDate}
                     formatPrice={formatPrice}
+                    openReceiptViewer={openReceiptViewer}
                   />
                 ))
               ) : (

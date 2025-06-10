@@ -1265,7 +1265,7 @@ const ProductsPage = () => {
                   <div className="flex flex-col items-center justify-center py-8">
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 w-full mx-3 text-center">
                       <FaBoxOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-gray-700 mb-1">No products found</h3>
+                    <h3 className="text-lg font-medium text-gray-700 mb-1">No products found</h3>
                       <p className="text-sm text-gray-500 mb-4">Your inventory is currently empty</p>
                       <button 
                         onClick={handleAddProductOpen}
