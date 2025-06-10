@@ -104,7 +104,7 @@ const Login = () => {
       
       // Navigate to home page
       console.log('🔀 Navigating to home page');
-      navigate('/bunny-and-wolf');
+      navigate('/sinosply-stores');
     } catch (err) {
       console.error('❌ Login error:', err);
       setError(err.message || 'Login failed. Please try again.');

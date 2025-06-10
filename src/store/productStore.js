@@ -278,6 +278,53 @@ export const useProductStore = create(
         platformProducts: {}
       }),
       
+      // Clear all products from API and store
+      clearAllProductsFromAPI: async () => {
+        try {
+          set({ loading: true });
+          console.log('🧹 ProductStore: Clearing all products from database');
+          
+          const token = localStorage.getItem('token');
+          
+          if (!token) {
+            console.error('❌ ProductStore: Authentication error - No token found');
+            set({ loading: false });
+            return { success: false, error: 'Authentication error: No token found' };
+          }
+          
+          const response = await fetch(`${apiConfig.baseURL}/products/clear-all`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            console.log('✅ ProductStore: Successfully cleared all products from database');
+            
+            // Clear local store
+            get().clearProducts();
+            
+            // Also clear from localStorage
+            localStorage.removeItem('sinosply-product-storage');
+            
+            set({ loading: false });
+            return { success: true };
+          } else {
+            console.error('❌ ProductStore: Failed to clear products from database', data);
+            set({ loading: false });
+            return { success: false, error: data.error || 'Failed to clear products' };
+          }
+        } catch (error) {
+          console.error('❌ ProductStore: Error clearing products:', error);
+          set({ loading: false });
+          return { success: false, error: error.message || 'An error occurred' };
+        }
+      },
+      
       // Update product stock levels after an order is placed
       updateStockAfterOrder: (orderedItems) => {
         if (!orderedItems || !orderedItems.length) return;
@@ -488,49 +535,6 @@ export const useProductStore = create(
         set({ loading: true });
         console.log('🔍 ProductStore: Fetching sample products from API');
         
-        // Fallback sample products to use when API fails
-        const fallbackSampleProducts = [
-          {
-            _id: 'sample1',
-            name: 'Compressed Sofas',
-            description: 'High-quality space-saving furniture solutions for your home.',
-            basePrice: 599,
-            variants: [{
-              additionalImages: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80']
-            }],
-            slug: 'compressed-sofas',
-            avgRating: 4.7,
-            reviewCount: 12,
-            isSample: true
-          },
-          {
-            _id: 'sample2',
-            name: 'Bamboo Furniture',
-            description: 'Sustainable and elegant furniture made from eco-friendly bamboo.',
-            basePrice: 399,
-            variants: [{
-              additionalImages: ['https://images.unsplash.com/photo-1540638349517-3abd5afc5847?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80']
-            }],
-            slug: 'bamboo-furniture',
-            avgRating: 4.9,
-            reviewCount: 8,
-            isSample: true
-          },
-          {
-            _id: 'sample3',
-            name: 'Smart Gadgets',
-            description: 'Cutting-edge technology to simplify and enhance your lifestyle.',
-            basePrice: 299,
-            variants: [{
-              additionalImages: ['https://images.unsplash.com/photo-1546054454-aa26e2b734c7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80']
-            }],
-            slug: 'smart-gadgets',
-            avgRating: 4.5,
-            reviewCount: 15,
-            isSample: true
-          }
-        ];
-        
         try {
           const response = await fetch(`${apiConfig.baseURL}/products?isSample=true&limit=6`);
           const data = await response.json();
@@ -553,15 +557,13 @@ export const useProductStore = create(
             return sampleProductsOnly;
           } else {
             console.error('❌ ProductStore: API request for sample products failed', data);
-            console.log('Using fallback sample products instead');
-            set({ sampleProducts: fallbackSampleProducts, loading: false });
-            return fallbackSampleProducts;
+            set({ loading: false });
+            return [];
           }
         } catch (error) {
           console.error('❌ ProductStore: Error fetching sample products:', error);
-          console.log('Using fallback sample products instead');
-          set({ sampleProducts: fallbackSampleProducts, loading: false });
-          return fallbackSampleProducts;
+          set({ loading: false });
+          return [];
         }
       }
     }),

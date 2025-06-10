@@ -573,7 +573,14 @@ const BunnyAndWolf = () => {
                       className="text-center"
                     >
                       <h3 className="text-white text-2xl font-bold mb-4">{product.name.toUpperCase()}</h3>
-                      <Link to={`/product/${product.slug}`} className="bg-white text-black px-8 py-3 font-medium hover:bg-black hover:text-white transition-colors border-2 border-black hover:underline flex items-center">
+                      <Link 
+                        to={`/product/${product._id}`} 
+                        state={{ 
+                          productId: product._id, 
+                          variantIndex: 0 
+                        }} 
+                        className="bg-white text-black px-8 py-3 font-medium hover:bg-black hover:text-white transition-colors border-2 border-black hover:underline flex items-center"
+                      >
                         SHOP NOW <FaLongArrowAltRight className="ml-2" />
                       </Link>
                     </motion.div>
@@ -598,9 +605,12 @@ const BunnyAndWolf = () => {
                       className="text-center"
                     >
                       <h3 className="text-white text-2xl font-bold mb-4">NEW & ICONIC STYLES</h3>
-                      <button className="bg-white text-black px-8 py-3 font-medium hover:bg-black hover:text-white transition-colors border-2 border-black hover:underline flex items-center">
+                      <Link 
+                        to="/shop" 
+                        className="bg-white text-black px-8 py-3 font-medium hover:bg-black hover:text-white transition-colors border-2 border-black hover:underline flex items-center"
+                      >
                         EXPLORE <FaLongArrowAltRight className="ml-2" />
-                      </button>
+                      </Link>
                     </motion.div>
               </div>
             </div>
@@ -619,9 +629,12 @@ const BunnyAndWolf = () => {
                       className="text-center"
                     >
                       <h3 className="text-white text-2xl font-bold mb-4">SUMMER SWIM COLLECTION</h3>
-                      <button className="bg-white text-black px-8 py-3 font-medium hover:bg-black hover:text-white transition-colors border-2 border-black hover:underline flex items-center">
+                      <Link 
+                        to="/shop/summer" 
+                        className="bg-white text-black px-8 py-3 font-medium hover:bg-black hover:text-white transition-colors border-2 border-black hover:underline flex items-center"
+                      >
                         SHOP NOW <FaLongArrowAltRight className="ml-2" />
-                      </button>
+                      </Link>
                     </motion.div>
               </div>
             </div>
@@ -640,8 +653,27 @@ const BunnyAndWolf = () => {
         </div>
         <div className="w-full px-8 md:px-16 lg:px-32">
           {platformsLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="relative">
+                  {/* Skeleton for image with shimmer effect */}
+                  <div className="h-[400px] mb-4 overflow-hidden bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 relative skeleton-shimmer">
+                    <div className="absolute inset-0 shimmer-overlay"></div>
+                  </div>
+                  <div>
+                    {/* Skeleton for text with shimmer */}
+                    <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-3/4 mb-2 skeleton-shimmer relative">
+                      <div className="absolute inset-0 shimmer-overlay"></div>
+                    </div>
+                    <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-2/3 mb-3 skeleton-shimmer relative">
+                      <div className="absolute inset-0 shimmer-overlay"></div>
+                    </div>
+                    <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-1/4 skeleton-shimmer relative">
+                      <div className="absolute inset-0 shimmer-overlay"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1030,6 +1062,37 @@ const BunnyAndWolf = () => {
         
         .slick-active .hero-image {
           transform: scale(1);
+        }
+
+        /* Skeleton shimmer effect */
+        .skeleton-shimmer {
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .shimmer-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.6) 50%,
+            rgba(255, 255, 255, 0) 100%
+          );
+          animation: shimmer 1.5s infinite;
+          transform: translateX(-100%);
+        }
+        
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
         }
       `}</style>
     </div>

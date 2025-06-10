@@ -7,6 +7,8 @@ import axios from 'axios';
 import apiConfig from '../../config/apiConfig';
 import NotificationTester from '../../components/admin/NotificationTester';
 import { useNotificationStore } from '../../store/notificationStore';
+import SocketService from '../../services/SocketService';
+import OrderNotificationTest from '../../components/admin/OrderNotificationTest';
 
 // Skeleton loader for order rows
 const OrderRowSkeleton = () => {
@@ -252,6 +254,109 @@ const AdminOrders = () => {
 
   // Add this line with the other hook calls
   const { addOrderStatusNotification } = useNotificationStore();
+  
+  // Initialize socket connection for real-time updates
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    
+    if (userId) {
+      // Initialize the socket connection
+      console.log('🔄 [AdminOrders] Initializing real-time order updates');
+      const socket = SocketService.initializeSocket(userId);
+      
+      // Add more debug logging
+      if (socket) {
+        console.log('🔌 [AdminOrders] Socket initialization requested, socket object:', socket.id);
+        
+        // Check socket connection status
+        console.log('🔌 [AdminOrders] Socket connected status:', socket.connected);
+        
+        // Add more direct event listeners for debugging
+        socket.on('connect', () => {
+          console.log('🔌 [AdminOrders] Socket connected event fired! ID:', socket.id);
+        });
+        
+        socket.on('disconnect', () => {
+          console.log('🔌 [AdminOrders] Socket disconnected event fired!');
+        });
+        
+        socket.on('connect_error', (error) => {
+          console.error('🔌 [AdminOrders] Socket connection error:', error.message);
+        });
+      } else {
+        console.error('🔌 [AdminOrders] Failed to initialize socket - returned null/undefined');
+      }
+      
+      // Set up listeners for real-time order updates
+      SocketService.listenForOrders(
+        // New order callback
+        (newOrder) => {
+          console.log('📦 [AdminOrders] Received new order via socket:', newOrder?.orderNumber);
+          setSuccessMessage(`New order ${newOrder.orderNumber || ''} received!`);
+          
+          // Update the order store directly
+          try {
+            const orderStore = useOrderStore.getState();
+            if (orderStore && orderStore.addOrder) {
+              orderStore.addOrder(newOrder);
+              console.log('✅ [AdminOrders] Order added to store');
+              
+              // Update the filtered orders
+              filterAndSortOrders();
+            }
+          } catch (storeError) {
+            console.error('❌ [AdminOrders] Error updating order store:', storeError);
+          }
+        },
+        // Order update callback
+        (updatedOrder) => {
+          console.log('📝 [AdminOrders] Received order update via socket:', updatedOrder?.orderNumber);
+          
+          // Update the order store directly
+          try {
+            const orderStore = useOrderStore.getState();
+            if (orderStore && orderStore.updateOrder) {
+              orderStore.updateOrder(updatedOrder._id, updatedOrder);
+              console.log('✅ [AdminOrders] Order updated in store');
+              
+              // Update the filtered orders
+              filterAndSortOrders();
+            }
+          } catch (storeError) {
+            console.error('❌ [AdminOrders] Error updating order store:', storeError);
+          }
+        }
+      );
+      
+      // Clean up socket connection on component unmount
+      return () => {
+        console.log('🔌 [AdminOrders] Disconnecting socket');
+        SocketService.disconnectSocket();
+      };
+    } else {
+      console.warn('🔌 [AdminOrders] No userId found in localStorage, cannot initialize socket');
+    }
+  }, []);  // Empty dependency array means this runs once on mount
+  
+  // Also listen for custom events from HTTP requests
+  useEffect(() => {
+    const handleOrderStatusUpdated = (event) => {
+      if (event.detail && event.detail.order) {
+        const { order } = event.detail;
+        console.log('🔔 [AdminOrders] Received order-status-updated event:', order);
+        setSuccessMessage(`Order ${order.orderNumber} status updated to ${order.status}!`);
+        
+        // Refresh order list
+        filterAndSortOrders();
+      }
+    };
+    
+    window.addEventListener('order-status-updated', handleOrderStatusUpdated);
+    
+    return () => {
+      window.removeEventListener('order-status-updated', handleOrderStatusUpdated);
+    };
+  }, []);
 
   // Check viewport width on resize
   useEffect(() => {
@@ -267,29 +372,43 @@ const AdminOrders = () => {
   useEffect(() => {
     const loadOrders = async () => {
       setIsLoading(true);
+      const startTime = Date.now();
+      
       try {
         console.log('Loading all orders...');
         const result = await fetchOrders();
         
-        // If API fetch fails or no orders were returned, try to use sample data
-        if (!result.success || !result.data || result.data.length === 0) {
-          console.log('No orders found in API, initializing with sample data');
-          initializeWithSampleOrder();
+        // Don't initialize with sample data anymore, just show empty state if no orders
+        if (!result.success) {
+          console.log('Failed to load orders from API');
+          // Removed error message since orders are loading correctly
         } else {
-          console.log(`Loaded ${result.data.length} orders`);
+          console.log(`Loaded ${result.data ? result.data.length : 0} orders`);
           
-          // Fetch user details for each order
-          await fetchUserDetailsForOrders(result.data);
+          if (result.data && result.data.length > 0) {
+            // Fetch user details for each order
+            await fetchUserDetailsForOrders(result.data);
+          }
         }
       } catch (error) {
         console.error('Error loading orders:', error);
-        setError('Failed to load orders. Using sample data instead.');
-        initializeWithSampleOrder();
+        // Only set error in case of actual exception, not for expected states
       } finally {
-        setIsLoading(false);
+        // Ensure skeleton animation shows for at least 800ms for better UX
+        const elapsedTime = Date.now() - startTime;
+        const minLoadingTime = 800;
         
-        // Apply initial filtering
-        filterAndSortOrders();
+        if (elapsedTime < minLoadingTime) {
+          setTimeout(() => {
+            setIsLoading(false);
+            // Apply initial filtering
+            filterAndSortOrders();
+          }, minLoadingTime - elapsedTime);
+        } else {
+          setIsLoading(false);
+          // Apply initial filtering
+          filterAndSortOrders();
+        }
       }
     };
     
@@ -470,8 +589,9 @@ const AdminOrders = () => {
   const handleRefresh = () => {
     setIsRefreshing(true);
     setCurrentPage(1);
+    const startTime = Date.now();
     
-    // Set a timeout to simulate network request for better UX
+    // Fetch data with a minimum loading time for better UX
     setTimeout(async () => {
       try {
         // If we have orders, fetch fresh user details
@@ -485,9 +605,19 @@ const AdminOrders = () => {
       } catch (err) {
         setError(`Error refreshing orders: ${err.message}`);
       } finally {
-        setIsRefreshing(false);
+        // Ensure skeleton animation shows for at least 800ms
+        const elapsedTime = Date.now() - startTime;
+        const minLoadingTime = 800;
+        
+        if (elapsedTime < minLoadingTime) {
+          setTimeout(() => {
+            setIsRefreshing(false);
+          }, minLoadingTime - elapsedTime);
+        } else {
+          setIsRefreshing(false);
+        }
       }
-    }, 1000);
+    }, 200);
   };
 
   // Handle view order details
@@ -568,33 +698,33 @@ const AdminOrders = () => {
       const customerEmail = orderToUpdate?.customerEmail;
       
       try {
-        const updatedOrder = updateOrderStatus(orderId, newStatus);
+      const updatedOrder = updateOrderStatus(orderId, newStatus);
+      
+      if (updatedOrder) {
+        console.log(`[AdminOrders] Successfully updated order status:`, updatedOrder);
+      setSuccessMessage(`Order status updated to ${newStatus}!`);
+      setTimeout(() => setSuccessMessage(''), 3000);
         
-        if (updatedOrder) {
-          console.log(`[AdminOrders] Successfully updated order status:`, updatedOrder);
-          setSuccessMessage(`Order status updated to ${newStatus}!`);
-          setTimeout(() => setSuccessMessage(''), 3000);
+        // Log the update
+        console.log(`[AdminOrders] Updated order ${orderId} status to ${newStatus}`);
+        
+        // Manually trigger notification without using require
+        try {
+          console.log('[AdminOrders] Manually triggering notification for order status update');
+          addOrderStatusNotification(updatedOrder);
           
-          // Log the update
-          console.log(`[AdminOrders] Updated order ${orderId} status to ${newStatus}`);
-          
-          // Manually trigger notification without using require
-          try {
-            console.log('[AdminOrders] Manually triggering notification for order status update');
-            addOrderStatusNotification(updatedOrder);
-            
-            // Also dispatch an event for the notification service
-            if (window.dispatchEvent && CustomEvent) {
-              const event = new CustomEvent('order-status-updated', { 
-                detail: { order: updatedOrder } 
-              });
-              window.dispatchEvent(event);
-              console.log('[AdminOrders] Dispatched order-status-updated event');
-            }
-          } catch (e) {
-            console.error('[AdminOrders] Failed to manually trigger notification:', e);
+          // Also dispatch an event for the notification service
+          if (window.dispatchEvent && CustomEvent) {
+            const event = new CustomEvent('order-status-updated', { 
+              detail: { order: updatedOrder } 
+            });
+            window.dispatchEvent(event);
+            console.log('[AdminOrders] Dispatched order-status-updated event');
           }
-          
+        } catch (e) {
+          console.error('[AdminOrders] Failed to manually trigger notification:', e);
+        }
+        
           // Send email notification to customer if email is available
           if (customerEmail) {
             console.log(`[AdminOrders] Sending status update email to customer: ${customerEmail}`);
@@ -602,9 +732,9 @@ const AdminOrders = () => {
           } else {
             console.log('[AdminOrders] No customer email available, skipping email notification');
           }
-        } else {
-          console.error(`[AdminOrders] Failed to update order ${orderId} status to ${newStatus}`);
-          setError('Failed to update order status');
+      } else {
+        console.error(`[AdminOrders] Failed to update order ${orderId} status to ${newStatus}`);
+        setError('Failed to update order status');
         }
       } catch (storageError) {
         console.error('[AdminOrders] Storage error:', storageError);
@@ -696,7 +826,7 @@ const AdminOrders = () => {
         setIsStorageQuotaError(true);
         setError(`Storage quota exceeded. You need to clear some data to continue. Click the "Clear Order Storage" button below.`);
       } else {
-        setError(`Error updating status: ${err.message}`);
+      setError(`Error updating status: ${err.message}`);
       }
     } finally {
       setIsLoading(false);
@@ -1037,16 +1167,18 @@ const AdminOrders = () => {
         if (response.data.success) {
           // Clear orders from store
           clearOrders();
+          
+          // Double check localStorage is cleared too
+          localStorage.removeItem('sinosply-order-storage');
+          
           // Reset filtered orders
           setFilteredOrders([]);
+          
           // Show success message
           setSuccessMessage(`Successfully cleared ${response.data.deletedCount} orders from the database`);
+          
           // Reset page to 1
           setCurrentPage(1);
-          
-          setTimeout(() => {
-            window.location.reload(); // Refresh page after clearing
-          }, 2000);
         } else {
           setError(`Failed to clear orders: ${response.data.error}`);
         }
@@ -1060,47 +1192,45 @@ const AdminOrders = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gray-50 overflow-x-hidden">
       <div className="hidden md:block md:fixed md:w-64 md:h-full">
         <Sidebar />
       </div>
       
-      <div className="w-full md:ml-64">
+      <div className="w-full md:ml-64 max-w-full">
         {isLoading && <LoadingOverlay />}
         
         <div className="p-3 sm:p-6">
           <div className="mb-4 sm:mb-8">
-                          <div className="flex justify-between items-center flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Orders Management</h1>
+            <div className="flex justify-between items-center flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Orders Management</h1>
               
               {/* Tools buttons */}
               <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
                 <button 
                   onClick={toggleNotificationTester}
-                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md transition-colors"
+                  className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md transition-colors"
                 >
-                  <span className="hidden xs:inline">{showNotificationTester ? 'Hide' : 'Show'} Notification Tester</span>
-                  <span className="xs:hidden">{showNotificationTester ? 'Hide' : 'Show'} Tester</span>
+                  <FaInfoCircle className="inline mr-1" />
+                  <span>{showNotificationTester ? 'Hide' : 'Show'} Tester</span>
                 </button>
                 
                 <button 
                   onClick={triggerTestNotification}
-                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-md transition-colors"
+                  className="text-xs px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-md transition-colors"
                 >
                   <FaBell className="inline mr-1" />
-                  <span className="hidden xs:inline">Test Notification</span>
-                  <span className="xs:hidden">Test</span>
+                  <span>Test Notify</span>
                 </button>
 
                 {/* Add the clear all orders button */}
                 <button 
                   onClick={handleClearAllOrders}
                   disabled={clearingOrders}
-                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded-md transition-colors"
+                  className="text-xs px-2 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded-md transition-colors"
                 >
                   <FaTrash className="inline mr-1" />
-                  <span className="hidden xs:inline">{clearingOrders ? 'Clearing...' : 'Clear All Orders'}</span>
-                  <span className="xs:hidden">{clearingOrders ? 'Clearing...' : 'Clear All'}</span>
+                  <span>{clearingOrders ? 'Clearing...' : 'Clear All'}</span>
                 </button>
               </div>
             </div>
@@ -1110,7 +1240,7 @@ const AdminOrders = () => {
           {/* Notification Tester */}
           {showNotificationTester && (
             <div className="mb-6">
-              <NotificationTester />
+              <OrderNotificationTest />
             </div>
           )}
           
@@ -1197,11 +1327,10 @@ const AdminOrders = () => {
               </div>
               
               <button
-                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center col-span-2 md:col-span-1 mt-1 md:mt-0 ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
+                className={`px-2 py-1 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center col-span-2 md:col-span-1 mt-1 md:mt-0 ${isRefreshing ? 'opacity-75 cursor-not-allowed' : ''}`}
                 onClick={handleRefresh}
                 disabled={isRefreshing}
               >
-                <FaSync className={`mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </button>
             </div>
@@ -1215,8 +1344,8 @@ const AdminOrders = () => {
             </div>
           )}
           
-          {/* Error message */}
-          {error && (
+          {/* Error message - only show for actual errors, not expected states */}
+          {error && error !== 'Failed to load orders. Please try again later.' && (
             <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4 sm:mb-6">
               <h3 className="font-semibold mb-2">Error:</h3>
               <p className="text-sm">{error}</p>
@@ -1235,12 +1364,12 @@ const AdminOrders = () => {
                   </p>
                 </div>
               ) : (
-                <button 
-                  className="mt-2 text-sm px-3 py-1 bg-red-200 text-red-800 rounded-md hover:bg-red-300"
-                  onClick={handleRefresh}
-                >
-                  Try Again
-                </button>
+              <button 
+                className="mt-2 text-sm px-3 py-1 bg-red-200 text-red-800 rounded-md hover:bg-red-300"
+                onClick={handleRefresh}
+              >
+                Try Again
+              </button>
               )}
             </div>
           )}
@@ -1248,13 +1377,13 @@ const AdminOrders = () => {
           {/* Orders Table (Desktop) / Cards (Mobile) */}
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             {/* Desktop View */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+            <div className="hidden md:block overflow-x-auto w-full">
+              <table className="w-full table-fixed divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="w-1/5 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                       onClick={() => handleSort('customerName')}
                     >
                       <div className="flex items-center">
@@ -1264,12 +1393,12 @@ const AdminOrders = () => {
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="w-1/4 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Order Info
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                       onClick={() => handleSort('createdAt')}
                     >
                       <div className="flex items-center">
@@ -1281,7 +1410,7 @@ const AdminOrders = () => {
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                       onClick={() => handleSort('totalAmount')}
                     >
                       <div className="flex items-center">
@@ -1293,7 +1422,7 @@ const AdminOrders = () => {
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="w-1/6 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                       onClick={() => handleSort('status')}
                     >
                       <div className="flex items-center">
@@ -1303,14 +1432,14 @@ const AdminOrders = () => {
                         )}
                       </div>
                     </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="w-1/12 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {isRefreshing ? (
-                    // Show skeleton loaders while refreshing
+                  {isLoading || isRefreshing ? (
+                    // Show skeleton loaders while loading or refreshing
                     Array.from({ length: itemsPerPage }).map((_, index) => (
                       <OrderRowSkeleton key={index} />
                     ))
@@ -1318,16 +1447,16 @@ const AdminOrders = () => {
                     currentOrders.map((order) => (
                       <tr key={order._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{formatCustomerName(order)}</div>
-                          <div className="text-sm text-gray-500">{getCustomerEmail(order)}</div>
+                          <div className="text-sm font-medium text-gray-900 truncate">{formatCustomerName(order)}</div>
+                          <div className="text-sm text-gray-500 truncate">{getCustomerEmail(order)}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900">{order.orderNumber}</div>
+                          <div className="text-sm text-gray-900 truncate">{order.orderNumber}</div>
                           <div className="text-sm text-gray-500">
                             {Array.isArray(order.items) ? order.items.length : 0} items
                           </div>
                           {order.trackingNumber && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 truncate max-w-[200px]">
                               Tracking: {order.trackingNumber}
                             </div>
                           )}
@@ -1396,9 +1525,14 @@ const AdminOrders = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
-                        {isLoading ? 'Loading orders...' : 
-                         'No orders found matching your criteria'}
+                      <td colSpan="6" className="px-6 py-10 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                          <FaBox className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-1">No Orders Found</h3>
+                        <p className="text-sm text-gray-500 max-w-md mx-auto">
+                          There are no orders in the system yet. Orders will appear here when customers make purchases.
+                        </p>
                       </td>
                     </tr>
                   )}
@@ -1410,8 +1544,8 @@ const AdminOrders = () => {
             <div className="md:hidden p-3">
               <h3 className="text-sm font-medium text-gray-500 uppercase mb-2">Orders</h3>
               
-              {isRefreshing ? (
-                // Skeleton cards for mobile
+              {isLoading || isRefreshing ? (
+                // Skeleton cards for mobile while loading or refreshing
                 Array.from({ length: 3 }).map((_, index) => (
                   <OrderCardSkeleton key={index} />
                 ))
@@ -1432,15 +1566,21 @@ const AdminOrders = () => {
                   />
                 ))
               ) : (
-                <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg">
-                  {isLoading ? 'Loading orders...' : 'No orders found matching your criteria'}
+                <div className="text-center py-10 bg-white rounded-lg shadow-sm border border-gray-100">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                    <FaBox className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-1">No Orders Found</h3>
+                  <p className="text-sm text-gray-500 max-w-md mx-auto mb-4">
+                    There are no orders in the system yet. Orders will appear here when customers make purchases.
+                  </p>
                 </div>
               )}
             </div>
             
             {/* Pagination - Keep existing pagination code */}
             {totalPages > 1 && (
-              <div className="px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between border-t border-gray-200">
+              <div className="px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between border-t border-gray-200 overflow-x-auto">
                 <div className="flex justify-between sm:hidden mb-3">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
@@ -1468,8 +1608,8 @@ const AdminOrders = () => {
                     Next
                   </button>
                 </div>
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between max-w-full">
+                  <div className="truncate">
                     <p className="text-sm text-gray-700">
                       Showing <span className="font-medium">{indexOfFirstOrder + 1}</span> to{' '}
                       <span className="font-medium">

@@ -79,7 +79,7 @@ const SignUp = () => {
         localStorage.setItem('user', JSON.stringify(userData));
         (userData);
         
-        navigate('/');
+        navigate('/sinosply-stores');
       }
     } catch (err) {
       setError(err.message || `${provider} signup failed`);

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useOrderStore } from '../store/orderStore';
 import apiConfig from '../config/apiConfig';
 import axios from 'axios';
+import SocketService from '../services/SocketService';
 
 const PaymentPage = () => {
   const location = useLocation();
@@ -503,15 +504,37 @@ const PaymentPage = () => {
         receiptLink: receiptType === 'link' ? receiptLink : null
       });
       
-      // Save the order to the store with user association
-      console.log('💾 Order - Saving order to store with receipt included');
-      orderStore.addOrder({
+      // Create the order object to save
+      const orderObject = {
         ...orderDetails,
         status: 'Processing',
         createdAt: new Date().toISOString(),
         customerEmail: formData.email || orderInfo?.contactInfo?.email || 'customer@example.com',
         customerName: orderInfo?.contactInfo?.name || 'Customer'
-      });
+      };
+
+      // Save the order to the store with user association
+      console.log('💾 Order - Saving order to store with receipt included');
+      orderStore.addOrder(orderObject);
+      
+      // Notify admins about the new order via socket
+      try {
+        // Initialize socket if needed (for guest users)
+        const socket = SocketService.getSocket() || SocketService.initializeSocket('guest-user');
+        if (socket && socket.connected) {
+          console.log('🔌 Emitting new-order event via socket');
+          socket.emit('new-order', { order: orderObject });
+        } else {
+          console.log('🔌 Socket not connected, using API fallback for notifying admins');
+          // Fallback: Make a direct API call to notify about the new order
+          axios.post(`${apiConfig.apiUrl}/api/v1/orders/notify-new-order`, {
+            order: orderObject
+          }).catch(err => console.error('Failed to notify about new order:', err));
+        }
+      } catch (socketError) {
+        console.error('❌ Socket notification error:', socketError);
+        // Continue with order process even if socket fails
+      }
       
       console.log("🔄 Order - Navigating to order confirmation with:", {
         orderId: orderDetails.id, 

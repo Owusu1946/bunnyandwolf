@@ -130,6 +130,52 @@ const PlatformDetailsPage = () => {
     }
   };
   
+  // Handle toggling active status
+  const handleToggleActive = async () => {
+    try {
+      if (!platform) return;
+      
+      setLoading(true);
+      
+      const updatedPlatform = { 
+        ...platform,
+        isActive: !platform.isActive 
+      };
+      
+      await updatePlatform(id, updatedPlatform);
+      
+      // Force refresh platform data
+      await handleRefresh();
+      
+      // Show success message
+      const status = !platform.isActive ? 'activated' : 'deactivated';
+      setError(null);
+      // Set a success message instead of an error
+      const successMessage = `Platform ${status} successfully`;
+      // Use the error field to display a success message with different styling
+      const successElement = document.createElement('div');
+      successElement.className = 'success-toast';
+      successElement.innerHTML = `
+        <div class="fixed top-4 right-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded shadow-lg z-50 flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+          </svg>
+          ${successMessage}
+        </div>
+      `;
+      document.body.appendChild(successElement);
+      setTimeout(() => {
+        document.body.removeChild(successElement);
+      }, 3000);
+      
+      setLastUpdated(new Date());
+    } catch (err) {
+      setError(`Failed to update platform status: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   // If loading, show loading overlay
   if (loading || platformsLoading) {
     return (
@@ -256,15 +302,20 @@ const PlatformDetailsPage = () => {
                 <div>
                   <div className="flex items-center flex-wrap">
                     <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{platform.name}</h1>
-                    {platform.isActive ? (
-                      <span className="ml-3 mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="ml-3 mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        Inactive
-                      </span>
-                    )}
+                    
+                    <button 
+                      onClick={handleToggleActive}
+                      className={`ml-3 mt-1 inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        platform.isActive 
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                      }`}
+                    >
+                      {platform.isActive ? 'Active' : 'Inactive'}
+                      <div className={`ml-2 w-8 h-4 rounded-full relative ${platform.isActive ? 'bg-green-500' : 'bg-gray-400'}`}>
+                        <div className={`absolute w-3 h-3 bg-white rounded-full top-0.5 transition-transform ${platform.isActive ? 'translate-x-4' : 'translate-x-1'}`}></div>
+                      </div>
+                    </button>
                   </div>
                   <p className="mt-2 text-gray-600">{platform.description}</p>
                 </div>
@@ -278,6 +329,40 @@ const PlatformDetailsPage = () => {
                 </a>
               </div>
             </div>
+          </div>
+          
+          {/* Active Status Toggle */}
+          <div className="mb-4 md:mb-6">
+            <button 
+              onClick={handleToggleActive}
+              className={`w-full p-4 rounded-lg shadow-sm flex justify-between items-center transition-colors ${
+                platform.isActive 
+                  ? 'bg-green-50 hover:bg-green-100 border border-green-200' 
+                  : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+              }`}
+            >
+              <div className="flex items-center">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                  platform.isActive ? 'bg-green-500' : 'bg-gray-400'
+                }`}>
+                  {platform.isActive ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <span className="ml-3 font-medium">
+                  {platform.isActive ? 'Platform is currently active and visible to customers' : 'Platform is currently inactive and hidden from customers'}
+                </span>
+              </div>
+              <span className="text-sm font-medium">
+                Click to {platform.isActive ? 'deactivate' : 'activate'}
+              </span>
+            </button>
           </div>
           
           {/* Platform Statistics */}

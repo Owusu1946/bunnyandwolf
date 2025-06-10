@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaCopy, FaStar, FaSync, FaGlobe } from 'react-icons/fa';
+import { FaSearch, FaEdit, FaTrash, FaPlus, FaTimes, FaImage, FaCopy, FaStar, FaSync, FaGlobe, FaBoxOpen } from 'react-icons/fa';
 import axios from 'axios';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
@@ -166,6 +166,32 @@ const ProductsPage = () => {
       alert('Failed to refresh product stock. Please try again.');
     } finally {
       setStockRefreshing(false);
+    }
+  };
+
+  // Add function to clear all products
+  const handleClearAllProducts = async () => {
+    if (window.confirm("WARNING! This will permanently delete ALL products from the database. This action cannot be undone. Are you sure you want to proceed?")) {
+      setLoading(true);
+      try {
+        // Call the store method to clear all products from API
+        const result = await productStore.clearAllProductsFromAPI();
+        
+        if (result.success) {
+          // Clear local products state
+          setProducts([]);
+          setTotalPages(1);
+          setCurrentPage(1);
+          alert('All products have been successfully deleted');
+        } else {
+          alert(result.error || 'Failed to clear products. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error clearing products:', error);
+        alert('An error occurred while clearing products');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -1069,6 +1095,13 @@ const ProductsPage = () => {
                     <FaImage className="mr-2" /> 
                     {showSampleOnly ? 'All' : 'Sample'}
                   </button>
+                  <button
+                    onClick={handleClearAllProducts}
+                    className="flex items-center px-3 py-2 text-sm border border-red-300 text-red-600 hover:bg-red-50 rounded-lg flex-grow sm:flex-grow-0"
+                  >
+                    <FaTrash className="mr-2" /> 
+                    Clear All
+                  </button>
                 </div>
               </div>
               
@@ -1201,11 +1234,17 @@ const ProductsPage = () => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-20">
-                    <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                    </svg>
-                    <h3 className="text-xl font-medium text-gray-700 mb-1">No products found</h3>
-                    <p className="text-gray-500">Add some products to your inventory</p>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 max-w-md w-full text-center">
+                      <FaBoxOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-xl font-medium text-gray-700 mb-2">No products found</h3>
+                      <p className="text-gray-500 mb-6">Your inventory is currently empty. Add your first product to get started.</p>
+                      <button 
+                        onClick={handleAddProductOpen}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 inline-flex items-center"
+                      >
+                        <FaPlus className="mr-2" /> Add Your First Product
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1223,12 +1262,18 @@ const ProductsPage = () => {
                     <ProductCard key={product._id} product={product} />
                   ))
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                    </svg>
-                    <h3 className="text-lg font-medium text-gray-700 mb-1">No products found</h3>
-                    <p className="text-sm text-gray-500">Add products to your inventory</p>
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 w-full mx-3 text-center">
+                      <FaBoxOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <h3 className="text-lg font-medium text-gray-700 mb-1">No products found</h3>
+                      <p className="text-sm text-gray-500 mb-4">Your inventory is currently empty</p>
+                      <button 
+                        onClick={handleAddProductOpen}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 inline-flex items-center text-sm"
+                      >
+                        <FaPlus className="mr-2" /> Add Product
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
