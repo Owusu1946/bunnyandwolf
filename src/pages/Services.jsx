@@ -82,9 +82,9 @@ const Services = () => {
       image: 'https://images.unsplash.com/photo-1635405074683-96d6921a2a68?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     },
     {
-      title: 'Amazon FBA Prep',
-      description: 'We prepare your products for Amazon FBA with proper labeling, packaging, and compliance requirements.',
-      image: 'https://images.unsplash.com/photo-1575997759258-91792eaaf87b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
+      title: 'Dropshipping',
+      description: 'Start selling online with zero inventory using our end-to-end dropshipping service that handles fulfillment and shipping.',
+      image: 'https://images.unsplash.com/photo-1580674285054-bed31e145f59?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80'
     }
   ];
 

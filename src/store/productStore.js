@@ -474,7 +474,11 @@ export const useProductStore = create(
           return products;
         }
         
-        const categoryProducts = products.filter(p => p.category === category);
+        // Make the comparison case-insensitive
+        const uppercaseCategory = category.toUpperCase();
+        const categoryProducts = products.filter(p => 
+          p.category && p.category.toUpperCase() === uppercaseCategory
+        );
         console.log(`🔍 ProductStore: Found ${categoryProducts.length} products in category "${category}"`);
         
         return categoryProducts;

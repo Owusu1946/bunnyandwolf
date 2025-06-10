@@ -1056,9 +1056,9 @@ const ProductsPage = () => {
                   <option value="all">All Categories</option>
                   <option value="NEW ARRIVALS">NEW ARRIVALS</option>
                   <option value="BEST SELLERS">BEST SELLERS</option>
-                  <option value="DRESSES">DRESSES</option>
-                  <option value="TOPS">TOPS</option>
-                  <option value="BOTTOMS">BOTTOMS</option>
+                  <option value="HAIR">HAIR</option>
+                  <option value="GADGETS">GADGETS</option>
+                  <option value="EXCLUSIVES">EXCLUSIVES</option>
                   <option value="BACK IN STOCK">BACK IN STOCK</option>
                 </select>
                 
@@ -1377,9 +1377,9 @@ const ProductsPage = () => {
                           <option value="">Select Category</option>
                           <option value="NEW ARRIVALS">NEW ARRIVALS</option>
                           <option value="BEST SELLERS">BEST SELLERS</option>
-                          <option value="DRESSES">DRESSES</option>
-                          <option value="TOPS">TOPS</option>
-                          <option value="BOTTOMS">BOTTOMS</option>
+                          <option value="HAIR">HAIR</option>
+                          <option value="GADGETS">GADGETS</option>
+                          <option value="EXCLUSIVES">EXCLUSIVES</option>
                           <option value="BACK IN STOCK">BACK IN STOCK</option>
                         </select>
                       </div>
@@ -1960,9 +1960,9 @@ const ProductsPage = () => {
                           <option value="">Select Category</option>
                           <option value="NEW ARRIVALS">NEW ARRIVALS</option>
                           <option value="BEST SELLERS">BEST SELLERS</option>
-                          <option value="DRESSES">DRESSES</option>
-                          <option value="TOPS">TOPS</option>
-                          <option value="BOTTOMS">BOTTOMS</option>
+                          <option value="HAIR">HAIR</option>
+                          <option value="GADGETS">GADGETS</option>
+                          <option value="EXCLUSIVES">EXCLUSIVES</option>
                           <option value="BACK IN STOCK">BACK IN STOCK</option>
                         </select>
                       </div>

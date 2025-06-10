@@ -51,9 +51,9 @@ import SearchResults from './pages/SearchResults'
 // Import category pages
 import NewArrivalsPage from './pages/NewArrivalsPage'
 import BestSellersPage from './pages/BestSellersPage'
-import DressesPage from './pages/DressesPage'
-import TopsPage from './pages/TopsPage'
-import BottomsPage from './pages/BottomsPage'
+import GadgetsPage from './pages/GadgetsPage'
+import HairPage from './pages/HairPage'
+import ExclusivesPage from './pages/ExclusivesPage'
 import BackInStockPage from './pages/BackInStockPage'
 import { useOrderStore } from './store/orderStore'
 import { useNotificationStore } from './store/notificationStore'
@@ -175,9 +175,9 @@ const AppWrapper = () => {
                 {/* Category Pages */}
                 <Route path="/new-arrivals" element={<NewArrivalsPage />} />
                 <Route path="/best-sellers" element={<BestSellersPage />} />
-                <Route path="/dresses" element={<DressesPage />} />
-                <Route path="/tops" element={<TopsPage />} />
-                <Route path="/bottoms" element={<BottomsPage />} />
+                <Route path="/gadgets" element={<GadgetsPage />} />
+                <Route path="/hair" element={<HairPage />} />
+                <Route path="/exclusives" element={<ExclusivesPage />} />
                 <Route path="/back-in-stock" element={<BackInStockPage />} />
                 <Route path="/sinosply-stores" element={<SinosplyStores />} />
                 

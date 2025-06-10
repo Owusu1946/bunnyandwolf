@@ -73,16 +73,16 @@ const Navbar = () => {
       path: '/best-sellers',
     },
     {
-      name: 'TOPS',
-      path: '/tops',
+      name: 'GADGETS',
+      path: '/gadgets',
     },
     {
-      name: 'DRESSES',
-      path: '/dresses',
+      name: 'HAIR',
+      path: '/hair',
     },
     {
-      name: 'BOTTOMS',
-      path: '/bottoms',
+      name: 'EXCLUSIVES',
+      path: '/exclusives',
     },
     {
       name: 'BACK IN STOCK',

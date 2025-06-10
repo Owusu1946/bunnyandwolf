@@ -210,7 +210,7 @@ const Home = () => {
             description: "Access our curated network of over 2,000 trusted Chinese manufacturers with direct factory prices.",
             linkTo: "/products",
             linkText: "Explore our products",
-            bgImage: "https://images.unsplash.com/photo-1599357230542-322a34085e1e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1920&q=80"
+            bgImage: "https://images.unsplash.com/photo-1494522855154-9297ac14b55f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1920&q=80"
       },
       {
         id: 3,

@@ -110,8 +110,8 @@ const SinosplyContact = () => {
       icon: <FaPhone className="w-6 h-6" />,
       title: "Call Us",
       details: [
-        "+233 20 123 4567",
-        "233 20 123 4567"
+        "+233 59 503 4394",
+        "+233 59 503 4394"
       ]
     },
     {
@@ -280,7 +280,7 @@ const SinosplyContact = () => {
                       onChange={handleChange}
                       required
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
-                      placeholder="+233 20 123 4567"
+                      placeholder="+233 59 503 4394"
                     />
                   </div>
                   

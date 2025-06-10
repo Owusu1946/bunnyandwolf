@@ -8,9 +8,9 @@ const FashionShop = () => {
   const categories = [
     'NEW ARRIVALS',
     'BEST SELLERS', 
-    'DRESSES',
-    'TOPS',
-    'BOTTOMS',
+    'HAIR',
+    'GADGETS',
+    'EXCLUSIVES',
     'BACK IN STOCK'
   ];
 

@@ -164,7 +164,7 @@ const BannerOverlay = ({ banner }) => {
   );
 };
 
-const BunnyAndWolf = () => {
+const SinosplyStores = () => {
   const [activeTab, setActiveTab] = useState('New Arrivals');
   const { fetchProductsFromAPI, products, featuredProducts, fetchFeaturedProducts } = useProductStore();
   const { fetchCollectionsFromAPI, featuredCollections } = useCollectionsStore();
@@ -174,31 +174,31 @@ const BunnyAndWolf = () => {
   const { user } = useAuth();
   const { initOrderUpdateListeners, notifications } = useNotificationStore();
   
-  // SEO state for fashion store
+  // SEO state for Sinosply Stores
   const [seoData, setSeoData] = useState({
-    title: "Bunny & Wolf | Fashion Store | Sinosply",
-    description: "Discover the latest fashion trends at Bunny & Wolf. Shop our new arrivals, collections, and seasonal must-haves with fast shipping and easy returns.",
-    image: "https://sinosply.com/bunny-wolf-og-image.jpg",
+    title: "Sinosply Stores",
+    description: "Discover the latest trends at Sinosply Stores. Shop our new arrivals, collections, and seasonal must-haves with fast shipping and easy returns.",
+    image: "https://sinosply.com/sinosply-stores-og-image.jpg",
     type: "website"
   });
   
-  // Fetch SEO data for the fashion store
+  // Fetch SEO data for Sinosply Stores
   useEffect(() => {
-    const fetchFashionStoreSEO = async () => {
+    const fetchSinosplyStoresSEO = async () => {
       try {
-        // Try to get fashion store-specific SEO data
-        const response = await axios.get('/api/v1/seo/generate-metadata?type=platform&id=bunny-wolf');
+        // Try to get Sinosply Stores-specific SEO data
+        const response = await axios.get('/api/v1/seo/generate-metadata?type=platform&id=sinosply-stores');
         
         if (response.data.success) {
           setSeoData(response.data.metadata);
         }
       } catch (err) {
-        console.log('Using default fashion store SEO data', err);
+        console.log('Using default Sinosply Stores SEO data', err);
         // Fall back to default SEO data set in state initialization
       }
     };
     
-    fetchFashionStoreSEO();
+    fetchSinosplyStoresSEO();
   }, []);
   
   // Update SEO when featured products change
@@ -1099,4 +1099,4 @@ const BunnyAndWolf = () => {
   );
 };
 
-export default BunnyAndWolf;
+export default SinosplyStores;

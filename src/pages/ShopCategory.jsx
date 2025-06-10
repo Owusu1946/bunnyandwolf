@@ -24,21 +24,29 @@ const ShopCategory = () => {
   // Filter products by category and search term
   useEffect(() => {
     if (products.length > 0) {
+      // Log available categories for debugging
+      const availableCategories = [...new Set(products.map(p => p.category))];
+      console.log('ShopCategory: Available categories:', availableCategories);
+      console.log('ShopCategory: Current category param:', category);
+      
       let filtered;
       
       if (searchQuery) {
         // Use the store's search functionality
         filtered = searchProducts(searchQuery);
       } else {
-        // Check if category exists before accessing toLowerCase
-        const categoryLower = category?.toLowerCase() || 'all';
-        filtered = categoryLower === 'all' 
+        // Use case-insensitive comparison for more reliable matching
+        const categoryUpper = category?.toUpperCase() || 'ALL';
+        console.log('ShopCategory: Filtering by category (uppercase):', categoryUpper);
+        
+        filtered = categoryUpper === 'ALL' 
           ? products 
           : products.filter(product => 
-              product.category && product.category.toLowerCase() === categoryLower
+              product.category && product.category.toUpperCase() === categoryUpper
             );
       }
       
+      console.log(`ShopCategory: Found ${filtered.length} products for category "${category}"`);
       setFilteredProducts(filtered);
       
       // Initialize selected variants

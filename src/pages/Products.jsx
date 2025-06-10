@@ -30,6 +30,7 @@ const Products = () => {
   // Get platforms from platforms store
   const {
     platforms,
+    activePlatforms,
     fetchPlatformsFromAPI,
     getPlatformById,
     loading: platformsLoading
@@ -45,8 +46,6 @@ const Products = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [displayProducts, setDisplayProducts] = useState([]);
-  const [storeData, setStoreData] = useState([]);
-  const [activeStore, setActiveStore] = useState(null);
   const [showProductPreview, setShowProductPreview] = useState(null);
 
   // Fallback data if API fails
@@ -110,36 +109,33 @@ const Products = () => {
     loadData();
   }, [fetchPlatformsFromAPI]);
 
-  // Process platform data after it's loaded
-  useEffect(() => {
-    console.log('Platforms data updated:', platforms);
-    
-    if (platforms && platforms.length > 0) {
-      // Try to find our three specific platforms in the data
-      const shltr = platforms.find(p => p.name?.toLowerCase().includes('shltr')) || fallbackStores[0];
-      const ezzyBuyz = platforms.find(p => p.name?.toLowerCase().includes('ezzy')) || fallbackStores[1];
-      const bunnyWolf = platforms.find(p => p.name?.toLowerCase().includes('bunny')) || fallbackStores[2];
-      
-      const storesList = [shltr, ezzyBuyz, bunnyWolf];
-      console.log('Processed store data:', storesList);
-      
-      setStoreData(storesList);
-    } else if (!loading) {
+  // Use activePlatforms as the primary data source
+  const storeData = useMemo(() => {
+    console.log('Active platforms data:', activePlatforms);
+    if (activePlatforms && activePlatforms.length > 0) {
+      return activePlatforms;
+    } else if (!platformsLoading) {
       console.log('Using fallback store data');
-      setStoreData(fallbackStores);
+      return fallbackStores;
     }
-  }, [platforms, loading]);
+    return [];
+  }, [activePlatforms, platformsLoading]);
   
   // Combine platform data with additional descriptions
   const enhancedStoreData = useMemo(() => {
     return storeData.map((store, index) => {
-      const fallbackStore = fallbackStores[index];
+      // Find matching fallback store, if any
+      const fallbackStore = fallbackStores.find(f => 
+        f.name.toLowerCase().includes(store.name?.toLowerCase()) || 
+        (store.name?.toLowerCase().includes(f.name.toLowerCase()))
+      ) || fallbackStores[index % fallbackStores.length];
+      
       return {
         ...store,
-        description: store.description || fallbackStore.description,
-        longDescription: store.longDescription || fallbackStore.longDescription,
-        domain: store.domain || fallbackStore.domain,
-        sampleProducts: store.sampleProducts || fallbackStore.sampleProducts
+        description: store.description || fallbackStore?.description || '',
+        longDescription: store.longDescription || fallbackStore?.longDescription || '',
+        domain: store.domain || fallbackStore?.domain || '',
+        sampleProducts: store.sampleProducts || fallbackStore?.sampleProducts || []
       };
     });
   }, [storeData]);
@@ -152,11 +148,6 @@ const Products = () => {
         // If we don't have products yet, fetch them
         if (products.length === 0) {
           await fetchProductsFromAPI();
-        }
-        
-        // If we don't have platforms yet, fetch them
-        if (platforms.length === 0) {
-          await fetchPlatformsFromAPI();
         }
         
         // Apply any URL category filter
@@ -174,7 +165,7 @@ const Products = () => {
     };
     
     loadData();
-  }, [fetchProductsFromAPI, fetchPlatformsFromAPI, products.length, platforms.length, urlCategory, filterByCategory]);
+  }, [fetchProductsFromAPI, products.length, urlCategory, filterByCategory]);
   
   // Update product list when filters change
   const applyFilters = useCallback(() => {
