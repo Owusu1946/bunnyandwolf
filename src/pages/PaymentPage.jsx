@@ -722,7 +722,7 @@ const PaymentPage = () => {
                   <>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                   <p className="text-green-800 text-sm sm:text-base">
-                    You'll be redirected to Chipper Cash to complete your payment safely and securely.
+                    You'll be redirected to Chipper Cash to complete your payment safely and securely. PLEASE COME BACK HERE TO UPLOAD YOUR RECEIPT!!
                   </p>
                 </div>
                 
@@ -785,12 +785,23 @@ const PaymentPage = () => {
                     `Pay with MoMo ${safelyFormatPrice(orderInfo?.total || formData.amount)}`
                   )}
                 </button>
+                
+                <p className="mt-3 text-center text-sm text-gray-600">
+                  <AlertCircle className="inline w-4 h-4 mr-1 text-red-500" />
+                  You <strong>MUST</strong> return to this page after payment to complete your order
+                </p>
                   </>
                 )}
 
                 {paymentStatus === 'pending' && (
                   <div className="space-y-4 sm:space-y-6">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                    <div className="bg-red-100 border-2 border-red-500 rounded-lg p-3 sm:p-4">
+                      <p className="text-red-700 font-bold mb-2 text-base sm:text-lg">
+                        IMPORTANT: YOU MUST RETURN HERE AFTER PAYMENT!
+                      </p>
+                      <p className="text-red-700 mb-2 text-sm sm:text-base">
+                        Your order is NOT complete until you upload your receipt or provide the receipt link below.
+                      </p>
                       <p className="text-blue-800 mb-2 text-sm sm:text-base">
                         Please complete your payment on Chipper Cash. After payment, provide the receipt link or upload a screenshot below.
                       </p>
