@@ -91,7 +91,7 @@ const Footer = () => {
       id: 'customer-service',
       title: 'CUSTOMER SERVICE',
       links: [
-        { text: 'Track Order', path: '/track-order' },
+        { text: 'Track Order', path: '/track' },
         { text: 'Shipping & Returns', path: '/shipping' },
         { text: 'Contact Us', path: '/contact' },
         { text: 'FAQ', path: '/faq' }
@@ -101,7 +101,7 @@ const Footer = () => {
       id: 'about',
       title: 'ABOUT SINOSPLY',
       links: [
-        { text: 'Our Story', path: '/about-us' },
+        { text: 'Our Story', path: '/about' },
         { text: 'Blog', path: '/blog' },
         { text: 'Careers', path: '/careers' },
         { text: 'Store Locator', path: '/store-locator' }

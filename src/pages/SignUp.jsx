@@ -4,8 +4,13 @@ import { FaGoogle, FaEnvelope, FaLock, FaPhone, FaEye, FaEyeSlash } from 'react-
 import { FiShoppingCart } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { register, socialAuth } from '../services/auth';
+import axios from 'axios';
+import apiConfig from '../config/apiConfig';
 
-
+// Create an axios instance with the correct baseURL
+const api = axios.create({
+  baseURL: apiConfig.baseURL
+});
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -44,7 +49,28 @@ const SignUp = () => {
     }
 
     try {
-      await register(formData);
+      // Register the user
+      const response = await register(formData);
+      
+      // If registration is successful, send welcome email
+      if (response && response.success) {
+        try {
+          // Send welcome email
+          await api.post('/email/welcome', {
+            email: formData.email,
+            userData: {
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              userId: response.userId || response._id || ''
+            }
+          });
+          console.log('Welcome email sent successfully');
+        } catch (emailError) {
+          console.error('Failed to send welcome email:', emailError);
+          // Continue with registration process even if email fails
+        }
+      }
+      
       navigate('/login');
     } catch (err) {
       setError(err.message || 'Registration failed');
@@ -78,6 +104,22 @@ const SignUp = () => {
         };
         localStorage.setItem('user', JSON.stringify(userData));
         (userData);
+        
+        // Send welcome email for social sign-ups too
+        try {
+          await api.post('/email/welcome', {
+            email: userData.email,
+            userData: {
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              userId: response.user._id || ''
+            }
+          });
+          console.log('Welcome email sent for social signup');
+        } catch (emailError) {
+          console.error('Failed to send welcome email for social signup:', emailError);
+          // Continue with login process even if email fails
+        }
         
         navigate('/sinosply-stores');
       }

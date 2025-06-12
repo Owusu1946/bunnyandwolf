@@ -59,6 +59,11 @@ import { useOrderStore } from './store/orderStore'
 import { useNotificationStore } from './store/notificationStore'
 // Import NotificationService to ensure it's initialized
 import './services/NotificationService'
+// Import new pages
+import ShippingPage from './pages/ShippingPage'
+import BlogPage from './pages/BlogPage'
+import CareersPage from './pages/CareersPage'
+import StoreLocatorPage from './pages/StoreLocatorPage'
 
 // Wrap AdminRoute components with SidebarProvider
 const AdminRouteWithSidebar = ({ children }) => {
@@ -170,7 +175,12 @@ const AppWrapper = () => {
                 <Route path="/search" element={<SearchResults />} />
                 <Route path="/contact" element={<Contact />} />
                 
-
+                {/* New routes for Footer pages */}
+                <Route path="/shipping" element={<ShippingPage />} />
+                <Route path="/blog" element={<BlogPage />} />
+                <Route path="/careers" element={<CareersPage />} />
+                <Route path="/store-locator" element={<StoreLocatorPage />} />
+                <Route path="/faq" element={<FAQ />} />
                 
                 {/* Category Pages */}
                 <Route path="/new-arrivals" element={<NewArrivalsPage />} />
@@ -261,7 +271,6 @@ const AppWrapper = () => {
                     <PlatformDetailsPage />
                   </AdminRouteWithSidebar>
                 } />
-                <Route path="/faq" element={<FAQ />} />
                 <Route path="/sinosply-contact" element={<SinosplyContact />} />
               </Routes>
             </WishlistProvider>

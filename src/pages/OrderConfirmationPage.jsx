@@ -678,7 +678,7 @@ const OrderConfirmationPage = () => {
   }, [location.state, clearCart, orderStore, productStore]);
   
   const handleContinueShopping = () => {
-    navigate('/');
+    navigate('/sinosply-stores');
   };
   
   const handleViewDetails = () => {
@@ -862,7 +862,7 @@ const OrderConfirmationPage = () => {
                   <ul className="mt-1 text-sm text-gray-600 space-y-1">
                     <li>• A confirmation email has been sent to <span className="font-medium">{orderDetails.customerInfo?.email || orderDetails.customer?.email || 'your email address'}</span></li>
                     <li>• Our admin team has been notified about your order</li>
-                    <li>• Emails are sent from <span className="font-medium">onboarding@resend.dev</span> - please check your spam folder if needed</li>
+                    <li>• Emails are sent from <span className="font-medium">orders@sinosply.com</span> - please check your spam folder if needed</li>
                   </ul>
                   <p className="mt-2 text-xs text-gray-500">
                     We use Resend for email delivery. If you don't see the email in your inbox within a few minutes, please check your spam folder or contact our support team.
