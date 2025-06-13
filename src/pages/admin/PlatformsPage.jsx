@@ -85,10 +85,27 @@ const PlatformsPage = () => {
   // Function to fetch platforms data
   const fetchPlatformsData = async () => {
     try {
-      await fetchPlatformsFromAPI();
-      setLastUpdated(new Date());
+      setLoading(true);
+      const response = await fetch(`${apiConfig.baseURL}/platforms?populate=featuredProductsList`);
+      const data = await response.json();
+      
+      if (data.success) {
+        // Process platforms to ensure they have proper descriptions and featured products
+        const processedPlatforms = data.data.map(platform => ({
+          ...platform,
+          description: platform.description || `${platform.name} - Your trusted shopping destination`,
+          longDescription: platform.longDescription || platform.description,
+          featuredProducts: platform.featuredProductsList || []
+        }));
+        
+        setPlatforms(processedPlatforms);
+      } else {
+        console.error('Failed to fetch platforms:', data.error);
+      }
     } catch (error) {
-      console.error("Error fetching platforms data:", error);
+      console.error('Error fetching platforms:', error);
+    } finally {
+      setLoading(false);
     }
   };
 

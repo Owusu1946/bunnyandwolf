@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaExternalLinkAlt, FaEdit, FaTrash, FaPlus, FaExclamationCircle, FaSync, FaBars } from 'react-icons/fa';
+import { FaArrowLeft, FaExternalLinkAlt, FaEdit, FaTrash, FaPlus, FaExclamationCircle, FaSync, FaBars, FaStar } from 'react-icons/fa';
 import Sidebar from '../../components/admin/Sidebar';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { usePlatformsStore } from '../../store/platformsStore';
@@ -18,6 +18,7 @@ const PlatformDetailsPage = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [updatingFeatured, setUpdatingFeatured] = useState(false);
   
   // Get platform data from store
   const { 
@@ -173,6 +174,48 @@ const PlatformDetailsPage = () => {
       setError(`Failed to update platform status: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Add function to handle toggling featured status
+  const handleToggleFeatured = async (productId) => {
+    try {
+      setUpdatingFeatured(true);
+      const token = localStorage.getItem('token');
+      
+      // Get current platform
+      const currentPlatform = platforms.find(p => p._id === id);
+      if (!currentPlatform) return;
+
+      // Create new featured products array
+      const currentFeatured = currentPlatform.featuredProducts || [];
+      const newFeatured = currentFeatured.includes(productId)
+        ? currentFeatured.filter(id => id !== productId)
+        : [...currentFeatured, productId];
+
+      // Update platform with new featured products
+      const response = await fetch(`${apiConfig.baseURL}/platforms/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          featuredProducts: newFeatured
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update featured products');
+      }
+
+      // Refresh data
+      await handleRefresh();
+    } catch (err) {
+      console.error('Error updating featured status:', err);
+      setError('Failed to update featured status. Please try again.');
+    } finally {
+      setUpdatingFeatured(false);
     }
   };
   
@@ -451,7 +494,21 @@ const PlatformDetailsPage = () => {
                       )}
                     </div>
                     <div className="p-4">
-                      <h3 className="font-medium text-gray-900">{product.name}</h3>
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
+                        <button
+                          onClick={() => handleToggleFeatured(product._id)}
+                          disabled={updatingFeatured}
+                          className={`p-2 rounded-full ${
+                            platform.featuredProducts?.includes(product._id)
+                              ? 'text-yellow-500 hover:text-yellow-600'
+                              : 'text-gray-400 hover:text-gray-500'
+                          }`}
+                          title={platform.featuredProducts?.includes(product._id) ? 'Remove from featured' : 'Mark as featured'}
+                        >
+                          <FaStar className="w-5 h-5" />
+                        </button>
+                      </div>
                       <div className="flex justify-between items-center mt-2">
                         <div>
                           <span className="text-lg font-semibold text-gray-900">

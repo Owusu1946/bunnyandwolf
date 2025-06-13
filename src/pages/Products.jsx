@@ -48,49 +48,6 @@ const Products = () => {
   const [displayProducts, setDisplayProducts] = useState([]);
   const [showProductPreview, setShowProductPreview] = useState(null);
 
-  // Fallback data if API fails
-  const fallbackStores = [
-    {
-      _id: '1',
-      name: 'SHLTR',
-      description: 'Space‑Smart Furniture & Home Goods',
-      longDescription: 'Discover modular sofas, fold‑flat beds, and innovative storage solutions engineered for modern living. Curated designs meet durable construction, all shipped straight from our trusted production partners.',
-      logoUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
-      domain: 'shltr.sinosply.com',
-      sampleProducts: [
-        { name: 'Expandable Coffee Table', price: 299, image: 'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
-        { name: 'Modular Sofa System', price: 899, image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
-        { name: 'Compact Desk', price: 249, image: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' }
-      ]
-    },
-    {
-      _id: '2',
-      name: 'EzzyBuyz',
-      description: 'Tech Gadgets & Everyday Accessories',
-      longDescription: 'Stay ahead of the curve with sleek power banks, smart home helpers, and trend‑setting travel essentials. Each item is vetted for performance and style, so you can shop with confidence.',
-      logoUrl: 'https://images.unsplash.com/photo-1546054454-aa26e2b734c7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
-      domain: 'ezzybuyz.sinosply.com',
-      sampleProducts: [
-        { name: 'Smart Power Bank', price: 49, image: 'https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
-        { name: 'Wireless Earbuds', price: 89, image: 'https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
-        { name: 'Smart Watch', price: 129, image: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' }
-      ]
-    },
-    {
-      _id: '3',
-      name: 'Bunny & Wolf',
-      description: 'Stylish Matching Outfits for Couples',
-      longDescription: 'Celebrate your connection with coordinated looks designed for two. From weekend casuals to date‑night statements, each set is handpicked for style harmony and quality fit—so you and your partner can step out in sync.',
-      logoUrl: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80',
-      domain: 'bunnyandwolf.sinosply.com',
-      sampleProducts: [
-        { name: 'Matching Sweater Set', price: 149, image: 'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
-        { name: 'Dual Denim Jackets', price: 179, image: 'https://images.unsplash.com/photo-1548883354-94bcfe321cbb?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' },
-        { name: 'Coordinated Accessories', price: 59, image: 'https://images.unsplash.com/photo-1556774687-0e2fdd0116c0?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&q=80' }
-      ]
-    }
-  ];
-
   // Fetch platforms when component mounts
   useEffect(() => {
     const loadData = async () => {
@@ -114,31 +71,27 @@ const Products = () => {
     console.log('Active platforms data:', activePlatforms);
     if (activePlatforms && activePlatforms.length > 0) {
       return activePlatforms;
-    } else if (!platformsLoading) {
-      console.log('Using fallback store data');
-      return fallbackStores;
     }
     return [];
-  }, [activePlatforms, platformsLoading]);
+  }, [activePlatforms]);
   
   // Combine platform data with additional descriptions
   const enhancedStoreData = useMemo(() => {
-    return storeData.map((store, index) => {
-      // Find matching fallback store, if any
-      const fallbackStore = fallbackStores.find(f => 
-        f.name.toLowerCase().includes(store.name?.toLowerCase()) || 
-        (store.name?.toLowerCase().includes(f.name.toLowerCase()))
-      ) || fallbackStores[index % fallbackStores.length];
-      
+    return storeData.map(store => {
+      // Get featured products for this platform
+      const featuredProducts = products.filter(product => 
+        store.featuredProducts?.includes(product._id)
+      );
+
       return {
         ...store,
-        description: store.description || fallbackStore?.description || '',
-        longDescription: store.longDescription || fallbackStore?.longDescription || '',
-        domain: store.domain || fallbackStore?.domain || '',
-        sampleProducts: store.sampleProducts || fallbackStore?.sampleProducts || []
+        description: store.description || '',
+        longDescription: store.longDescription || '',
+        domain: store.domain || '',
+        sampleProducts: featuredProducts
       };
     });
-  }, [storeData]);
+  }, [storeData, products]);
 
   // Fetch products and platforms when component mounts
   useEffect(() => {
