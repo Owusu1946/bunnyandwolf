@@ -415,7 +415,7 @@ const WishlistPage = () => {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center mb-10">
-          <Link to="/" className="flex items-center text-gray-600 hover:text-gray-900">
+          <Link to="/sinosply-stores" className="flex items-center text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-5 h-5 mr-2" />
             Continue Shopping
           </Link>
@@ -458,7 +458,7 @@ const WishlistPage = () => {
             <h2 className="text-xl font-medium text-gray-900 mb-2">Your wishlist is empty</h2>
             <p className="text-gray-500 mb-6">Looks like you haven't added any items to your wishlist yet.</p>
             <Link 
-              to="/" 
+              to="/sinosply-stores" 
               className="inline-block bg-black text-white py-3 px-8 rounded-md hover:bg-gray-900 transition-colors"
             >
               Discover Products

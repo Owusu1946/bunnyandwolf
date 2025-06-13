@@ -9,7 +9,7 @@ const CTAFooter = ({
   primaryButtonText = "Get a Free Quote Today",
   primaryButtonLink = "/quote",
   secondaryButtonText = "Explore Products",
-  secondaryButtonLink = "/product-gallery",
+  secondaryButtonLink = "/products",
   backgroundColor = "bg-gradient-to-r from-gray-100 to-gray-50"
 }) => {
   return (

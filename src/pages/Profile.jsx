@@ -898,7 +898,7 @@ const Profile = () => {
         <FaHeart className="w-16 h-16 mx-auto text-gray-400 mb-4" />
         <p className="text-gray-600 mb-4">Your wishlist is empty.</p>
         <Link 
-          to="/" 
+          to="/sinosply-stores" 
           className="inline-block bg-black text-white py-2 px-6 rounded-md hover:bg-gray-800 transition-colors"
         >
           Discover Products
