@@ -154,7 +154,7 @@ const TrackingLookupPage = () => {
                   <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800 flex items-center">
                     <Info className="w-4 h-4 mr-1 flex-shrink-0" />
                     <span>
-                      <strong>Note:</strong> Make sure you have the vaid order number or contack customer support
+                      <strong>Note:</strong> Make sure you have the valid order number or contact customer support
                     </span>
                   </div>
                 )}

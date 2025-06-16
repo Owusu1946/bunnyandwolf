@@ -64,6 +64,7 @@ import ShippingPage from './pages/ShippingPage'
 import BlogPage from './pages/BlogPage'
 import CareersPage from './pages/CareersPage'
 import StoreLocatorPage from './pages/StoreLocatorPage'
+import ScrollToTop from './components/ScrollToTop'
 
 // Wrap AdminRoute components with SidebarProvider
 const AdminRouteWithSidebar = ({ children }) => {
@@ -146,6 +147,7 @@ const AppWrapper = () => {
   // App component tree
   return (
     <>
+      <ScrollToTop />
       <AuthProvider>
         <ToastProvider>
           <CartProvider>

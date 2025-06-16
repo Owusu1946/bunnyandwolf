@@ -679,57 +679,88 @@ const AdminOrders = () => {
   };
 
   // Handle status change
-  const handleStatusChange = (orderId, newStatus) => {
+  const handleStatusChange = async (orderId, newStatus) => {
     setIsLoading(true);
     console.log(`[AdminOrders] Changing order ${orderId} status to ${newStatus}`);
     
     try {
-      // Use the enhanced updateOrderStatus which syncs with server
-      console.log(`[AdminOrders] Calling updateOrderStatus(${orderId}, ${newStatus})`);
-      
       // Find the order to get previous status and customer info
       const orderToUpdate = orders.find(o => o._id === orderId);
-      const previousStatus = orderToUpdate?.status;
-      const customerEmail = orderToUpdate?.customerEmail;
+      if (!orderToUpdate) {
+        throw new Error(`Order with ID ${orderId} not found`);
+      }
       
+      const previousStatus = orderToUpdate.status;
+      const customerEmail = orderToUpdate.customerEmail;
+      const orderNumber = orderToUpdate.orderNumber;
+      
+      console.log(`[AdminOrders] Order ${orderNumber}: ${previousStatus} -> ${newStatus}`);
+      
+      // First - update status in the database/store to ensure it's saved
       try {
-      const updatedOrder = updateOrderStatus(orderId, newStatus);
-      
-      if (updatedOrder) {
-        console.log(`[AdminOrders] Successfully updated order status:`, updatedOrder);
-      setSuccessMessage(`Order status updated to ${newStatus}!`);
-      setTimeout(() => setSuccessMessage(''), 3000);
+        // Use the enhanced updateOrderStatus which syncs with server
+        const updatedOrder = updateOrderStatus(orderId, newStatus);
         
-        // Log the update
-        console.log(`[AdminOrders] Updated order ${orderId} status to ${newStatus}`);
-        
-        // Manually trigger notification without using require
-        try {
-          console.log('[AdminOrders] Manually triggering notification for order status update');
-          addOrderStatusNotification(updatedOrder);
+        if (updatedOrder) {
+          console.log(`[AdminOrders] Successfully updated order status in database:`, updatedOrder);
           
-          // Also dispatch an event for the notification service
-          if (window.dispatchEvent && CustomEvent) {
-            const event = new CustomEvent('order-status-updated', { 
-              detail: { order: updatedOrder } 
-            });
-            window.dispatchEvent(event);
-            console.log('[AdminOrders] Dispatched order-status-updated event');
+          // Show initial success message (will update with email status later)
+          setSuccessMessage(`Order #${orderNumber} status updated to ${newStatus}!`);
+          
+          // Log the update
+          console.log(`[AdminOrders] Updated order ${orderNumber} status to ${newStatus}`);
+          
+          // Trigger in-app notification
+          try {
+            console.log('[AdminOrders] Triggering in-app notification for status update');
+            addOrderStatusNotification(updatedOrder);
+            
+            // Also dispatch an event for the notification service
+            if (window.dispatchEvent && CustomEvent) {
+              const event = new CustomEvent('order-status-updated', { 
+                detail: { order: updatedOrder } 
+              });
+              window.dispatchEvent(event);
+            }
+          } catch (notificationError) {
+            console.error('[AdminOrders] Failed to trigger in-app notification:', notificationError);
+            // Continue anyway, this is not critical
           }
-        } catch (e) {
-          console.error('[AdminOrders] Failed to manually trigger notification:', e);
-        }
-        
+          
           // Send email notification to customer if email is available
           if (customerEmail) {
-            console.log(`[AdminOrders] Sending status update email to customer: ${customerEmail}`);
-            sendStatusUpdateEmail(updatedOrder, previousStatus, customerEmail);
+            try {
+              console.log(`[AdminOrders] Sending status update email to customer: ${customerEmail}`);
+              
+              // The sendStatusUpdateEmail now returns a result object
+              const emailResult = await sendStatusUpdateEmail(updatedOrder, previousStatus, customerEmail);
+              
+              if (emailResult.success) {
+                console.log(`[AdminOrders] Email sent successfully to ${customerEmail}`);
+                // Update success message to include email confirmation
+                setSuccessMessage(`Order #${orderNumber} status updated to ${newStatus} and email notification sent!`);
+              } else {
+                console.error(`[AdminOrders] Email failed: ${emailResult.error}`);
+                // Still show success for the status update but mention email failure
+                setSuccessMessage(`Order #${orderNumber} status updated to ${newStatus}, but email notification failed.`);
+              }
+              
+              // Clear message after 5 seconds
+              setTimeout(() => setSuccessMessage(''), 5000);
+            } catch (emailError) {
+              console.error('[AdminOrders] Error sending email:', emailError);
+              // Still show success for the status update but mention email failure
+              setSuccessMessage(`Order #${orderNumber} status updated to ${newStatus}, but email notification failed.`);
+              setTimeout(() => setSuccessMessage(''), 5000);
+            }
           } else {
             console.log('[AdminOrders] No customer email available, skipping email notification');
+            // Clear default success message after 3 seconds
+            setTimeout(() => setSuccessMessage(''), 3000);
           }
-      } else {
-        console.error(`[AdminOrders] Failed to update order ${orderId} status to ${newStatus}`);
-        setError('Failed to update order status');
+        } else {
+          console.error(`[AdminOrders] Failed to update order ${orderNumber} status to ${newStatus}`);
+          setError(`Failed to update order #${orderNumber} status.`);
         }
       } catch (storageError) {
         console.error('[AdminOrders] Storage error:', storageError);
@@ -793,7 +824,7 @@ const AdminOrders = () => {
                     ...ordersCopy[orderIndex],
                     status: newStatus
                   };
-                  sendStatusUpdateEmail(orderForEmail, previousStatus, customerEmail);
+                  await sendStatusUpdateEmail(orderForEmail, previousStatus, customerEmail);
                 }
               } catch (syncError) {
                 console.error('[AdminOrders] Direct server sync failed:', syncError);
@@ -821,7 +852,7 @@ const AdminOrders = () => {
         setIsStorageQuotaError(true);
         setError(`Storage quota exceeded. You need to clear some data to continue. Click the "Clear Order Storage" button below.`);
       } else {
-      setError(`Error updating status: ${err.message}`);
+        setError(`Error updating status: ${err.message}`);
       }
     } finally {
       setIsLoading(false);
@@ -831,38 +862,104 @@ const AdminOrders = () => {
   // Function to send status update email to customer
   const sendStatusUpdateEmail = async (order, previousStatus, email) => {
     try {
+      // Validate required data
+      if (!order || !order.orderNumber) {
+        console.error('[AdminOrders] Invalid order data, cannot send status update email');
+        return { success: false, error: 'Invalid order data' };
+      }
+      
+      if (!email) {
+        console.error('[AdminOrders] No email address provided, cannot send status update email');
+        return { success: false, error: 'Customer email missing' };
+      }
+      
       // Get auth token
       const token = localStorage.getItem('token');
       if (!token) {
         console.error('[AdminOrders] No token found, cannot send status update email');
-        return;
+        return { success: false, error: 'Authentication token missing' };
       }
       
-      console.log('[AdminOrders] Sending status update email to customer:', {
+      console.log('[AdminOrders] Preparing to send status update email to customer:', {
         email,
-        order: order.orderNumber,
-        previousStatus,
+        orderNumber: order.orderNumber,
+        previousStatus: previousStatus || 'Unknown',
         newStatus: order.status
       });
       
-      // Make API call to send status update email
-      const response = await axios.post(
-        `${apiConfig.baseURL}/email/order-status-update`,
-        {
-          email,
-          orderDetails: order,
-          previousStatus
-        },
-        { headers: { Authorization: `Bearer ${token}` }}
-      );
+      // Clean up order data to avoid sending unnecessary large objects
+      const orderDataForEmail = {
+        _id: order._id,
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        customerEmail: email,
+        status: order.status,
+        items: Array.isArray(order.items) ? order.items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })) : [],
+        totalAmount: order.totalAmount,
+        trackingNumber: order.trackingNumber || null,
+        shippingMethod: order.shippingMethod || 'Standard',
+        estimatedDelivery: order.estimatedDelivery || null,
+        createdAt: order.createdAt,
+        updatedAt: new Date().toISOString()
+      };
       
-      if (response.data.success) {
-        console.log('[AdminOrders] Status update email sent successfully');
+      // Retry mechanism for network issues
+      let retries = 2;
+      let response = null;
+      
+      while (retries >= 0) {
+        try {
+          console.log(`[AdminOrders] Sending status update email to ${email} (attempt ${2-retries+1})...`);
+          
+          // Make API call to send status update email
+          response = await axios.post(
+            `${apiConfig.baseURL}/email/order-status-update`,
+            {
+              email,
+              orderDetails: orderDataForEmail,
+              previousStatus
+            },
+            { 
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 10000 // 10 second timeout
+            }
+          );
+          
+          // If successful, break out of retry loop
+          break;
+        } catch (requestError) {
+          retries--;
+          
+          // If we have retries left, wait before trying again
+          if (retries >= 0) {
+            console.warn(`[AdminOrders] Email request failed, retrying... (${retries} attempts left)`);
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+          } else {
+            // No retries left, throw to outer catch
+            throw requestError;
+          }
+        }
+      }
+      
+      if (response?.data?.success) {
+        console.log('[AdminOrders] ✅ Status update email sent successfully', {
+          orderNumber: order.orderNumber,
+          status: order.status,
+          recipient: email,
+          messageId: response.data.messageId
+        });
+        return { success: true, messageId: response.data.messageId };
       } else {
-        console.error('[AdminOrders] Failed to send status update email:', response.data.error);
+        console.error('[AdminOrders] ❌ Failed to send status update email:', response?.data?.error || 'Unknown error');
+        return { success: false, error: response?.data?.error || 'Failed to send email' };
       }
     } catch (error) {
-      console.error('[AdminOrders] Error sending status update email:', error);
+      console.error('[AdminOrders] ❌ Error sending status update email:', error.message);
+      return { success: false, error: error.message || 'Network error' };
     }
   };
 

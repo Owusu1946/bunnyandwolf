@@ -143,6 +143,16 @@ const CheckoutPage = () => {
     }
   }, [user]);
   
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [step]);
+  
   // Fetch shipping methods from settings
   useEffect(() => {
     // We only need to fetch tax rates, not shipping methods since we're using product-specific shipping
@@ -528,6 +538,8 @@ const CheckoutPage = () => {
         // Clear any previous errors
         setFormError('');
         setStep(2);
+        // Scroll to top when moving to next step
+        window.scrollTo(0, 0);
         break;
         
       case 2: // Shipping Address
@@ -548,6 +560,8 @@ const CheckoutPage = () => {
         
         setFormError('');
         setStep(3);
+        // Scroll to top when moving to next step
+        window.scrollTo(0, 0);
         break;
         
       case 3: // Shipping Method
@@ -558,6 +572,8 @@ const CheckoutPage = () => {
         
         setFormError('');
         setStep(4);
+        // Scroll to top when moving to next step
+        window.scrollTo(0, 0);
         break;
         
       case 4: // Review & Payment
@@ -574,6 +590,8 @@ const CheckoutPage = () => {
   const handlePrevStep = () => {
     if (step > 1) {
       setStep(step - 1);
+      // Scroll to top when moving to previous step
+      window.scrollTo(0, 0);
     } else {
       // Go back to cart or product page
       if (isFromCart) {

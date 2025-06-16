@@ -82,7 +82,7 @@ const Products = () => {
       const featuredProducts = products.filter(product => 
         store.featuredProducts?.includes(product._id)
       );
-
+      
       return {
         ...store,
         description: store.description || '',

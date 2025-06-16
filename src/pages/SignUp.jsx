@@ -7,6 +7,7 @@ import { register, socialAuth } from '../services/auth';
 import axios from 'axios';
 import apiConfig from '../config/apiConfig';
 
+
 // Create an axios instance with the correct baseURL
 const api = axios.create({
   baseURL: apiConfig.baseURL
@@ -528,6 +529,7 @@ const SignUp = () => {
         </div>
       </div>
     </div>
+
   );
 };
 
