@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 import apiConfig from '../config/apiConfig';
 import { useOrderStore } from '../store/orderStore';
+import { useNotificationStore } from '../store/notificationStore';
 
 // Singleton pattern for socket connection
 let socket = null;
@@ -84,12 +85,91 @@ const initializeSocket = (userId) => {
     socket.io.on('reconnect_failed', () => {
       console.error('❌ [DEBUG] Failed to reconnect after all attempts');
     });
+
+    // Set up notification listener automatically
+    setupNotificationListener();
     
     return socket;
   } catch (error) {
     console.error('🔌 Socket initialization error:', error);
     return null;
   }
+};
+
+/**
+ * Set up listener for status notifications
+ */
+const setupNotificationListener = () => {
+  if (!socket) {
+    console.warn('🔌 Socket not initialized, cannot setup notification listener');
+    return;
+  }
+
+  // Remove existing listeners to avoid duplicate notifications
+  socket.off('status-notification');
+
+  // Listen for status-notification events
+  socket.on('status-notification', (data) => {
+    console.log('🔔 Status notification received:', data);
+    
+    // Get notification store and add notification
+    try {
+      // Access store directly instead of using hooks
+      const notificationStore = useNotificationStore.getState();
+      
+      console.log('🔧 [DEBUG] Notification store accessed:', !!notificationStore);
+      console.log('🔧 [DEBUG] Add notification function available:', !!notificationStore?.addNotification);
+      
+      if (notificationStore && notificationStore.addNotification) {
+        const notification = {
+          id: `socket-status-${Date.now()}`,
+          title: data.title || 'Order Status Update',
+          message: data.message || 'An order status has been updated',
+          type: data.type || 'order_status',
+          timestamp: data.timestamp || new Date().toISOString(),
+          data: data.orderData || null,
+          link: data.link || '#',
+          read: false
+        };
+        
+        console.log('🔧 [DEBUG] Created notification object:', notification);
+        
+        // Add notification to store
+        const result = notificationStore.addNotification(notification);
+        console.log('✅ Notification added to store, result:', result);
+        
+        // Try to display a browser notification if supported
+        try {
+          if (Notification && Notification.permission === 'granted' && !document.hasFocus()) {
+            new Notification(notification.title, {
+              body: notification.message,
+              icon: '/logo.png'
+            });
+            console.log('✅ Browser notification displayed');
+          }
+        } catch (err) {
+          console.error('❌ Error displaying browser notification:', err);
+        }
+        
+        // Dispatch DOM event for components that might be listening
+        try {
+          const event = new CustomEvent('notification-received', { 
+            detail: { notification } 
+          });
+          document.dispatchEvent(event);
+          console.log('✅ Dispatched notification-received event to DOM');
+        } catch (err) {
+          console.error('❌ Error dispatching notification event:', err);
+        }
+      } else {
+        console.error('❌ Notification store or addNotification method not available');
+      }
+    } catch (error) {
+      console.error('❌ Error handling notification:', error);
+    }
+  });
+
+  console.log('🔔 Status notification listener set up');
 };
 
 /**
@@ -165,6 +245,45 @@ const listenForOrders = (onNewOrder, onOrderUpdate) => {
 };
 
 /**
+ * Emit an order status change event
+ * @param {Object} order - The updated order
+ * @param {String} previousStatus - The previous status
+ */
+const emitOrderStatusChange = (order, previousStatus) => {
+  if (!socket || !isConnected) {
+    console.warn('🔌 Socket not connected, cannot emit order status change');
+    return false;
+  }
+
+  try {
+    console.log('📤 Emitting order status change:', {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      prevStatus: previousStatus,
+      newStatus: order.status
+    });
+
+    // Emit order-updated event
+    socket.emit('order-updated', { order });
+
+    // Also emit a dedicated status change event
+    socket.emit('status-change', {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      previousStatus,
+      newStatus: order.status,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log('✅ Order status change emitted successfully');
+    return true;
+  } catch (error) {
+    console.error('❌ Error emitting order status change:', error);
+    return false;
+  }
+};
+
+/**
  * Disconnect the socket
  */
 const disconnectSocket = () => {
@@ -190,7 +309,9 @@ const SocketService = {
   listenForOrders,
   disconnectSocket,
   isSocketConnected,
-  getSocket: () => socket
+  getSocket: () => socket,
+  emitOrderStatusChange,
+  setupNotificationListener
 };
 
 export default SocketService;

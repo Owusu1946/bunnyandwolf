@@ -26,6 +26,7 @@ const Navbar = () => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isMobileNotificationsOpen, setIsMobileNotificationsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
@@ -107,6 +108,7 @@ const Navbar = () => {
   // Close mobile menu when navigating
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setIsMobileNotificationsOpen(false);
     document.body.style.overflow = 'auto';
   }, [location.pathname]);
 
@@ -124,7 +126,16 @@ const Navbar = () => {
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+    setIsMobileNotificationsOpen(false);
     document.body.style.overflow = isMobileMenuOpen ? 'auto' : 'hidden';
+  };
+
+  const toggleMobileNotifications = (e) => {
+    e.stopPropagation();
+    setIsMobileNotificationsOpen(!isMobileNotificationsOpen);
+    if (!isMobileNotificationsOpen) {
+      setIsProfileDropdownOpen(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -147,16 +158,23 @@ const Navbar = () => {
   const toggleProfileDropdown = (e) => {
     e.stopPropagation();
     setIsProfileDropdownOpen(!isProfileDropdownOpen);
+    if (!isProfileDropdownOpen) {
+      setIsMobileNotificationsOpen(false);
+    }
   };
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
-    const closeDropdown = () => setIsProfileDropdownOpen(false);
-    if (isProfileDropdownOpen) {
+    const closeDropdown = () => {
+      setIsProfileDropdownOpen(false);
+      setIsMobileNotificationsOpen(false);
+    };
+    
+    if (isProfileDropdownOpen || isMobileNotificationsOpen) {
       document.addEventListener('click', closeDropdown);
     }
     return () => document.removeEventListener('click', closeDropdown);
-  }, [isProfileDropdownOpen]);
+  }, [isProfileDropdownOpen, isMobileNotificationsOpen]);
 
   // Handle mobile category toggle
   const [expandedCategory, setExpandedCategory] = useState(null);
@@ -205,17 +223,82 @@ const Navbar = () => {
               {user ? (
                 <>
                   {/* Notification Bell - Only shown for logged in users */}
-                  <div className="icon-button relative">
+                  <div className="icon-button relative hidden md:block">
                     <NotificationDropdown 
                       onClearAll={handleClearAllNotifications}
                       onClearNotification={handleClearNotification}
                     />
                   </div>
                   
+                  {/* Mobile Notification Button */}
+                  <div className="icon-button relative md:hidden">
+                    <button 
+                      onClick={toggleMobileNotifications}
+                      className="flex items-center justify-center"
+                      aria-label="Notifications"
+                    >
+                      <div className="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        {notifications.length > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                            {notifications.length > 9 ? '9+' : notifications.length}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                    
+                    {/* Mobile Notifications Dropdown */}
+                    {isMobileNotificationsOpen && (
+                      <div className="mobile-notifications-dropdown absolute right-0 mt-2 w-screen max-w-sm bg-white rounded-lg shadow-lg overflow-hidden z-50 transform origin-top-right transition-all duration-200 animate-slideIn">
+                        <div className="p-3 border-b border-gray-100 flex justify-between items-center">
+                          <h3 className="font-medium text-gray-900">Notifications</h3>
+                          {notifications.length > 0 && (
+                            <button 
+                              onClick={handleClearAllNotifications}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              Clear All
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className="max-h-[60vh] overflow-y-auto">
+                          {notifications.length > 0 ? (
+                            notifications.map(notification => (
+                              <div 
+                                key={notification.id} 
+                                className={`p-3 border-b border-gray-100 ${notification.read ? 'bg-white' : 'bg-blue-50'}`}
+                              >
+                                <div className="flex justify-between">
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-800">{notification.message}</p>
+                                    <p className="text-xs text-gray-500 mt-1">{new Date(notification.timestamp).toLocaleString()}</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => handleClearNotification(notification.id)}
+                                    className="text-gray-400 hover:text-gray-600 ml-2"
+                                  >
+                                    <FaTimes size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-gray-500">
+                              <p>No notifications</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
                 <div className="relative" onClick={toggleProfileDropdown}>
                   <button className="flex items-center space-x-1 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors icon-button" aria-label="Profile">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 overflow-hidden">
-                      {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-800 overflow-hidden font-medium">
+                      {user?.firstName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
                     </div>
                     <span className="ml-1 text-sm hidden md:inline text-gray-700">{user.firstName}</span>
                     <FaChevronDown className={`text-xs text-gray-500 transform transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
@@ -225,8 +308,8 @@ const Navbar = () => {
                     <div className="profile-dropdown absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg overflow-hidden z-50 transform origin-top-right transition-all duration-200 animate-slideIn" style={{backgroundColor: '#ffffff'}}>
                       <div className="p-4 border-b border-gray-100">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 mr-3">
-                            {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-800 mr-3 font-medium text-lg">
+                            {user?.firstName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
                           </div>
                           <div>
                             <p className="font-medium text-gray-900">{`${user.firstName} ${user.lastName}`}</p>
@@ -381,11 +464,40 @@ const Navbar = () => {
             ))}
           </div>
           
+          {/* Mobile notifications section */}
+          {user && (
+            <div className="mobile-notifications-section border-t border-gray-200 py-4 px-4 mt-4">
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Notifications</h3>
+              <div className="max-h-[30vh] overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.slice(0, 5).map(notification => (
+                    <div 
+                      key={notification.id} 
+                      className={`p-3 mb-2 rounded-md ${notification.read ? 'bg-gray-50' : 'bg-blue-50'}`}
+                    >
+                      <p className="text-sm text-gray-800">{notification.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">{new Date(notification.timestamp).toLocaleString()}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-3">No notifications</p>
+                )}
+              </div>
+              {notifications.length > 5 && (
+                <div className="text-center mt-2">
+                  <Link to="/notifications" className="text-sm text-blue-600" onClick={toggleMobileMenu}>
+                    View all ({notifications.length})
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="mobile-menu-footer">
             {user ? (
               <div className="mobile-user-info">
-                <div className="mobile-user-avatar">
-                  {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                <div className="mobile-user-avatar flex items-center justify-center text-gray-800 font-medium text-lg">
+                  {user?.firstName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <div className="mobile-user-details">
                   <p className="mobile-user-name">{`${user.firstName} ${user.lastName}`}</p>
@@ -404,10 +516,16 @@ const Navbar = () => {
             )}
             
             {user && (
+              <>
+                <Link to="/profile" className="mobile-profile-link" onClick={toggleMobileMenu}>
+                  <RiUserSettingsLine className="profile-icon" />
+                  <span>My Profile</span>
+                </Link>
               <button onClick={handleLogout} className="mobile-logout-button">
                 <RiLogoutBoxRLine className="logout-icon" />
                 <span>Logout</span>
               </button>
+              </>
             )}
           </div>
         </div>

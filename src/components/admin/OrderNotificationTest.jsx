@@ -4,6 +4,7 @@ import SocketService from '../../services/SocketService';
 import { useOrderStore } from '../../store/orderStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import apiConfig from '../../config/apiConfig';
+import SocketNotificationTester from './SocketNotificationTester';
 
 /**
  * Component to test real-time order notifications
@@ -16,6 +17,7 @@ const OrderNotificationTest = () => {
   const [logs, setLogs] = useState([]);
   const [testType, setTestType] = useState('socket'); // 'socket' or 'api'
   const [testInProgress, setTestInProgress] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [mockOrder, setMockOrder] = useState({
     orderNumber: `TEST-${Math.floor(1000 + Math.random() * 9000)}`,
     customerName: 'Test Customer',
@@ -103,6 +105,12 @@ const OrderNotificationTest = () => {
         addLog(`Order update received: ${order.orderNumber || order._id}`, 'info');
         console.log('🔄 [OrderNotificationTest] Order update received via socket:', order);
       });
+
+      // Listen for status notification events
+      socket.on('status-notification', (notification) => {
+        addLog(`Status notification received: ${notification.title}`, 'success');
+        console.log('🔔 [OrderNotificationTest] Status notification received:', notification);
+      });
     };
     
     // Setup socket connection and listeners
@@ -184,7 +192,7 @@ const OrderNotificationTest = () => {
       addLog(`Failed to trigger notification: ${error.message}`, 'error');
     }
     
-    // Simulate order status update after 5 seconds
+    // Simulate order status update after 3 seconds
     setTimeout(() => {
       const updatedOrder = {
         ...testOrder,
@@ -193,7 +201,20 @@ const OrderNotificationTest = () => {
       };
       
       addLog(`Emitting order update: ${updatedOrder.orderNumber} → ${updatedOrder.status}`, 'info');
+      
+      // Emit regular order update
       socket.emit('order-updated', { order: updatedOrder });
+      
+      // Also emit status change event
+      socket.emit('status-change', {
+        orderId: updatedOrder._id,
+        orderNumber: updatedOrder.orderNumber,
+        previousStatus: mockOrder.status,
+        newStatus: updatedOrder.status,
+        timestamp: new Date().toISOString()
+      });
+      
+      addLog('Emitted status-change event', 'info');
       
       // Update in store
       try {
@@ -204,7 +225,7 @@ const OrderNotificationTest = () => {
       }
       
       setTestInProgress(false);
-    }, 5000);
+    }, 3000);
   };
   
   // Run HTTP notification test
@@ -243,178 +264,200 @@ const OrderNotificationTest = () => {
     }, 3000);
   };
   
+  // Toggle advanced view
+  const toggleAdvancedView = () => {
+    setShowAdvanced(prev => !prev);
+  };
+
+  // Test status change notification
+  const testStatusChangeNotification = () => {
+    setTestInProgress(true);
+    addLog('Testing status change notification...', 'info');
+    
+    const socket = SocketService.getSocket();
+    if (!socket || !socket.connected) {
+      addLog('Socket not connected, cannot run test', 'error');
+      setTestInProgress(false);
+      return;
+    }
+    
+    // Create test order with unique ID
+    const testOrder = {
+      ...mockOrder,
+      _id: `status-test-${Date.now()}`,
+      orderNumber: `STATUS-${Math.floor(1000 + Math.random() * 9000)}`,
+      createdAt: new Date().toISOString(),
+      status: 'Pending'
+    };
+    
+    // Emit status change directly
+    socket.emit('status-change', {
+      orderId: testOrder._id,
+      orderNumber: testOrder.orderNumber,
+      previousStatus: 'Pending',
+      newStatus: 'Processing',
+      timestamp: new Date().toISOString()
+    });
+    
+    addLog('Emitted status-change event', 'success');
+    
+    // End test after delay
+    setTimeout(() => {
+      setTestInProgress(false);
+    }, 3000);
+  };
+  
   // Reconnect socket
   const reconnectSocket = () => {
     const userId = localStorage.getItem('userId');
     
     if (!userId) {
-      addLog('No userId found in localStorage', 'error');
+      addLog('No userId found, cannot reconnect', 'error');
       return;
     }
     
-    // Disconnect existing socket if any
+    // First disconnect if already connected
     SocketService.disconnectSocket();
-    addLog('Disconnected existing socket connection', 'info');
+    addLog('Disconnected existing socket', 'info');
     
-    // Create new connection
+    // Allow socket to properly disconnect
     setTimeout(() => {
-      addLog('Initializing new socket connection...', 'info');
+      addLog('Reconnecting socket...', 'info');
       const socket = SocketService.initializeSocket(userId);
       
       if (socket) {
-        addLog('Socket initialization requested', 'info');
+        addLog('Socket reconnect requested', 'success');
       } else {
-        addLog('Failed to initialize socket', 'error');
+        addLog('Failed to reconnect socket', 'error');
       }
     }, 1000);
   };
   
-  // Get status class for badge
   const getStatusClass = () => {
-    switch(socketStatus) {
-      case 'connected': return 'bg-green-100 text-green-800';
-      case 'disconnected': return 'bg-red-100 text-red-800';
-      case 'error': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+    switch (socketStatus) {
+      case 'connected': return 'bg-green-100 text-green-800 border-green-200';
+      case 'connecting': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'disconnected': return 'bg-red-100 text-red-800 border-red-200';
+      case 'error': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
-  
+
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900 flex items-center">
-          <FaBell className="mr-2 text-purple-500" />
-          Order Notification Tester
-        </h2>
-        
-        <div className="flex items-center">
-          <span className={`px-2 py-1 rounded-full text-xs ${getStatusClass()}`}>
-            Socket: {socketStatus}
-            {socketId && ` (${socketId.substring(0, 6)}...)`}
-          </span>
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b">
+        <h3 className="font-medium text-gray-800 flex items-center">
+          <FaBell className="mr-2 text-purple-500" /> Order Notification Testing
+        </h3>
+        <div className={`px-2 py-1 text-xs rounded border ${getStatusClass()}`}>
+          {socketStatus === 'connected' && <FaCheck className="inline-block mr-1" />}
+          Socket: {socketStatus}
+        </div>
+      </div>
+      
+      {/* Content */}
+      <div className="p-4">
+        {/* Simple Controls */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setTestType('socket')}
+            className={`px-3 py-2 rounded-md text-sm font-medium ${testType === 'socket' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+          >
+            Socket Test
+          </button>
+          
+          <button
+            onClick={() => setTestType('api')}
+            className={`px-3 py-2 rounded-md text-sm font-medium ${testType === 'api' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+          >
+            HTTP Event Test
+          </button>
+          
+          <button
+            onClick={testType === 'socket' ? runSocketTest : runHttpTest}
+            disabled={testInProgress}
+            className="ml-auto px-3 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            {testInProgress ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                Running...
+              </>
+            ) : (
+              <>
+                <FaPlay className="mr-2" /> Run Test
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={testStatusChangeNotification}
+            disabled={testInProgress}
+            className="px-3 py-2 bg-orange-500 text-white rounded-md text-sm font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            <FaBell className="mr-2" /> Test Status Notification
+          </button>
           
           <button
             onClick={reconnectSocket}
-            className="ml-2 p-1.5 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100"
-            title="Reconnect Socket"
+            className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm font-medium hover:bg-gray-600"
           >
-            <FaRedo className="w-3.5 h-3.5" />
+            <FaRedo className="mr-2 inline-block" /> Reconnect
+          </button>
+          
+          <button
+            onClick={toggleAdvancedView}
+            className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 ml-auto md:ml-0"
+          >
+            {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
           </button>
         </div>
-      </div>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        
+        {/* Advanced socket tester */}
+        {showAdvanced && (
+          <div className="mt-4 mb-4">
+            <SocketNotificationTester />
+          </div>
+        )}
+        
+        {/* Log output */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Test Options</h3>
-          <div className="bg-gray-50 p-3 rounded-md">
-            <div className="flex space-x-4 mb-3">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-purple-600"
-                  name="test-type"
-                  checked={testType === 'socket'}
-                  onChange={() => setTestType('socket')}
-                />
-                <span className="ml-2 text-sm">Socket.io Test</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio text-purple-600"
-                  name="test-type"
-                  checked={testType === 'api'}
-                  onChange={() => setTestType('api')}
-                />
-                <span className="ml-2 text-sm">Custom Event Test</span>
-              </label>
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-medium text-gray-700">Event Log</h4>
+            <button
+              onClick={clearLogs}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="border rounded-md overflow-hidden">
+            <div className="bg-gray-50 px-3 py-1 border-b text-xs text-gray-500 flex justify-between">
+              <span>Time</span>
+              <span>Message</span>
             </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={testType === 'socket' ? runSocketTest : runHttpTest}
-                disabled={testInProgress}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center
-                  ${testInProgress 
-                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
-                    : 'bg-purple-600 text-white hover:bg-purple-700'}`}
-              >
-                {testInProgress ? (
-                  <>
-                    <FaStop className="mr-1.5" />
-                    Testing...
-                  </>
-                ) : (
-                  <>
-                    <FaPlay className="mr-1.5" />
-                    Run {testType === 'socket' ? 'Socket' : 'HTTP'} Test
-                  </>
-                )}
-              </button>
-              
-              <button
-                onClick={clearLogs}
-                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 flex items-center"
-              >
-                <FaTimes className="mr-1.5" />
-                Clear Logs
-              </button>
+            <div className="h-40 overflow-y-auto p-2">
+              {logs.length === 0 ? (
+                <div className="text-center text-gray-400 py-4">No events yet</div>
+              ) : (
+                <ul>
+                  {logs.map(log => (
+                    <li key={log.id} className={`text-xs mb-1 pb-1 border-b border-gray-100 flex
+                      ${log.type === 'error' ? 'text-red-600' : ''}
+                      ${log.type === 'success' ? 'text-green-600' : ''}
+                      ${log.type === 'warning' ? 'text-orange-600' : ''}
+                      ${log.type === 'info' ? 'text-gray-600' : ''}
+                    `}>
+                      <span className="w-20 flex-shrink-0">{log.timestamp}</span>
+                      <span className="flex-grow">{log.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
-        
-        <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-2">API Connection Info</h3>
-          <div className="bg-gray-50 p-3 rounded-md">
-            <div className="text-xs font-mono mb-2">
-              <span className="text-gray-500">API URL:</span> {apiConfig.baseURL}
-            </div>
-            <div className="text-xs font-mono">
-              <span className="text-gray-500">Socket URL:</span> {apiConfig.baseURL || 'Same as API'}
-            </div>
-            <div className="mt-2 text-xs">
-              <p className="mb-1 text-gray-500">Event names to listen for:</p>
-              <span className="bg-gray-200 px-1.5 py-0.5 rounded mr-1 inline-block">new-order</span>
-              <span className="bg-gray-200 px-1.5 py-0.5 rounded mr-1 inline-block">order-updated</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Log Display */}
-      <div>
-        <h3 className="text-sm font-medium text-gray-700 mb-2 flex justify-between items-center">
-          <span>Event Logs</span>
-          <span className="text-xs text-gray-500">{logs.length} entries</span>
-        </h3>
-        
-        <div className="bg-gray-800 rounded-md p-2 h-56 overflow-y-auto font-mono text-xs">
-          {logs.length > 0 ? (
-            <div className="space-y-1">
-              {logs.map((log) => (
-                <div key={log.id} className={`px-2 py-1 rounded ${
-                  log.type === 'error' ? 'bg-red-900 text-red-200' : 
-                  log.type === 'success' ? 'bg-green-900 text-green-200' : 
-                  log.type === 'warning' ? 'bg-yellow-900 text-yellow-200' : 
-                  'bg-gray-700 text-gray-200'
-                }`}>
-                  <span className="opacity-75">[{log.timestamp}]</span> {log.message}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              No logs yet. Run a test to see results.
-            </div>
-          )}
-        </div>
-      </div>
-      
-      <div className="mt-4 text-xs text-gray-500">
-        <p className="flex items-center">
-          <FaCheck className="text-green-500 mr-1" /> 
-          Check browser console for detailed logs. Look for messages starting with 🔔 [OrderNotificationTest]
-        </p>
       </div>
     </div>
   );

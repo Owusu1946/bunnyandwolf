@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import ForgotPassword from './pages/ForgotPassword'
+import { startUptimeMonitor } from './utils/uptimeMonitor'
 import Home from './pages/Home'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
@@ -85,6 +86,17 @@ const AppWrapper = () => {
   const navigate = useNavigate();
   const { subscribeToOrderUpdates } = useOrderStore();
   const { addOrderStatusNotification } = useNotificationStore();
+  
+  // Start the uptime monitor to keep the backend server alive
+  useEffect(() => {
+    console.log('[App] Starting uptime monitor to keep backend alive');
+    const monitorId = startUptimeMonitor();
+    
+    return () => {
+      // Clean up the interval when the app unmounts
+      if (monitorId) clearInterval(monitorId);
+    };
+  }, []);
   
   // Log page navigation for debugging
   useEffect(() => {

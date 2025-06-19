@@ -647,8 +647,15 @@ export const useOrderStore = create(
             
             console.log(`[OrderStore] Syncing order status to server: ${orderId} -> ${newStatus}`);
             
+            // Fix the URL to prevent double API path
+            // We ensure we're using the correct path format by using URL constructor
+            const baseUrlWithoutTrailingSlash = apiConfig.baseURL.replace(/\/$/, '');
+            const orderStatusEndpoint = `${baseUrlWithoutTrailingSlash}/orders/${orderId}/status`;
+            
+            console.log(`[OrderStore] Using endpoint: ${orderStatusEndpoint}`);
+            
             await axios.put(
-              `${apiConfig.baseURL}/orders/${orderId}/status`,
+              orderStatusEndpoint,
               { status: newStatus },
               { headers: { Authorization: `Bearer ${token}` } }
             );

@@ -473,13 +473,16 @@
 .mobile-user-avatar {
   width: 40px;
   height: 40px;
+  background-color: #f3f4f6;
   border-radius: 50%;
-  background: #f5f5f5;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 18px;
+  font-weight: 500;
+  color: #374151;
   margin-right: 12px;
-  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .mobile-user-name {
@@ -715,3 +718,85 @@
 }
 
 /* Add any new styles for the Navbar here */
+
+.mobile-notifications-dropdown {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1050;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.mobile-notifications-section {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.mobile-notifications-section h3 {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.mobile-profile-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 16px;
+  margin-top: 8px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  color: #333;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.mobile-profile-link:hover {
+  background-color: #eaeaea;
+}
+
+.profile-icon {
+  font-size: 18px;
+  margin-right: 12px;
+}
+
+@media (max-width: 768px) {
+  .profile-dropdown {
+    position: fixed;
+    top: 60px;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .icon-button {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-menu-footer {
+    padding: 16px;
+  }
+  
+  .mobile-user-info {
+    padding: 12px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+}

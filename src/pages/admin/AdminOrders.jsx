@@ -700,15 +700,24 @@ const AdminOrders = () => {
       try {
         // Use the enhanced updateOrderStatus which syncs with server
         const updatedOrder = updateOrderStatus(orderId, newStatus);
-        
+      
         if (updatedOrder) {
           console.log(`[AdminOrders] Successfully updated order status in database:`, updatedOrder);
           
           // Show initial success message (will update with email status later)
           setSuccessMessage(`Order #${orderNumber} status updated to ${newStatus}!`);
-          
+        
           // Log the update
           console.log(`[AdminOrders] Updated order ${orderNumber} status to ${newStatus}`);
+        
+          // Emit the status change via Socket.io
+          try {
+            console.log('[AdminOrders] Emitting socket notification for status update');
+            SocketService.emitOrderStatusChange(updatedOrder, previousStatus);
+          } catch (socketError) {
+            console.error('[AdminOrders] Error emitting socket notification:', socketError);
+            // Continue anyway, this is not critical
+          }
           
           // Trigger in-app notification
           try {
@@ -726,7 +735,7 @@ const AdminOrders = () => {
             console.error('[AdminOrders] Failed to trigger in-app notification:', notificationError);
             // Continue anyway, this is not critical
           }
-          
+        
           // Send email notification to customer if email is available
           if (customerEmail) {
             try {
@@ -809,13 +818,30 @@ const AdminOrders = () => {
                 
                 console.log(`[AdminOrders] Directly syncing order status to server as fallback: ${orderId} -> ${newStatus}`);
                 
+                // Fix the URL to prevent double API path
+                const baseUrlWithoutTrailingSlash = apiConfig.baseURL.replace(/\/$/, '');
+                const orderStatusEndpoint = `${baseUrlWithoutTrailingSlash}/orders/${orderId}/status`;
+                
+                console.log(`[AdminOrders] Using endpoint: ${orderStatusEndpoint}`);
+                
                 await axios.put(
-                  `${apiConfig.baseURL}/orders/${orderId}/status`,
+                  orderStatusEndpoint,
                   { status: newStatus },
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
                 
                 console.log(`[AdminOrders] Direct server sync successful`);
+                
+                // Try to emit socket notification even in this error case
+                try {
+                  const updatedOrder = {
+                    ...ordersCopy[orderIndex],
+                    status: newStatus
+                  };
+                  SocketService.emitOrderStatusChange(updatedOrder, previousStatus);
+                } catch (socketError) {
+                  console.error('[AdminOrders] Error emitting socket notification during recovery:', socketError);
+                }
                 
                 // Also try to send email notification in this case
                 if (customerEmail) {
@@ -914,21 +940,21 @@ const AdminOrders = () => {
       while (retries >= 0) {
         try {
           console.log(`[AdminOrders] Sending status update email to ${email} (attempt ${2-retries+1})...`);
-          
-          // Make API call to send status update email
+      
+      // Make API call to send status update email
           response = await axios.post(
-            `${apiConfig.baseURL}/email/order-status-update`,
-            {
-              email,
+        `${apiConfig.baseURL}/email/order-status-update`,
+        {
+          email,
               orderDetails: orderDataForEmail,
-              previousStatus
-            },
+          previousStatus
+        },
             { 
               headers: { Authorization: `Bearer ${token}` },
               timeout: 10000 // 10 second timeout
             }
-          );
-          
+      );
+      
           // If successful, break out of retry loop
           break;
         } catch (requestError) {
@@ -938,7 +964,7 @@ const AdminOrders = () => {
           if (retries >= 0) {
             console.warn(`[AdminOrders] Email request failed, retrying... (${retries} attempts left)`);
             await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
-          } else {
+      } else {
             // No retries left, throw to outer catch
             throw requestError;
           }
@@ -1645,7 +1671,7 @@ const AdminOrders = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" className="px-6 py-10 text-center">
+                        <td colSpan="6" className="px-6 py-10 text-center text-xs sm:text-sm text-gray-500">
                           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
                             <FaBox className="h-8 w-8 text-gray-400" />
                           </div>
