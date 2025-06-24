@@ -1320,39 +1320,69 @@ const AdminOrders = () => {
         
         <div className="p-3 sm:p-6 overflow-x-auto">
           <div className="mb-4 sm:mb-8">
-            <div className="flex justify-between items-center flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Orders Management</h1>
+                      <div className="flex justify-between items-center flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Orders Management</h1>
+            
+            {/* Tools buttons - only visible on mobile */}
+            <div className="flex flex-wrap gap-2 mt-2 sm:mt-0 md:hidden">
+              <button 
+                onClick={toggleNotificationTester}
+                className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md transition-colors"
+              >
+                <FaInfoCircle className="inline mr-1" />
+                <span>{showNotificationTester ? 'Hide' : 'Show'} Tester</span>
+              </button>
               
-              {/* Tools buttons */}
-              <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
-                <button 
-                  onClick={toggleNotificationTester}
-                  className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md transition-colors"
-                >
-                  <FaInfoCircle className="inline mr-1" />
-                  <span>{showNotificationTester ? 'Hide' : 'Show'} Tester</span>
-                </button>
-                
-                <button 
-                  onClick={triggerTestNotification}
-                  className="text-xs px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-md transition-colors"
-                >
-                  <FaBell className="inline mr-1" />
-                  <span>Test Notify</span>
-                </button>
+              <button 
+                onClick={triggerTestNotification}
+                className="text-xs px-2 py-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-md transition-colors"
+              >
+                <FaBell className="inline mr-1" />
+                <span>Test Notify</span>
+              </button>
 
-                {/* Add the clear all orders button */}
-                <button 
-                  onClick={handleClearAllOrders}
-                  disabled={clearingOrders}
-                  className="text-xs px-2 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded-md transition-colors"
-                >
-                  <FaTrash className="inline mr-1" />
-                  <span>{clearingOrders ? 'Clearing...' : 'Clear All'}</span>
-                </button>
-              </div>
+              {/* Add the clear all orders button */}
+              <button 
+                onClick={handleClearAllOrders}
+                disabled={clearingOrders}
+                className="text-xs px-2 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded-md transition-colors"
+              >
+                <FaTrash className="inline mr-1" />
+                <span>{clearingOrders ? 'Clearing...' : 'Clear All'}</span>
+              </button>
             </div>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">View and manage all customer orders</p>
+          </div>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">View and manage all customer orders</p>
+          
+          {/* Add centered tools for desktop view */}
+          <div className="hidden md:flex justify-center my-4">
+            <div className="flex gap-3">
+              <button 
+                onClick={toggleNotificationTester}
+                className="text-sm px-3 py-1.5 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md transition-colors"
+              >
+                <FaInfoCircle className="inline mr-1" />
+                <span>{showNotificationTester ? 'Hide' : 'Show'} Tester</span>
+              </button>
+              
+              <button 
+                onClick={triggerTestNotification}
+                className="text-sm px-3 py-1.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-md transition-colors"
+              >
+                <FaBell className="inline mr-1" />
+                <span>Test Notify</span>
+              </button>
+
+              <button 
+                onClick={handleClearAllOrders}
+                disabled={clearingOrders}
+                className="text-sm px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded-md transition-colors"
+              >
+                <FaTrash className="inline mr-1" />
+                <span>{clearingOrders ? 'Clearing...' : 'Clear All'}</span>
+              </button>
+            </div>
+          </div>
           </div>
           
           {/* Notification Tester */}
