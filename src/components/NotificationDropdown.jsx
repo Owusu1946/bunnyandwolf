@@ -301,7 +301,7 @@ const NotificationDropdown = ({ onClearAll, onClearNotification }) => {
           {unreadCount > 0 && (
             <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
-            </div>
+          </div>
           )}
         </button>
         
@@ -355,42 +355,42 @@ const NotificationDropdown = ({ onClearAll, onClearNotification }) => {
                   {notifications.map((notification) => {
                     console.log('[NotificationDropdown] Rendering notification:', notification.id);
                     return (
-                      <li 
-                        key={notification.id} 
-                        className={`relative hover:bg-gray-50 transition-colors ${notification.read ? 'bg-white' : 'bg-blue-50'}`}
+                    <li 
+                      key={notification.id} 
+                      className={`relative hover:bg-gray-50 transition-colors ${notification.read ? 'bg-white' : 'bg-blue-50'}`}
+                    >
+                      <Link 
+                        to={notification.link || '#'} 
+                        className="block px-4 py-3"
+                        onClick={() => handleNotificationClick(notification)}
                       >
-                        <Link 
-                          to={notification.link || '#'} 
-                          className="block px-4 py-3"
-                          onClick={() => handleNotificationClick(notification)}
-                        >
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0 mr-3 mt-1">
-                              {getNotificationIcon(notification.type)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-medium ${notification.read ? 'text-gray-800' : 'text-black'}`}>
-                                {notification.title}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-1">
-                                {formatTimeAgo(notification.timestamp)}
-                              </p>
-                            </div>
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0 mr-3 mt-1">
+                            {getNotificationIcon(notification.type)}
                           </div>
-                        </Link>
-                        
-                        {/* Close button */}
-                        <button 
-                          onClick={() => handleClearNotification(notification.id)}
-                          className="absolute top-3 right-3 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                          aria-label="Remove notification"
-                        >
-                          <FaTimes size={12} />
-                        </button>
-                      </li>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium ${notification.read ? 'text-gray-800' : 'text-black'}`}>
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {formatTimeAgo(notification.timestamp)}
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                      
+                      {/* Close button */}
+                      <button 
+                        onClick={() => handleClearNotification(notification.id)}
+                        className="absolute top-3 right-3 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                        aria-label="Remove notification"
+                      >
+                        <FaTimes size={12} />
+                      </button>
+                    </li>
                     );
                   })}
                 </ul>

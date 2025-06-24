@@ -217,8 +217,24 @@ const CheckoutPage = () => {
         setTaxRate(newTaxRate);
         console.log(`Tax rate updated for ${addressInfo.country} (${countryCode}): ${newTaxRate * 100}%`);
       }
+    } else {
+      // When no country is selected, use the default tax rate
+      setTaxRate(defaultTaxRate);
+      console.log(`Using default tax rate: ${defaultTaxRate * 100}%`);
     }
-  }, [addressInfo.country, getTaxRateForCountry, countries]);
+  }, [addressInfo.country, getTaxRateForCountry, countries, defaultTaxRate]);
+  
+  // Add a separate useEffect to initialize tax rate with defaultTaxRate
+  useEffect(() => {
+    // Initialize tax rate when defaultTaxRate changes
+    if (defaultTaxRate !== undefined) {
+      console.log(`Default tax rate changed: ${defaultTaxRate * 100}%`);
+      // Only update if we don't have a country-specific rate
+      if (!addressInfo.country) {
+        setTaxRate(defaultTaxRate);
+      }
+    }
+  }, [defaultTaxRate, addressInfo.country]);
   
   // Calculate pricing
   useEffect(() => {
@@ -303,7 +319,16 @@ const CheckoutPage = () => {
         const airShippingPrice = parseFloat(productDetails.airShippingPrice || 0);
         const airShippingDuration = parseInt(productDetails.airShippingDuration || 0);
         
-        if (airShippingPrice > 0 || airShippingDuration > 0) {
+        // Check if shipping data exists - update to use a stricter check
+        // Consider valid if price or duration is explicitly set in ProductsPage and > 0
+        if ((productDetails.airShippingPrice !== undefined && 
+             productDetails.airShippingPrice !== null && 
+             productDetails.airShippingPrice !== '' &&
+             airShippingPrice > 0) || 
+            (productDetails.airShippingDuration !== undefined && 
+             productDetails.airShippingDuration !== null && 
+             productDetails.airShippingDuration !== '' &&
+             airShippingDuration > 0)) {
           hasValidShippingData = true;
         }
         
@@ -316,7 +341,16 @@ const CheckoutPage = () => {
         const seaShippingPrice = parseFloat(productDetails.seaShippingPrice || 0);
         const seaShippingDuration = parseInt(productDetails.seaShippingDuration || 0);
         
-        if (seaShippingPrice > 0 || seaShippingDuration > 0) {
+        // Check if shipping data exists - update to use a stricter check
+        // Consider valid if price or duration is explicitly set in ProductsPage and > 0
+        if ((productDetails.seaShippingPrice !== undefined && 
+             productDetails.seaShippingPrice !== null && 
+             productDetails.seaShippingPrice !== '' &&
+             seaShippingPrice > 0) || 
+            (productDetails.seaShippingDuration !== undefined && 
+             productDetails.seaShippingDuration !== null && 
+             productDetails.seaShippingDuration !== '' &&
+             seaShippingDuration > 0)) {
           hasValidShippingData = true;
         }
         

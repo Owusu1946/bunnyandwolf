@@ -42,6 +42,7 @@ import PlatformsPage from './pages/admin/PlatformsPage'
 import PlatformDetailsPage from './pages/admin/PlatformDetailsPage'
 import QuotesPage from './pages/admin/QuotesPage'
 import FeaturedCollectionPage from './pages/FeaturedCollectionPage'
+import Collection from './pages/Collection'
 import SinosplyStores from './pages/SinosplyStores'
 import Stores from './pages/Stores'
 import Quote from './pages/Quote'
@@ -286,6 +287,8 @@ const AppWrapper = () => {
                   </AdminRouteWithSidebar>
                 } />
                 <Route path="/sinosply-contact" element={<SinosplyContact />} />
+                <Route path="/collection/:collectionId" element={<Collection />} />
+                
               </Routes>
             </WishlistProvider>
           </CartProvider>

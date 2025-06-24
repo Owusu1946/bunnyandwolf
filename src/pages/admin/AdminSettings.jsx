@@ -318,8 +318,11 @@ const AdminSettings = () => {
       }
     }
     
-    console.log(`📝 [AdminSettings] Updated default tax rate: ${value}`);
+    console.log(`📝 [AdminSettings] Updated default tax rate decimal: ${value}, percentage: ${value * 100}%`);
     setLocalDefaultTaxRate(value);
+    
+    // Update the store immediately for real-time updates across the application
+    updateDefaultTaxRate(value);
   };
 
   // Enhanced handling of tax rate input changes with validation
@@ -648,12 +651,12 @@ const AdminSettings = () => {
       }
       
       // Update default tax rate with extra error handling
-      console.log('💲 [AdminSettings] Updating default tax rate:', localDefaultTaxRate);
+      console.log('💲 [AdminSettings] Updating default tax rate:', localDefaultTaxRate, `(${localDefaultTaxRate * 100}%)`);
       let defaultTaxRateSuccess = false;
       try {
         const updatedDefaultTaxRate = await updateDefaultTaxRate(localDefaultTaxRate);
         defaultTaxRateSuccess = !!updatedDefaultTaxRate;
-        console.log('✅ [AdminSettings] Default tax rate update result:', updatedDefaultTaxRate);
+        console.log('✅ [AdminSettings] Default tax rate update result:', updatedDefaultTaxRate, `(${updatedDefaultTaxRate.defaultTaxRate * 100}%)`);
       } catch (defaultTaxError) {
         console.error('❌ [AdminSettings] Error updating default tax rate:', defaultTaxError);
         // Continue despite this error

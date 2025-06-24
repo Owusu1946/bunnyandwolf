@@ -291,8 +291,26 @@ const SinosplyStores = () => {
   
   // Fetch collections when component mounts
   useEffect(() => {
-    fetchCollectionsFromAPI();
+    console.log('[SinosplyStores] Fetching collections...');
+    fetchCollectionsFromAPI()
+      .then(collections => {
+        console.log(`[SinosplyStores] Successfully fetched ${collections?.length || 0} collections`);
+        console.log('[SinosplyStores] Featured collections:', featuredCollections.length);
+      })
+      .catch(err => {
+        console.error('[SinosplyStores] Error fetching collections:', err);
+      });
   }, [fetchCollectionsFromAPI]);
+
+  // Log featured collections when they change
+  useEffect(() => {
+    if (featuredCollections.length > 0) {
+      console.log(`[SinosplyStores] Featured collections updated: ${featuredCollections.length} collections available`);
+      featuredCollections.forEach(collection => {
+        console.log(`[SinosplyStores] Featured collection: ${collection.name}, ID: ${collection._id}, image: ${collection.image || 'No image'}`);
+      });
+    }
+  }, [featuredCollections]);
   
   // Fetch platforms when component mounts
   useEffect(() => {
@@ -467,6 +485,12 @@ const SinosplyStores = () => {
   
   // Display active platforms or fallback if none available
   const platformsToDisplay = activePlatforms.length > 0 ? activePlatforms : fallbackPlatforms;
+
+  // Add this function near other handler functions to handle collection clicks
+  const handleCollectionClick = (collection) => {
+    console.log(`[SinosplyStores] Collection clicked: ${collection.name} (${collection._id})`);
+    // You can add analytics tracking here if needed
+  };
 
   if (pageLoading) {
     return <SinosplyLoader />;
@@ -735,9 +759,24 @@ const SinosplyStores = () => {
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">FEATURED COLLECTIONS</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredCollections.length > 0 ? (
-              featuredCollections.map((collection) => (
+          
+          {platformsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3].map((_, index) => (
+                <div key={index} className="relative h-[400px] rounded-lg overflow-hidden bg-gray-200 animate-pulse">
+                  <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 skeleton-shimmer">
+                    <div className="absolute inset-0 shimmer-overlay"></div>
+                  </div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="h-6 bg-gray-300 rounded w-2/3 mb-4"></div>
+                    <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : featuredCollections.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredCollections.map((collection) => (
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -748,32 +787,39 @@ const SinosplyStores = () => {
                 >
                   <div className="h-full w-full rounded-lg overflow-hidden">
                     <img
-                      src={collection.image || "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?ixlib=rb-4.0.3"}
+                      src={collection.image || `https://via.placeholder.com/800x800?text=${encodeURIComponent(collection.name)}`}
                       alt={collection.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       onError={(e) => {
+                        console.log(`[SinosplyStores] Failed to load collection image for ${collection.name}`);
                         e.target.onerror = null;
-                        e.target.src = "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?ixlib=rb-4.0.3";
+                        e.target.src = `https://via.placeholder.com/800x800?text=${encodeURIComponent(collection.name)}`;
                       }}
                     />
                     <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-50 transition-all duration-300" />
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
                       <h3 className="text-2xl font-bold text-center mb-2">{collection.name}</h3>
-                      <p className="text-sm text-center mb-4">{collection.description || `Explore our ${collection.name}`}</p>
-                      <Link to={`/collections/${collection._id}`} className="inline-flex items-center px-6 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors duration-300">
+                      <p className="text-sm text-center mb-4 line-clamp-2">{collection.description || `Explore our ${collection.name}`}</p>
+                      <Link 
+                        to={`/collection/${collection._id}`}
+                        onClick={() => handleCollectionClick(collection)} 
+                        className="inline-flex items-center px-6 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors duration-300"
+                      >
                         EXPLORE <FaLongArrowAltRight className="ml-2" />
                       </Link>
                     </div>
                   </div>
                 </motion.div>
-              ))
-            ) : (
-              // Fallback collections if no featured collections are available
-              [
-              { id: 1, name: "Luxury Collection", image: "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?ixlib=rb-4.0.3", description: "Exclusive designer pieces" },
-              { id: 2, name: "Sustainable Fashion", image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?ixlib=rb-4.0.3", description: "Eco-friendly clothing" },
-              { id: 3, name: "Trending Now", image: "https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3", description: "Latest fashion trends" },
-            ].map((collection) => (
+              ))}
+            </div>
+          ) : (
+            // Fallback collections if no featured collections are available
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[
+                { id: 1, name: "Luxury Collection", image: "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?ixlib=rb-4.0.3", description: "Exclusive designer pieces" },
+                { id: 2, name: "Sustainable Fashion", image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?ixlib=rb-4.0.3", description: "Eco-friendly clothing" },
+                { id: 3, name: "Trending Now", image: "https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3", description: "Latest fashion trends" },
+              ].map((collection) => (
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -783,24 +829,40 @@ const SinosplyStores = () => {
                   className="relative group cursor-pointer h-[400px]"
                 >
                   <div className="h-full w-full rounded-lg overflow-hidden">
-                  <img
-                    src={collection.image}
-                    alt={collection.name}
+                    <img
+                      src={collection.image}
+                      alt={collection.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-50 transition-all duration-300" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
-                    <h3 className="text-2xl font-bold text-center mb-2">{collection.name}</h3>
-                    <p className="text-sm text-center mb-4">{collection.description}</p>
+                      onError={(e) => {
+                        console.log(`[SinosplyStores] Failed to load fallback collection image for ${collection.name}`);
+                        e.target.onerror = null;
+                        e.target.src = `https://via.placeholder.com/800x800?text=${encodeURIComponent(collection.name)}`;
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-50 transition-all duration-300" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
+                      <h3 className="text-2xl font-bold text-center mb-2">{collection.name}</h3>
+                      <p className="text-sm text-center mb-4">{collection.description}</p>
                       <button className="inline-flex items-center px-6 py-2 border-2 border-white hover:bg-white hover:text-black transition-colors duration-300">
                         EXPLORE <FaLongArrowAltRight className="ml-2" />
-                    </button>
+                      </button>
+                    </div>
                   </div>
-                </div>
                 </motion.div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {featuredCollections.length > 3 && (
+            <div className="mt-10 text-center">
+              <Link 
+                to="/collections"
+                className="inline-flex items-center px-6 py-3 border-2 border-black hover:bg-black hover:text-white transition-colors duration-300 font-medium"
+              >
+                VIEW ALL COLLECTIONS <FaLongArrowAltRight className="ml-2" />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
