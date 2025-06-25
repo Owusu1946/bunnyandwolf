@@ -1507,6 +1507,9 @@ const ProductsPage = () => {
                             step="any"
                           />
                         </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Setting to 0 will make air shipping unavailable
+                        </p>
                       </div>
                       
                       <div>
@@ -1523,6 +1526,9 @@ const ProductsPage = () => {
                           placeholder="e.g. 5"
                           min="1"
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Both price and duration must be set for air shipping
+                        </p>
                       </div>
                       
                       <div>
@@ -1544,6 +1550,9 @@ const ProductsPage = () => {
                             step="any"
                           />
                         </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Setting to 0 will make sea shipping unavailable
+                        </p>
                       </div>
                       
                       <div>
@@ -1560,6 +1569,9 @@ const ProductsPage = () => {
                           placeholder="e.g. 30"
                           min="1"
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Both price and duration must be set for sea shipping
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -2090,6 +2102,9 @@ const ProductsPage = () => {
                             step="any"
                           />
                         </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Setting to 0 will make air shipping unavailable
+                        </p>
                       </div>
                       
                       <div>
@@ -2106,6 +2121,9 @@ const ProductsPage = () => {
                           placeholder="e.g. 5"
                           min="1"
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Both price and duration must be set for air shipping
+                        </p>
                       </div>
                       
                       <div>
@@ -2127,6 +2145,9 @@ const ProductsPage = () => {
                             step="any"
                           />
                         </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Setting to 0 will make sea shipping unavailable
+                        </p>
                       </div>
                       
                       <div>
@@ -2143,6 +2164,9 @@ const ProductsPage = () => {
                           placeholder="e.g. 30"
                           min="1"
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Both price and duration must be set for sea shipping
+                        </p>
                       </div>
                     </div>
                   </div>

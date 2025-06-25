@@ -20,7 +20,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   AlertTriangle,
-  Shield
+  Shield,
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Navbar from '../components/Navbar';
@@ -33,6 +34,8 @@ import ShareModal from '../components/ShareModal';
 import { useProductStore } from '../store/productStore';
 import { useReviewStore } from '../store/reviewStore';
 import { useAuth } from '../context/AuthContext';
+import { useUserPreferencesStore } from '../store/userPreferencesStore';
+import recommendationService from '../services/recommendationService';
 import axios from 'axios';
 import { generateProductSchema, generateBreadcrumbSchema } from '../utils/schemaHelper';
 import { toast } from 'react-hot-toast';
@@ -54,6 +57,16 @@ const ProductDetailsPage = () => {
   const { toggleWishlistItem, isInWishlist } = useWishlist();
   const { cartNotification, success, error, wishlistNotification, info } = useToast();
   const { isAuthenticated } = useAuth();
+  
+  // Get user preferences store
+  const { 
+    addViewedProduct, 
+    addSearchTerm,
+    searchHistory,
+    viewedProducts,
+    categoryPreferences,
+    colorPreferences
+  } = useUserPreferencesStore();
   
   // Scroll to top when component mounts
   useEffect(() => {
@@ -124,6 +137,14 @@ const ProductDetailsPage = () => {
   // Current URL for sharing
   const currentUrl = window.location.href;
   
+  // Add state for AI-powered recommendations
+  const [similarProducts, setSimilarProducts] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [isAiRecommendation, setIsAiRecommendation] = useState(false);
+  
+  // Add state for loading recently viewed products
+  const [loadingRecentlyViewed, setLoadingRecentlyViewed] = useState(true);
+  
   // Fetch products if they're not already loaded
   useEffect(() => {
     if (products.length === 0) {
@@ -135,7 +156,13 @@ const ProductDetailsPage = () => {
   useEffect(() => {
     if (products.length > 0 && id) {
       // Find the product in the store by ID
-      const storeProduct = products.find(p => p._id === id || p._id === location.state?.productId);
+      const storeProduct = products.find(
+        p =>
+          p._id === id ||
+          p.id === id ||
+          p._id === location.state?.productId ||
+          p.id === location.state?.productId
+      );
     
       if (storeProduct) {
         // If we found the product, use it
@@ -153,13 +180,33 @@ const ProductDetailsPage = () => {
         
         // Update SEO data once we have the product
         updateProductSEO(storeProduct, variantIndex);
+        
+        // Add product to viewed history with enhanced data
+        const enhancedProduct = {
+          ...storeProduct,
+          // Add additional tracking data
+          viewSource: location.state?.source || 'direct',
+          viewTimestamp: new Date().toISOString()
+        };
+        
+        // Track product view in analytics
+        track('product_view', {
+          product_id: storeProduct._id,
+          product_name: storeProduct.name,
+          product_category: storeProduct.category,
+          product_price: storeProduct.basePrice,
+          view_source: location.state?.source || 'direct'
+        });
+        
+        // Add to viewed products store
+        addViewedProduct(enhancedProduct);
     } else {
         // If product not found, show error and navigate back
         error('Product not found');
         navigate(-1);
     }
     }
-  }, [id, products, location.state, navigate, error]);
+  }, [id, products, location.state, navigate, error, addViewedProduct]);
   
   // Function to update SEO data for this product
   const updateProductSEO = async (productData, variantIndex = 0) => {
@@ -522,14 +569,44 @@ const ProductDetailsPage = () => {
     setMainImage(image);
   };
   
+  // Handle similar product click
   const handleSimilarProductClick = (similarProduct) => {
+    // Track that the user clicked on a recommendation
+    if (typeof track === 'function') {
+      track('recommendation_click', {
+        source_product_id: product?._id,
+        recommended_product_id: similarProduct.id,
+        is_ai_recommendation: isAiRecommendation
+      });
+    }
+    
     // Navigate to the similar product's page
-    // We'll pass minimal information and let the product details page 
-    // load the complete product information from the store
     navigate(`/product/${similarProduct.id}`, {
       state: {
         productId: similarProduct.id,
         variantIndex: 0
+      }
+    });
+  };
+  
+  // Handle recently viewed product click
+  const handleRecentlyViewedClick = (viewedProduct) => {
+    // Track that the user clicked on a recently viewed product
+    if (typeof track === 'function') {
+      track('recently_viewed_click', {
+        source_product_id: product?._id,
+        viewed_product_id: viewedProduct._id,
+        time_since_viewed: viewedProduct.viewedAt ? 
+          Math.floor((new Date() - new Date(viewedProduct.viewedAt)) / 1000) : null
+      });
+    }
+    
+    // Navigate to the viewed product's page
+    navigate(`/product/${viewedProduct._id}`, {
+      state: {
+        productId: viewedProduct._id,
+        variantIndex: 0,
+        source: 'recently_viewed'
       }
     });
   };
@@ -671,13 +748,31 @@ const ProductDetailsPage = () => {
   }, [product, currentReviewPage, reviewSortBy, fetchProductReviews]);
 
   // Use the image error handler for main product image
-  const getProductImageWithFallback = () => {
-    const image = mainImage || 
-      (product.variants && product.variants[selectedVariantIndex]?.image) || 
-      product.image || 
-      `https://placehold.co/400x500/e2e8f0/1e293b?text=${encodeURIComponent(product.name)}`;
+  const getProductImageWithFallback = (product) => {
+    if (!product) return `https://placehold.co/400x500?text=Product`;
     
-    return image;
+    // If product has a direct image property, use it
+    if (product.image) {
+      return product.image;
+    }
+    
+    // If product has variants, try to get image from first variant
+    if (product.variants && product.variants.length > 0) {
+      const variant = product.variants[0];
+      
+      // Check if variant has image
+      if (variant.image) {
+        return variant.image;
+      }
+      
+      // Check if variant has additionalImages
+      if (variant.additionalImages && variant.additionalImages.length > 0) {
+        return variant.additionalImages[0];
+      }
+    }
+    
+    // Fallback to placeholder with product name
+    return `https://placehold.co/400x500?text=${encodeURIComponent(product?.name || 'Product')}`;
   };
   
   // Handle review page change
@@ -776,6 +871,73 @@ const ProductDetailsPage = () => {
     }
   };
   
+  // Fetch AI-powered recommendations when product changes
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!product) return;
+      
+      setLoadingRecommendations(true);
+      
+      try {
+        // Get user preferences
+        const userPreferences = {
+          searchHistory,
+          viewedProducts,
+          categoryPreferences,
+          colorPreferences
+        };
+        
+        // Get recommendations from service
+        const recommendations = await recommendationService.getSimilarProductRecommendations(
+          product,
+          products,
+          userPreferences
+        );
+        
+        if (recommendations.length > 0) {
+          setSimilarProducts(recommendations);
+          // Check if these are AI recommendations or fallback
+          setIsAiRecommendation(recommendations.source === 'ai');
+        } else {
+          // Fallback to category-based filtering if no recommendations
+          const fallbackRecommendations = products
+            .filter(p => p._id !== product._id && p.category === product.category)
+            .slice(0, 4);
+            
+          setSimilarProducts(fallbackRecommendations);
+          setIsAiRecommendation(false);
+        }
+      } catch (error) {
+        console.error('Error fetching recommendations:', error);
+        
+        // Fallback to category-based filtering on error
+        const fallbackRecommendations = products
+          .filter(p => p._id !== product._id && p.category === product.category)
+          .slice(0, 4);
+          
+        setSimilarProducts(fallbackRecommendations);
+        setIsAiRecommendation(false);
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    };
+    
+    fetchRecommendations();
+  }, [product, products, searchHistory, viewedProducts, categoryPreferences, colorPreferences]);
+  
+  // Load recently viewed products
+  useEffect(() => {
+    // Simulate loading time for recently viewed products
+    setLoadingRecentlyViewed(true);
+    
+    // Set a timeout to simulate loading
+    const timer = setTimeout(() => {
+      setLoadingRecentlyViewed(false);
+    }, 800);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
   // If product is not loaded yet, show a loading state
   if (!product) {
     return (
@@ -793,42 +955,9 @@ const ProductDetailsPage = () => {
   }
   
   // Extract necessary data
-  const currentVariant = product.variants && product.variants.length > 0 
+  const currentVariant = product?.variants && product?.variants.length > 0 
     ? product.variants[selectedVariantIndex] 
     : null;
-  
-  // Get similar products
-  const similarProducts = products
-    .filter(p => p._id !== product._id && p.category === product.category)
-    .slice(0, 4)
-    .map(p => {
-      // Find the first available image using various fallbacks
-      let productImage;
-      
-      if (p.image) {
-        // Direct product image if available
-        productImage = p.image;
-      } else if (p.variants && p.variants.length > 0) {
-        // First variant's image or additionalImages
-        if (p.variants[0].image) {
-          productImage = p.variants[0].image;
-        } else if (p.variants[0].additionalImages && p.variants[0].additionalImages.length > 0) {
-          productImage = p.variants[0].additionalImages[0];
-        }
-      }
-      
-      // If no image found, use placeholder
-      if (!productImage) {
-        productImage = `https://via.placeholder.com/400x500?text=${encodeURIComponent(p.name)}`;
-      }
-      
-      return {
-        id: p._id,
-        name: p.name,
-        price: typeof p.basePrice === 'number' ? `GH₵${p.basePrice.toFixed(2)}` : p.basePrice,
-        image: productImage
-      };
-    });
   
   // Get stock information from the product
   const stockQuantity = product?.stock || 0;
@@ -882,6 +1011,82 @@ const ProductDetailsPage = () => {
     // If you have a cart drawer component, you would call its toggle function here
   };
   
+  // Replace the existing similar products section with this enhanced version
+  const renderSimilarProductsSection = () => {
+    return (
+      <div className="mt-10 sm:mt-16">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">You May Also Like</h2>
+          {isAiRecommendation && (
+            <div className="flex items-center text-sm text-purple-600">
+              <Sparkles className="w-4 h-4 mr-1" />
+              <span>AI-Powered</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+          {loadingRecommendations ? (
+            // Loading state
+            [...Array(4)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-[3/4] rounded-md bg-gray-200"></div>
+                <div className="mt-2 h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="mt-1 h-4 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))
+          ) : similarProducts && similarProducts.length > 0 ? (
+            // Recommendations
+            similarProducts.map((similarProduct) => {
+              // Find the best image to display
+              const productImage = getProductImageWithFallback(similarProduct);
+              
+              return (
+                <div 
+                  key={similarProduct.id || similarProduct._id} 
+                  className="cursor-pointer"
+                  onClick={() => handleSimilarProductClick(similarProduct)}
+                >
+                  <div className="aspect-[3/4] rounded-md overflow-hidden bg-gray-100">
+                    <img
+                      src={productImage}
+                      alt={similarProduct.name}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      onError={handleImageError}
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <h3 className="text-sm font-medium text-gray-900 truncate">{similarProduct.name}</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {typeof similarProduct.basePrice === 'number' 
+                        ? `GH₵${similarProduct.basePrice.toFixed(2)}` 
+                        : similarProduct.basePrice || similarProduct.price}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            // No recommendations
+            <div className="col-span-full text-center py-8">
+              <p className="text-gray-500">No similar products found.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+  
+  // Updated function to get the current product's main image
+  const getCurrentProductImage = () => {
+    const image = mainImage || 
+      (product.variants && product.variants[selectedVariantIndex]?.image) || 
+      product.image || 
+      `https://placehold.co/400x500/e2e8f0/1e293b?text=${encodeURIComponent(product.name)}`;
+    
+    return image;
+  };
+  
   return (
     <div className="min-h-screen bg-white">
       {/* SEO component */}
@@ -929,7 +1134,7 @@ const ProductDetailsPage = () => {
             {/* Main Image */}
             <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100">
               <img
-                src={getProductImageWithFallback()}
+                src={getCurrentProductImage()}
                 alt={product.name}
                 className="w-full h-full object-cover"
                 onError={handleImageError}
@@ -1650,47 +1855,86 @@ const ProductDetailsPage = () => {
           </div>
         </div>
         
-        {/* Similar Products Section */}
-        <div className="mt-10 sm:mt-16">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">You May Also Like</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {similarProducts && similarProducts.length > 0 ? (
-              similarProducts.map((similarProduct) => (
-              <div 
-                key={similarProduct.id} 
-                className="cursor-pointer"
-                onClick={() => handleSimilarProductClick(similarProduct)}
-              >
-                <div className="aspect-[3/4] rounded-md overflow-hidden bg-gray-100">
-                  <img
-                    src={similarProduct.image}
-                    alt={similarProduct.name}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                    onError={handleImageError}
-                  />
-                </div>
-                <div className="mt-2">
-                  <h3 className="text-sm font-medium text-gray-900 truncate">{similarProduct.name}</h3>
-                  <p className="mt-1 text-sm text-gray-500">{similarProduct.price}</p>
-                </div>
-              </div>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No similar products found.</p>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Replace the existing similar products section with the enhanced one */}
+        {renderSimilarProductsSection()}
         
         {/* Recently Viewed */}
         <div className="mt-10 sm:mt-16">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Recently Viewed</h2>
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Recently Viewed</h2>
+            {viewedProducts && viewedProducts.length > 4 && (
+              <button 
+                onClick={() => navigate('/profile/history')}
+                className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center"
+              >
+                View All
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {/* Placeholder for recently viewed items */}
-            <div className="aspect-[3/4] rounded-md bg-gray-100 flex items-center justify-center">
-              <p className="text-gray-400 text-sm">No items viewed yet</p>
-            </div>
+            {loadingRecentlyViewed ? (
+              // Loading state for recently viewed products
+              [...Array(4)].map((_, i) => (
+                <div key={`skeleton-${i}`} className="animate-pulse">
+                  <div className="aspect-[3/4] rounded-md bg-gray-200"></div>
+                  <div className="mt-2 h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="mt-1 h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))
+            ) : viewedProducts && viewedProducts.length > 1 ? (
+              // Filter out current product and show up to 4 recently viewed products
+              viewedProducts
+                .filter(p => p._id !== product?._id)
+                .slice(0, 4)
+                .map((viewedProduct) => {
+                  // Get the best available image for the product
+                  const productImage = viewedProduct.image || 
+                    (viewedProduct.variants && viewedProduct.variants[0]?.image) ||
+                    `https://placehold.co/400x500?text=${encodeURIComponent(viewedProduct.name)}`;
+                  
+                  // Format price properly
+                  const formattedPrice = typeof viewedProduct.price === 'number' 
+                    ? `GH₵${viewedProduct.price.toFixed(2)}` 
+                    : viewedProduct.price || 'Price not available';
+                  
+                  return (
+                    <div 
+                      key={viewedProduct._id} 
+                      className="cursor-pointer group"
+                      onClick={() => handleRecentlyViewedClick(viewedProduct)}
+                    >
+                      <div className="aspect-[3/4] rounded-md overflow-hidden bg-gray-100 relative">
+                        <img
+                          src={productImage}
+                          alt={viewedProduct.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={handleImageError}
+                        />
+                        {/* Add a subtle overlay with timestamp */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-30 text-white text-xs py-1 px-2">
+                          {viewedProduct.viewedAt ? 
+                            `Viewed ${new Date(viewedProduct.viewedAt).toLocaleDateString()}` : 
+                            'Recently viewed'}
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <h3 className="text-sm font-medium text-gray-900 truncate">{viewedProduct.name}</h3>
+                        <p className="mt-1 text-sm text-gray-500">{formattedPrice}</p>
+                        {viewedProduct.category && (
+                          <p className="text-xs text-gray-400">{viewedProduct.category}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-gray-400 text-sm">No items viewed yet</p>
+              </div>
+            )}
           </div>
         </div>
       </main>
