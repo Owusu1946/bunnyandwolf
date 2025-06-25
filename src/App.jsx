@@ -67,6 +67,7 @@ import BlogPage from './pages/BlogPage'
 import CareersPage from './pages/CareersPage'
 import StoreLocatorPage from './pages/StoreLocatorPage'
 import ScrollToTop from './components/ScrollToTop'
+import ProductSearchPage from './pages/ProductSearchPage'
 
 // Wrap AdminRoute components with SidebarProvider
 const AdminRouteWithSidebar = ({ children }) => {
@@ -188,6 +189,7 @@ const AppWrapper = () => {
                 <Route path="/services" element={<Services />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/search" element={<SearchResults />} />
+                <Route path="/product-search" element={<ProductSearchPage /> } />
                 <Route path="/contact" element={<Contact />} />
                 
                 {/* New routes for Footer pages */}

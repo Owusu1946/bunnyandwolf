@@ -1901,33 +1901,33 @@ const ProductDetailsPage = () => {
                     : viewedProduct.price || 'Price not available';
                   
                   return (
-                    <div 
+              <div 
                       key={viewedProduct._id} 
                       className="cursor-pointer group"
                       onClick={() => handleRecentlyViewedClick(viewedProduct)}
-                    >
+              >
                       <div className="aspect-[3/4] rounded-md overflow-hidden bg-gray-100 relative">
-                        <img
+                  <img
                           src={productImage}
                           alt={viewedProduct.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          onError={handleImageError}
-                        />
+                    onError={handleImageError}
+                  />
                         {/* Add a subtle overlay with timestamp */}
                         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-30 text-white text-xs py-1 px-2">
                           {viewedProduct.viewedAt ? 
                             `Viewed ${new Date(viewedProduct.viewedAt).toLocaleDateString()}` : 
                             'Recently viewed'}
                         </div>
-                      </div>
-                      <div className="mt-2">
+                </div>
+                <div className="mt-2">
                         <h3 className="text-sm font-medium text-gray-900 truncate">{viewedProduct.name}</h3>
                         <p className="mt-1 text-sm text-gray-500">{formattedPrice}</p>
                         {viewedProduct.category && (
                           <p className="text-xs text-gray-400">{viewedProduct.category}</p>
                         )}
-                      </div>
-                    </div>
+                </div>
+              </div>
                   );
                 })
             ) : (

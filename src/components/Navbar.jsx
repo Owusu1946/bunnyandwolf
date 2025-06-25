@@ -10,6 +10,7 @@ import { useNotificationStore } from '../store/notificationStore';
 import NotificationDropdown from './NotificationDropdown';
 import '../styles/Navbar.css';
 import LoadingOverlay from './LoadingOverlay';
+import ProductSearchDropdown from './ProductSearchDropdown';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -201,16 +202,25 @@ const Navbar = () => {
           </div>
 
           <div className="nav-right">
-            <div className="search-bar hidden md:flex">
-              <input 
-                type="text" 
-                placeholder="SEARCH" 
+            <div className="search-bar hidden md:flex" style={{ position: 'relative' }}>
+              <input
+                type="text"
                 className="border-0 text-gray-900 text-sm focus:ring-0 focus:outline-none bg-transparent"
+                placeholder="SEARCH"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') navigate('/product-search');
+                }}
+                onFocus={e => e.target.blur()} // Prevent typing in navbar, force use of search page
+                style={{ cursor: 'pointer' }}
+                readOnly
+                aria-label="Go to search page"
+                onClick={() => navigate('/product-search')}
               />
-              <button 
-                type="submit" 
+              <button
+                type="button"
                 className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
                 aria-label="Search"
+                onClick={() => navigate('/search')}
               >
                 <FaSearch />
               </button>

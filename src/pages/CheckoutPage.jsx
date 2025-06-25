@@ -333,9 +333,9 @@ const CheckoutPage = () => {
             productDetails.airShippingDuration !== '' &&
             airShippingDuration > 0) {
           hasValidShippingData = true;
-          totalPrice += airShippingPrice * quantity;
-          maxDuration = Math.max(maxDuration, airShippingDuration);
-          
+        totalPrice += airShippingPrice * quantity;
+        maxDuration = Math.max(maxDuration, airShippingDuration);
+        
           console.log(`✅ AIR SHIPPING AVAILABLE: Product "${productDetails.name}" - Price: ${airShippingPrice} × ${quantity} = ${airShippingPrice * quantity} GHS, Duration: ${airShippingDuration} days`);
         } else {
           console.log(`❌ AIR SHIPPING UNAVAILABLE for "${productDetails.name}": Price=${airShippingPrice}, Duration=${airShippingDuration}`);
@@ -355,9 +355,9 @@ const CheckoutPage = () => {
             productDetails.seaShippingDuration !== '' &&
             seaShippingDuration > 0) {
           hasValidShippingData = true;
-          totalPrice += seaShippingPrice * quantity;
-          maxDuration = Math.max(maxDuration, seaShippingDuration);
-          
+        totalPrice += seaShippingPrice * quantity;
+        maxDuration = Math.max(maxDuration, seaShippingDuration);
+        
           console.log(`✅ SEA SHIPPING AVAILABLE: Product "${productDetails.name}" - Price: ${seaShippingPrice} × ${quantity} = ${seaShippingPrice * quantity} GHS, Duration: ${seaShippingDuration} days`);
         } else {
           console.log(`❌ SEA SHIPPING UNAVAILABLE for "${productDetails.name}": Price=${seaShippingPrice}, Duration=${seaShippingDuration}`);
@@ -1330,7 +1330,7 @@ const CheckoutPage = () => {
           <div className="p-6 text-center border rounded-lg bg-yellow-50 border-yellow-200">
             <div className="mb-3">
               <Truck className="w-10 h-10 text-yellow-500 mx-auto" />
-            </div>
+          </div>
             <h4 className="text-lg font-medium text-yellow-700 mb-2">No Shipping Methods Available</h4>
             <p className="text-sm text-yellow-600">
               The selected product(s) don't have shipping options configured.
