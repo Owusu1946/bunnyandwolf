@@ -184,6 +184,7 @@ export const useProductStore = create(
         set({ filteredProducts: filtered });
         return filtered;
       },
+
       
       // Filter products by platform
       filterByPlatform: (platformId) => {

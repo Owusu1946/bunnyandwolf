@@ -158,13 +158,7 @@ console.log('[ProductDetailsPage] products loaded:', products.map(p => p._id));
   useEffect(() => {
     if (products.length > 0 && id) {
       // Find the product in the store by ID
-      const storeProduct = products.find(
-        p =>
-          p._id === id ||
-          p.id === id ||
-          p._id === location.state?.productId ||
-          p.id === location.state?.productId
-      );
+      const storeProduct = products.find(p => p._id === id);
     
       console.log('[ProductDetailsPage] storeProduct found:', storeProduct);
       if (storeProduct) {
