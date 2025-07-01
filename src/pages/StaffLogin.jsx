@@ -195,7 +195,7 @@ const StaffLogin = () => {
         </form>
         
         <div className="text-center mt-4">
-          <Link to="/" className="text-sm text-gray-600 hover:text-purple-600">
+          <Link to="/sinosply-stores" className="text-sm text-gray-600 hover:text-purple-600">
             Back to main store
           </Link>
           <div className="mt-2">

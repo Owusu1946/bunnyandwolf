@@ -800,7 +800,7 @@ const WishlistPage = () => {
                 )}
                 
                 <Link
-                  to="/"
+                  to="/sinosply-stores"
                   className="w-full md:w-auto px-6 py-3 bg-black text-white rounded-md hover:bg-gray-900 flex items-center justify-center"
                 >
                   Continue Shopping

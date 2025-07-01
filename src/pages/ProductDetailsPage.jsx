@@ -1117,9 +1117,9 @@ console.log('[ProductDetailsPage] products loaded:', products.map(p => p._id));
             Back
           </button>
           <span className="mx-2">/</span>
-          <a href="/" className="hover:text-gray-900 whitespace-nowrap">Home</a>
+          <a href="/sinosply-stores" className="hover:text-gray-900 whitespace-nowrap">Home</a>
           <span className="mx-2">/</span>
-          <a href="/shop" className="hover:text-gray-900 whitespace-nowrap">Shop</a>
+          <a href="/sinosply-stores" className="hover:text-gray-900 whitespace-nowrap">Shop</a>
           <span className="mx-2">/</span>
           <span className="font-medium text-gray-900 truncate max-w-[150px] sm:max-w-none">{product.name}</span>
         </div>

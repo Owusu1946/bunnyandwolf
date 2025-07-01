@@ -1608,7 +1608,7 @@ const CheckoutPage = () => {
             Back
           </button>
           <span className="mx-2">/</span>
-          <a href="/" className="hover:text-gray-900">Home</a>
+          <a href="/sinosply-stores" className="hover:text-gray-900">Home</a>
           {isFromCart ? (
             <>
               <span className="mx-2">/</span>

@@ -240,7 +240,7 @@ const FeaturedCollectionPage = () => {
       <div className="relative w-full h-[50vh] bg-gray-900 overflow-hidden">
         {/* Back Button */}
         <Link 
-          to="/" 
+          to="/sinosply-stores" 
           className="absolute top-4 left-4 z-20 bg-white bg-opacity-80 hover:bg-white text-black p-3 rounded-full shadow-md transition-all duration-200 flex items-center justify-center"
           aria-label="Back to collections"
         >
@@ -274,7 +274,7 @@ const FeaturedCollectionPage = () => {
         {/* Breadcrumbs */}
         <nav className="mb-10">
           <ol className="flex items-center space-x-2 text-sm">
-            <li><Link to="/" className="text-gray-500 hover:text-black">Home</Link></li>
+            <li><Link to="/sinosply-stores" className="text-gray-500 hover:text-black">Home</Link></li>
             <li><span className="text-gray-500">/</span></li>
             <li><Link to="/collections" className="text-gray-500 hover:text-black">Collections</Link></li>
             <li><span className="text-gray-500">/</span></li>

@@ -233,7 +233,7 @@ const Profile = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/sinosply-store');
+    navigate('/sinosply-stores');
   };
 
   // View order details
@@ -425,7 +425,7 @@ const Profile = () => {
             <FaShoppingBag className="w-16 h-16 mx-auto text-gray-400 mb-4" />
             <p className="text-gray-600 mb-4">You haven't placed any orders yet.</p>
             <Link 
-              to="/" 
+              to="/sinosply-stores" 
               className="inline-block bg-black text-white py-2 px-6 rounded-md hover:bg-gray-800 transition-colors"
             >
               Start Shopping

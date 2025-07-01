@@ -418,7 +418,7 @@ const Navbar = () => {
         {/* Mobile navigation menu */}
         <div className={`mobile-menu ${isMobileMenuOpen ? 'open' : ''}`}>
           <div className="mobile-menu-header">
-            <Link to="/" className="mobile-logo" onClick={toggleMobileMenu}>
+            <Link to="/sinosply-stores" className="mobile-logo" onClick={toggleMobileMenu}>
               SINOSPLY
             </Link>
             <button className="mobile-close" onClick={toggleMobileMenu}>
