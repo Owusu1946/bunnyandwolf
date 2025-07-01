@@ -9,10 +9,12 @@ import { useProductStore } from '../store/productStore';
 import CustomerSupportChat from '../components/CustomerSupportChat';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/blur.css';
+import axios from 'axios';
+import apiConfig from '../config/apiConfig';
 
 const FeaturedCollectionPage = () => {
   const { collectionId } = useParams();
-  const { getCollectionById, collections } = useCollectionsStore();
+  const { getCollectionById, collections, fetchCollectionsFromAPI } = useCollectionsStore();
   const { products, fetchProductsFromAPI } = useProductStore();
 
   // Fetch products on mount if not already loaded (supports direct links)
@@ -67,9 +69,27 @@ const FeaturedCollectionPage = () => {
       setCollectionProducts(associatedProducts);
       setTimeout(() => setLoading(false), 300);
     } else {
-      setLoading(false);
+      // Fallback: fetch collection and its products directly from API
+      axios.get(`${apiConfig.baseURL}/collections/${collectionId}`)
+        .then(res => {
+          if (res.data.success) {
+            const coll = res.data.data;
+            setCollection(coll);
+            const associatedProducts = Array.isArray(coll.products) ? coll.products : [];
+            if (associatedProducts.length > 0) {
+              const minPrice = Math.min(...associatedProducts.map(p => p.basePrice || p.price || 0));
+              const maxPrice = Math.max(...associatedProducts.map(p => p.basePrice || p.price || 0));
+              setPriceRange([minPrice, maxPrice]);
+            }
+            setCollectionProducts(associatedProducts);
+          } else {
+            console.error('[FeaturedCollectionPage] API call failed:', res.data);
+          }
+        })
+        .catch(err => console.error('[FeaturedCollectionPage] API fetch error', err))
+        .finally(() => setLoading(false));
     }
-  }, [collectionId, collections, products, getCollectionById]);
+  }, [collectionId, collections, products, getCollectionById, fetchCollectionsFromAPI]);
   
   // Extract unique categories and sizes from products
   const availableCategories = [...new Set(collectionProducts.map(p => p.category).filter(Boolean))];
