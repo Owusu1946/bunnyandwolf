@@ -46,11 +46,8 @@ const FeaturedCollectionPage = () => {
       setCollection(fetchedCollection);
       
       // Get products associated with this collection
-      const collectionProductIds = Array.isArray(fetchedCollection.products)
-        ? fetchedCollection.products.map(p => (typeof p === 'object' && p !== null ? p._id : p))
-        : [];
       const associatedProducts = products.filter(product => 
-        collectionProductIds.includes(product._id)
+        fetchedCollection.products?.includes(product._id)
       );
       
       // Set available price range based on products
@@ -450,7 +447,7 @@ const FeaturedCollectionPage = () => {
                     onMouseLeave={() => setHoveredProduct(null)}
                   >
                     <div className="relative overflow-hidden rounded-md">
-                      <Link to={`/product/${product._id}`}>
+                      <Link to={`/product/${product._id}`} onClick={() => console.log('[FeaturedCollectionPage] Clicked product:', product._id, 'Navigating to:', `/product/${product._id}`, 'Current location state:', window.history.state && window.history.state.state)}>
                         <div className="relative w-full h-96 bg-gray-100 overflow-hidden">
                           {/* Primary Image */}
                           <img
