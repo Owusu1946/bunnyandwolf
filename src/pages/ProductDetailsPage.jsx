@@ -153,6 +153,8 @@ const ProductDetailsPage = () => {
   }, [products.length, fetchProductsFromAPI]);
   
   // Initialize with the product from store using ID
+console.log(`[ProductDetailsPage] useEffect init for id=${id}, locationState:`, location.state);
+console.log('[ProductDetailsPage] products loaded:', products.map(p => p._id));
   useEffect(() => {
     if (products.length > 0 && id) {
       // Find the product in the store by ID
@@ -164,6 +166,7 @@ const ProductDetailsPage = () => {
           p.id === location.state?.productId
       );
     
+      console.log('[ProductDetailsPage] storeProduct found:', storeProduct);
       if (storeProduct) {
         // If we found the product, use it
         setProduct(storeProduct);

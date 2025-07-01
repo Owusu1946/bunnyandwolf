@@ -447,7 +447,7 @@ const FeaturedCollectionPage = () => {
                     onMouseLeave={() => setHoveredProduct(null)}
                   >
                     <div className="relative overflow-hidden rounded-md">
-                      <Link to={`/product/${product._id}`} onClick={() => console.log('[FeaturedCollectionPage] Clicked product:', product._id, 'Navigating to:', `/product/${product._id}`, 'Current location state:', window.history.state && window.history.state.state)}>
+                      <Link to={`/product/${product._id}`} onClick={() => console.log(`[FeaturedCollectionPage] Navigating to product details: id=${product._id}, name=${product.name}`)}>
                         <div className="relative w-full h-96 bg-gray-100 overflow-hidden">
                           {/* Primary Image */}
                           <img
@@ -517,7 +517,7 @@ const FeaturedCollectionPage = () => {
                       )}
                     </div>
                     <div className="mt-4 px-1">
-                      <Link to={`/product/${product._id}`} className="block">
+                      <Link to={`/product/${product._id}`} onClick={() => console.log(`[FeaturedCollectionPage] Navigating to product details: id=${product._id}, name=${product.name}`)} className="block">
                         <h3 className="text-md font-medium text-gray-900 group-hover:underline">{product.name}</h3>
                       </Link>
                       <div className="flex items-center mt-1">
