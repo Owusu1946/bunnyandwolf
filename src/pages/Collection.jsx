@@ -79,38 +79,25 @@ const Collection = () => {
           await fetchProductsFromAPI();
         }
         
-        // Check if products are already populated in the collection data
-        const areProductsPopulated = currentCollection.products && 
-                                     currentCollection.products.length > 0 && 
-                                     typeof currentCollection.products[0] === 'object' && 
-                                     currentCollection.products[0] !== null &&
-                                     currentCollection.products[0]._id;
-
-        let finalProducts = [];
-        if (areProductsPopulated) {
-          console.log(`[Collection] Products are already populated in collection data.`);
-          finalProducts = currentCollection.products;
-        } else {
-          // Fallback to existing logic if products are not populated
-          console.log(`[Collection] Products not populated, matching from product store.`);
+        // Filter products for this collection
+        console.log(`[Collection] Finding products for collection: ${currentCollection._id}`);
+        const collectionProductIds = Array.isArray(currentCollection.products) ? 
+          currentCollection.products.map(p => typeof p === 'object' ? p._id : p) : 
+          [];
           
-          const collectionProductIds = Array.isArray(currentCollection.products) ? 
-            currentCollection.products.map(p => typeof p === 'object' ? p._id : p) : 
-            [];
-            
-          console.log(`[Collection] Collection has ${collectionProductIds.length} associated product IDs`);
-          
-          finalProducts = products.filter(product => 
-            collectionProductIds.includes(product._id)
-          );
-        }
+        console.log(`[Collection] Collection has ${collectionProductIds.length} associated product IDs`);
         
-        console.log(`[Collection] Found ${finalProducts.length} matching products`);
-        setCollectionProducts(finalProducts);
+        // Match products from store
+        const matchedProducts = products.filter(product => 
+          collectionProductIds.includes(product._id)
+        );
+        
+        console.log(`[Collection] Found ${matchedProducts.length} matching products in store`);
+        setCollectionProducts(matchedProducts);
         
         // Initialize selected variants
         const initialVariants = {};
-        finalProducts.forEach(product => {
+        matchedProducts.forEach(product => {
           initialVariants[product._id] = 0;
         });
         setSelectedVariants(initialVariants);

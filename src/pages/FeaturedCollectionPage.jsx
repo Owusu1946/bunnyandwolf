@@ -46,8 +46,11 @@ const FeaturedCollectionPage = () => {
       setCollection(fetchedCollection);
       
       // Get products associated with this collection
+      const collectionProductIds = Array.isArray(fetchedCollection.products)
+        ? fetchedCollection.products.map(p => (typeof p === 'object' && p !== null ? p._id : p))
+        : [];
       const associatedProducts = products.filter(product => 
-        fetchedCollection.products?.includes(product._id)
+        collectionProductIds.includes(product._id)
       );
       
       // Set available price range based on products
