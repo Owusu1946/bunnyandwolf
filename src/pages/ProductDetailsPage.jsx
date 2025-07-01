@@ -575,15 +575,15 @@ const ProductDetailsPage = () => {
     if (typeof track === 'function') {
       track('recommendation_click', {
         source_product_id: product?._id,
-        recommended_product_id: similarProduct.id,
+        recommended_product_id: similarProduct._id,
         is_ai_recommendation: isAiRecommendation
       });
     }
     
     // Navigate to the similar product's page
-    navigate(`/product/${similarProduct.id}`, {
+    navigate(`/product/${similarProduct._id}`, {
       state: {
-        productId: similarProduct.id,
+        productId: similarProduct._id,
         variantIndex: 0
       }
     });
@@ -1043,7 +1043,7 @@ const ProductDetailsPage = () => {
               
               return (
                 <div 
-                  key={similarProduct.id || similarProduct._id} 
+                  key={similarProduct._id || similarProduct._id} 
                   className="cursor-pointer"
                   onClick={() => handleSimilarProductClick(similarProduct)}
                 >
