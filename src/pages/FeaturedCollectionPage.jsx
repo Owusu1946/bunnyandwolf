@@ -13,7 +13,14 @@ import 'react-lazy-load-image-component/src/effects/blur.css';
 const FeaturedCollectionPage = () => {
   const { collectionId } = useParams();
   const { getCollectionById, collections } = useCollectionsStore();
-  const { products } = useProductStore();
+  const { products, fetchProductsFromAPI } = useProductStore();
+
+  // Fetch products on mount if not already loaded (supports direct links)
+  useEffect(() => {
+    if (products.length === 0) {
+      fetchProductsFromAPI();
+    }
+  }, [products.length, fetchProductsFromAPI]);
   
   // Collection and product states
   const [collection, setCollection] = useState(null);

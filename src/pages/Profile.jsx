@@ -233,7 +233,7 @@ const Profile = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/sinosply-store');
   };
 
   // View order details
