@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import apiConfig from '../config/apiConfig';
+import axios from 'axios';
+import { getCachedData, setCachedData } from '../utils/cacheManager';
+
+// Change from process.env to import.meta.env for Vite
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 export const useProductStore = create(
   persist(
@@ -12,6 +17,8 @@ export const useProductStore = create(
       filteredProducts: [], // Products filtered by category or search
       platformProducts: {}, // Products organized by platform ID
       loading: false, // Loading state
+      error: null,
+      lastFetched: null,
       
       // Set all products
       setProducts: (products) => {
@@ -391,77 +398,46 @@ export const useProductStore = create(
       
       // Fetch products from API
       fetchProductsFromAPI: async () => {
-        set({ loading: true });
-        console.log('🔄 ProductStore: Fetching products from API');
         try {
-          const response = await fetch(`${apiConfig.baseURL}/products?limit=100`);
-          const data = await response.json();
-          
-          if (data.success) {
-            console.log(`✅ ProductStore: Successfully fetched ${data.data.length} products from API`);
-            set({ products: data.data });
-            
-            // Update derived state
-            const featuredProducts = data.data.filter(p => p.isFeatured === true);
-            const sampleProducts = data.data.filter(p => p.isSample === true);
-            const categories = [...new Set(data.data.map(p => p.category))];
-            
-            // Ensure no products are in both categories unintentionally
-            if (featuredProducts.some(p => p.isSample === true)) {
-              console.warn('⚠️ ProductStore: Some products are marked as both featured and sample');
-            }
-            
-            // Organize products by platform
-            const platformProducts = {};
-            data.data.forEach(product => {
-              if (product.platformId) {
-                if (!platformProducts[product.platformId]) {
-                  platformProducts[product.platformId] = [];
-                }
-                platformProducts[product.platformId].push(product);
-              }
+          set({ loading: true });
+
+          // First check if we have cached products data
+          const cachedProducts = getCachedData('products');
+          if (cachedProducts) {
+            console.log('[ProductStore] Using cached products data');
+            set({ 
+              products: cachedProducts,
+              loading: false,
+              lastFetched: new Date().getTime()
             });
+            return cachedProducts;
+          }
+          
+          // If no cache, fetch from API
+          const response = await axios.get(`${API_URL}/v1/products`);
+          
+          if (response.data.success && Array.isArray(response.data.products)) {
+            console.log('[ProductStore] Successfully fetched products from API');
+            const productsData = response.data.products;
             
-            // Count platforms with associated products
-            const platformsCount = Object.keys(platformProducts).length;
-            console.log(`📊 ProductStore: Found products for ${platformsCount} platforms`);
-            
-            console.log(`✨ ProductStore: Found ${featuredProducts.length} featured products`);
-            if (featuredProducts.length > 0) {
-              featuredProducts.forEach(p => {
-                console.log(`  - Featured: ${p.name} (ID: ${p._id})`);
-                console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
-                if (p.platformId) {
-                  console.log(`    Platform: ${p.platformId}`);
-                }
-              });
-            }
-            
-            console.log(`✨ ProductStore: Found ${sampleProducts.length} sample products`);
-            if (sampleProducts.length > 0) {
-              sampleProducts.forEach(p => {
-                console.log(`  - Sample: ${p.name} (ID: ${p._id})`);
-                console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
-              });
-            }
-            
-            console.log(`📊 ProductStore: Categories found: ${categories.join(', ')}`);
+            // Cache the products data
+            setCachedData('products', productsData);
             
             set({ 
-              featuredProducts,
-              sampleProducts,
-              categories,
-              filteredProducts: data.data,
-              platformProducts,
-              loading: false
+              products: productsData,
+              loading: false,
+              lastFetched: new Date().getTime()
             });
+            return productsData;
           } else {
-            console.error('❌ ProductStore: API request failed', data);
-            set({ loading: false });
+            console.error('[ProductStore] Failed to fetch products:', response.data.message || 'Unknown error');
+            set({ error: response.data.message || 'Failed to fetch products', loading: false });
+            return [];
           }
         } catch (error) {
-          console.error('❌ ProductStore: Error fetching products:', error);
-          set({ loading: false });
+          console.error('[ProductStore] Error fetching products:', error);
+          set({ error: error.message, loading: false });
+          return [];
         }
       },
       
@@ -501,36 +477,55 @@ export const useProductStore = create(
       
       // Fetch only featured products from API
       fetchFeaturedProducts: async () => {
-        set({ loading: true });
-        console.log('🌟 ProductStore: Fetching featured products from API');
         try {
-          const response = await fetch(`${apiConfig.baseURL}/products?featured=true&limit=20`);
-          const data = await response.json();
-          
-          if (data.success) {
-            console.log(`✅ ProductStore: Successfully fetched ${data.data.length} featured products from API`);
-            
-            // Update featured products in store
-            set({ featuredProducts: data.data, loading: false });
-            
-            // Log featured products
-            data.data.forEach(p => {
-              console.log(`  - Featured: ${p.name} (ID: ${p._id})`);
-              console.log(`    Image: ${p.variants?.[0]?.additionalImages?.[0] || 'No image'}`);
-              if (p.platformId) {
-                console.log(`    Platform: ${p.platformId}`);
-              }
+          set({ loading: true });
+
+          // First check if we have cached featured products data
+          const cachedFeaturedProducts = getCachedData('featured_products');
+          if (cachedFeaturedProducts) {
+            console.log('[ProductStore] Using cached featured products data');
+            set({ 
+              featuredProducts: cachedFeaturedProducts,
+              loading: false
             });
+            return cachedFeaturedProducts;
+          }
+          
+          // Check if we have products in store already
+          const { products } = get();
+          if (products && products.length > 0) {
+            const featured = products.filter(product => product.isFeatured);
+            if (featured.length > 0) {
+              console.log('[ProductStore] Using featured products from store');
+              
+              // Cache the featured products
+              setCachedData('featured_products', featured);
+              
+              set({ featuredProducts: featured, loading: false });
+              return featured;
+            }
+          }
+          
+          // If no cached data and no products in store, fetch from API
+          const response = await axios.get(`${API_URL}/v1/products/featured`);
+          
+          if (response.data.success && Array.isArray(response.data.products)) {
+            const featuredData = response.data.products;
+            console.log('[ProductStore] Successfully fetched featured products from API');
             
-            return data.data;
+            // Cache the featured products
+            setCachedData('featured_products', featuredData);
+            
+            set({ featuredProducts: featuredData, loading: false });
+            return featuredData;
           } else {
-            console.error('❌ ProductStore: API request for featured products failed', data);
-            set({ loading: false });
+            console.error('[ProductStore] Failed to fetch featured products:', response.data.message || 'Unknown error');
+            set({ error: response.data.message || 'Failed to fetch featured products', loading: false });
             return [];
           }
         } catch (error) {
-          console.error('❌ ProductStore: Error fetching featured products:', error);
-          set({ loading: false });
+          console.error('[ProductStore] Error fetching featured products:', error);
+          set({ error: error.message, loading: false });
           return [];
         }
       },
@@ -570,6 +565,192 @@ export const useProductStore = create(
           set({ loading: false });
           return [];
         }
+      },
+      
+      // Reset the store state
+      resetState: () => {
+        set({
+          products: [],
+          featuredProducts: [],
+          sampleProducts: [],
+          productDetails: null,
+          loading: false,
+          error: null,
+          lastFetched: null
+        });
+      },
+      
+      // Check if stored products data is stale (older than 1 hour)
+      isDataStale: () => {
+        const { lastFetched } = get();
+        if (!lastFetched) return true;
+        
+        const now = new Date().getTime();
+        const oneHour = 60 * 60 * 1000; // ms
+        return (now - lastFetched) > oneHour;
+      },
+      
+      // Fetch trending products
+      fetchTrendingProducts: async () => {
+        try {
+          set({ loading: true });
+
+          // First check if we have cached trending products data
+          const cachedTrendingProducts = getCachedData('trending_products');
+          if (cachedTrendingProducts) {
+            console.log('[ProductStore] Using cached trending products data');
+            set({ 
+              trendingProducts: cachedTrendingProducts,
+              loading: false
+            });
+            return cachedTrendingProducts;
+          }
+          
+          // If no cached data, fetch from API
+          const response = await axios.get(`${API_URL}/v1/products/trending`);
+          
+          if (response.data.success && Array.isArray(response.data.products)) {
+            const trendingData = response.data.products;
+            console.log('[ProductStore] Successfully fetched trending products');
+            
+            // Cache the trending products
+            setCachedData('trending_products', trendingData);
+            
+            set({ trendingProducts: trendingData, loading: false });
+            return trendingData;
+          } else {
+            console.error('[ProductStore] Failed to fetch trending products:', response.data.message || 'Unknown error');
+            set({ error: response.data.message || 'Failed to fetch trending products', loading: false });
+            return [];
+          }
+        } catch (error) {
+          console.error('[ProductStore] Error fetching trending products:', error);
+          set({ error: error.message, loading: false });
+          return [];
+        }
+      },
+      
+      // Fetch a single product by ID
+      fetchProductById: async (productId) => {
+        try {
+          set({ loading: true });
+
+          // First check if we have cached product details
+          const cachedProductDetails = getCachedData(`product_${productId}`);
+          if (cachedProductDetails) {
+            console.log(`[ProductStore] Using cached details for product ${productId}`);
+            set({ 
+              productDetails: cachedProductDetails,
+              loading: false
+            });
+            return cachedProductDetails;
+          }
+          
+          // Check if product exists in current products array
+          const { products } = get();
+          const existingProduct = products.find(p => p._id === productId || p.id === productId);
+          if (existingProduct) {
+            console.log(`[ProductStore] Using existing product details for ${productId} from store`);
+            
+            // Cache the product details
+            setCachedData(`product_${productId}`, existingProduct);
+            
+            set({ productDetails: existingProduct, loading: false });
+            return existingProduct;
+          }
+          
+          // If product not in cache or store, fetch from API
+          const response = await axios.get(`${API_URL}/v1/products/${productId}`);
+          
+          if (response.data.success && response.data.product) {
+            const productData = response.data.product;
+            console.log(`[ProductStore] Successfully fetched product ${productId}`);
+            
+            // Cache the product details
+            setCachedData(`product_${productId}`, productData);
+            
+            set({ productDetails: productData, loading: false });
+            return productData;
+          } else {
+            console.error(`[ProductStore] Failed to fetch product ${productId}:`, response.data.message || 'Unknown error');
+            set({ error: response.data.message || 'Failed to fetch product', loading: false });
+            return null;
+          }
+        } catch (error) {
+          console.error(`[ProductStore] Error fetching product ${productId}:`, error);
+          set({ error: error.message, loading: false });
+          return null;
+        }
+      },
+      
+      // Update product in the store
+      updateProduct: (productId, updatedData) => {
+        const { products, featuredProducts, trendingProducts } = get();
+        
+        // Update in main products array
+        const updatedProducts = products.map(product => 
+          (product._id === productId || product.id === productId) 
+            ? { ...product, ...updatedData } 
+            : product
+        );
+        
+        // Update in featured products if present
+        const updatedFeatured = featuredProducts.map(product =>
+          (product._id === productId || product.id === productId)
+            ? { ...product, ...updatedData }
+            : product
+        );
+        
+        // Update in trending products if present
+        const updatedTrending = trendingProducts.map(product =>
+          (product._id === productId || product.id === productId)
+            ? { ...product, ...updatedData }
+            : product
+        );
+        
+        // Update the cache
+        setCachedData('products', updatedProducts);
+        setCachedData('featured_products', updatedFeatured);
+        setCachedData('trending_products', updatedTrending);
+        setCachedData(`product_${productId}`, { ...get().productDetails, ...updatedData });
+        
+        set({ 
+          products: updatedProducts,
+          featuredProducts: updatedFeatured,
+          trendingProducts: updatedTrending,
+          productDetails: get().productDetails?._id === productId 
+            ? { ...get().productDetails, ...updatedData } 
+            : get().productDetails
+        });
+      },
+      
+      // Delete product from the store
+      deleteProduct: (productId) => {
+        const { products, featuredProducts, trendingProducts } = get();
+        
+        const updatedProducts = products.filter(product => 
+          product._id !== productId && product.id !== productId
+        );
+        
+        const updatedFeatured = featuredProducts.filter(product =>
+          product._id !== productId && product.id !== productId
+        );
+        
+        const updatedTrending = trendingProducts.filter(product =>
+          product._id !== productId && product.id !== productId
+        );
+        
+        // Update the cache
+        setCachedData('products', updatedProducts);
+        setCachedData('featured_products', updatedFeatured);
+        setCachedData('trending_products', updatedTrending);
+        
+        set({
+          products: updatedProducts,
+          featuredProducts: updatedFeatured,
+          trendingProducts: updatedTrending,
+          productDetails: get().productDetails?._id === productId ? null : get().productDetails
+        });
       }
     }),
     {

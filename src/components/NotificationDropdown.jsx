@@ -306,7 +306,7 @@ const NotificationDropdown = ({ onClearAll, onClearNotification }) => {
         </button>
         
         {/* Debug button - only visible in development */}
-        {process.env.NODE_ENV !== 'production' && (
+        {/* {process.env.NODE_ENV !== 'production' && (
           <button
             onClick={testNotification}
             className="ml-2 p-1 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
@@ -314,7 +314,7 @@ const NotificationDropdown = ({ onClearAll, onClearNotification }) => {
           >
             Test
           </button>
-        )}
+        )} */}
       </div>
 
       {/* Dropdown */}

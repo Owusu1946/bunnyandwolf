@@ -139,6 +139,15 @@ const Navbar = () => {
     }
   };
 
+  // Handle search navigation
+  const handleSearchClick = (e) => {
+    e.stopPropagation();
+    navigate('/product-search');
+    if (isMobileMenuOpen) {
+      toggleMobileMenu();
+    }
+  };
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     setIsProfileDropdownOpen(false);
@@ -220,7 +229,7 @@ const Navbar = () => {
                 type="button"
                 className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
                 aria-label="Search"
-                onClick={() => navigate('/search')}
+                onClick={() => navigate('/product-search')}
               >
                 <FaSearch />
               </button>
@@ -240,69 +249,17 @@ const Navbar = () => {
                     />
                   </div>
                   
-                  {/* Mobile Notification Button */}
+                  {/* Mobile Search Button - Replacing Mobile Notification Button */}
                   <div className="icon-button relative md:hidden">
                     <button 
-                      onClick={toggleMobileNotifications}
+                      onClick={handleSearchClick}
                       className="flex items-center justify-center"
-                      aria-label="Notifications"
+                      aria-label="Search"
                     >
                       <div className="relative">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        {notifications.length > 0 && (
-                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                            {notifications.length > 9 ? '9+' : notifications.length}
-                          </span>
-                        )}
+                        <FaSearch className="h-6 w-6 text-gray-700" />
                       </div>
                     </button>
-                    
-                    {/* Mobile Notifications Dropdown */}
-                    {isMobileNotificationsOpen && (
-                      <div className="mobile-notifications-dropdown absolute right-0 mt-2 w-screen max-w-sm bg-white rounded-lg shadow-lg overflow-hidden z-50 transform origin-top-right transition-all duration-200 animate-slideIn">
-                        <div className="p-3 border-b border-gray-100 flex justify-between items-center">
-                          <h3 className="font-medium text-gray-900">Notifications</h3>
-                          {notifications.length > 0 && (
-                            <button 
-                              onClick={handleClearAllNotifications}
-                              className="text-xs text-gray-500 hover:text-gray-700"
-                            >
-                              Clear All
-                            </button>
-                          )}
-                        </div>
-                        
-                        <div className="max-h-[60vh] overflow-y-auto">
-                          {notifications.length > 0 ? (
-                            notifications.map(notification => (
-                              <div 
-                                key={notification.id} 
-                                className={`p-3 border-b border-gray-100 ${notification.read ? 'bg-white' : 'bg-blue-50'}`}
-                              >
-                                <div className="flex justify-between">
-                                  <div className="flex-1">
-                                    <p className="text-sm text-gray-800">{notification.message}</p>
-                                    <p className="text-xs text-gray-500 mt-1">{new Date(notification.timestamp).toLocaleString()}</p>
-                                  </div>
-                                  <button 
-                                    onClick={() => handleClearNotification(notification.id)}
-                                    className="text-gray-400 hover:text-gray-600 ml-2"
-                                  >
-                                    <FaTimes size={14} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="p-4 text-center text-gray-500">
-                              <p>No notifications</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                   
                 <div className="relative" onClick={toggleProfileDropdown}>
@@ -428,8 +385,25 @@ const Navbar = () => {
           
           <div className="mobile-search">
             <div className="search-form">
-              <input type="text" placeholder="Search for products..." />
-              <button type="submit">
+              <input 
+                type="text" 
+                placeholder="Search for products..." 
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    navigate(`/product-search${e.target.value ? `?q=${encodeURIComponent(e.target.value)}` : ''}`);
+                    toggleMobileMenu();
+                  }
+                }}
+                id="mobile-search-input"
+              />
+              <button 
+                type="button"
+                onClick={() => {
+                  const searchValue = document.getElementById('mobile-search-input')?.value || '';
+                  navigate(`/product-search${searchValue ? `?q=${encodeURIComponent(searchValue)}` : ''}`);
+                  toggleMobileMenu();
+                }}
+              >
                 <FaSearch />
               </button>
             </div>

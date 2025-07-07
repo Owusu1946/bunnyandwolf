@@ -23,6 +23,7 @@ import '../styles/bannerOverlay.css';
 import '../styles/Bunny.css';
 import axios from 'axios';
 import SinosplyLoader from '../components/ui/SinosplyLoader';
+import { getCachedData, setCachedData, shouldRefreshData } from '../utils/cacheManager';
 
 // Custom arrow components for the carousel
 const NextArrow = (props) => {
@@ -175,6 +176,7 @@ const SinosplyStores = () => {
   const { user } = useAuth();
   const { initOrderUpdateListeners, notifications } = useNotificationStore();
   const [pageLoading, setPageLoading] = useState(true);
+  const [forceRefresh, setForceRefresh] = useState(false);
   
   // SEO state for Sinosply Stores
   const [seoData, setSeoData] = useState({
@@ -188,11 +190,22 @@ const SinosplyStores = () => {
   useEffect(() => {
     const fetchSinosplyStoresSEO = async () => {
       try {
-        // Try to get Sinosply Stores-specific SEO data
+        // Check cache first
+        const cachedSEOData = getCachedData('seo_sinosply_stores');
+        
+        if (cachedSEOData && !forceRefresh) {
+          console.log('[SinosplyStores] Using cached SEO data');
+          setSeoData(cachedSEOData);
+          return;
+        }
+        
+        // If no cache or force refresh, fetch from API
         const response = await axios.get('/api/v1/seo/generate-metadata?type=platform&id=sinosply-stores');
         
         if (response.data.success) {
           setSeoData(response.data.metadata);
+          // Cache the new data
+          setCachedData('seo_sinosply_stores', response.data.metadata);
         }
       } catch (err) {
         console.log('Using default Sinosply Stores SEO data', err);
@@ -201,7 +214,7 @@ const SinosplyStores = () => {
     };
     
     fetchSinosplyStoresSEO();
-  }, []);
+  }, [forceRefresh]);
   
   // Update SEO when featured products change
   useEffect(() => {
@@ -259,17 +272,97 @@ const SinosplyStores = () => {
       setPageLoading(true);
       
       try {
-        if (products.length === 0) {
+        // Check for products cache
+        if (shouldRefreshData('products', forceRefresh) || products.length === 0) {
+          console.log('[SinosplyStores] Fetching fresh product data');
           await fetchProductsFromAPI();
+          
+          // If we have products after fetching, cache them
+          if (products.length > 0) {
+            setCachedData('products', products);
+          }
+        } else {
+          console.log('[SinosplyStores] Using cached product data');
+          // Products are already loaded from store
         }
-        await fetchFeaturedProducts();
-        await fetchCollectionsFromAPI();
-        await fetchPlatformsFromAPI();
-        await fetchBanners();
-        await fetchInstagramImages();
+        
+        // Featured products
+        if (shouldRefreshData('featured_products', forceRefresh) || featuredProducts.length === 0) {
+          console.log('[SinosplyStores] Fetching fresh featured products data');
+          await fetchFeaturedProducts();
+          
+          // Cache fetched featured products
+          if (featuredProducts.length > 0) {
+            setCachedData('featured_products', featuredProducts);
+          }
+        } else {
+          console.log('[SinosplyStores] Using cached featured products data');
+          // Featured products are already loaded from store
+        }
+        
+        // Collections
+        if (shouldRefreshData('collections', forceRefresh) || featuredCollections.length === 0) {
+          console.log('[SinosplyStores] Fetching fresh collections data');
+          await fetchCollectionsFromAPI();
+          
+          // Cache fetched collections
+          if (featuredCollections.length > 0) {
+            setCachedData('collections', featuredCollections);
+          }
+        } else {
+          console.log('[SinosplyStores] Using cached collections data');
+          // Collections are already loaded from store
+        }
+        
+        // Platforms
+        if (shouldRefreshData('platforms', forceRefresh) || activePlatforms.length === 0) {
+          console.log('[SinosplyStores] Fetching fresh platforms data');
+          await fetchPlatformsFromAPI();
+          
+          // Cache fetched platforms
+          if (activePlatforms.length > 0) {
+            setCachedData('platforms', activePlatforms);
+          }
+        } else {
+          console.log('[SinosplyStores] Using cached platforms data');
+          // Platforms are already loaded from store
+        }
+        
+        // Banners
+        if (shouldRefreshData('banners', forceRefresh) || banners.length === 0) {
+          console.log('[SinosplyStores] Fetching fresh banners data');
+          await fetchBanners();
+          
+          // Cache fetched banners
+          if (banners.length > 0) {
+            setCachedData('banners', banners);
+          }
+        } else {
+          console.log('[SinosplyStores] Using cached banners data');
+          // Banners are already loaded from store
+        }
+        
+        // Instagram images
+        if (shouldRefreshData('instagram', forceRefresh) || instagramImages.length === 0) {
+          console.log('[SinosplyStores] Fetching fresh Instagram images');
+          await fetchInstagramImages();
+          
+          // Cache fetched Instagram images
+          if (instagramImages.length > 0) {
+            setCachedData('instagram', instagramImages);
+          }
+        } else {
+          console.log('[SinosplyStores] Using cached Instagram images');
+          // Instagram images are already loaded from store
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
+        // Reset force refresh flag
+        if (forceRefresh) {
+          setForceRefresh(false);
+        }
+        
         // Add slight delay to ensure smoother transition
         setTimeout(() => {
           setPageLoading(false);
@@ -278,8 +371,17 @@ const SinosplyStores = () => {
     };
     
     fetchAllData();
-  }, []);
+  }, [fetchProductsFromAPI, fetchFeaturedProducts, fetchCollectionsFromAPI, 
+      fetchPlatformsFromAPI, fetchBanners, fetchInstagramImages, forceRefresh, 
+      products.length, featuredProducts.length, featuredCollections.length, 
+      activePlatforms.length, banners.length, instagramImages.length]);
   
+  // Force refresh data function - can be triggered by user action or events
+  const handleForceRefresh = () => {
+    console.log('[SinosplyStores] Force refreshing all data');
+    setForceRefresh(true);
+  };
+
   // Log featured products when they change
   useEffect(() => {
     console.log(`Home: ${featuredProducts.length} featured products available`);
@@ -502,6 +604,17 @@ const SinosplyStores = () => {
       <SEO {...seoData} />
       
       <Navbar />
+
+      {/* Hidden refresh button - could be exposed in admin mode or for development */}
+      {import.meta.env.DEV && (
+        <button 
+          onClick={handleForceRefresh}
+          className="fixed bottom-20 right-4 z-50 bg-blue-500 text-white p-2 rounded-full shadow-lg opacity-50 hover:opacity-100"
+          style={{ fontSize: '12px' }}
+        >
+          Refresh Cache
+        </button>
+      )}
 
       {/* Hero Section with Carousel */}
       <div className="w-full">

@@ -19,6 +19,7 @@ const ProductSearchPage = () => {
   const [query, setQuery] = useState('');
   const inputRef = useRef();
   const [animate, setAnimate] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // Debounced query for performance
   const debouncedQuery = useDebounce(query, 120);
@@ -26,6 +27,16 @@ const ProductSearchPage = () => {
   // Animate entrance on mount
   useEffect(() => {
     setTimeout(() => setAnimate(true), 10);
+  }, []);
+
+  // Check for mobile viewport
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Filter products
@@ -63,50 +74,50 @@ const ProductSearchPage = () => {
     >
       {/* Sticky search bar and back button */}
       <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-sm border-b border-gray-100">
-        <div className="max-w-2xl mx-auto flex items-center gap-3 px-2 py-4 md:py-6">
+        <div className="max-w-2xl mx-auto flex items-center gap-2 sm:gap-3 px-2 py-3 md:py-6">
           <button
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-black text-white hover:bg-gray-900 shadow transition-all text-base font-medium focus:outline-none focus:ring-2 focus:ring-black"
+            className="flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full bg-black text-white hover:bg-gray-900 shadow transition-all text-base font-medium focus:outline-none focus:ring-2 focus:ring-black"
             onClick={handleBack}
-            aria-label="Back to Sinosply Stores"
+            aria-label="Back to previous page"
           >
             <FaArrowLeft className="text-lg" />
-            <span className="hidden sm:inline">Back</span>
+            <span className="hidden sm:inline sm:ml-1">Back</span>
           </button>
-          <div className="flex-1 flex items-center bg-white rounded-full shadow border border-gray-200 focus-within:ring-2 focus-within:ring-black transition px-4 py-2 ml-2">
-            <FaSearch className="mr-3 text-gray-400" />
+          <div className="flex-1 flex items-center bg-white rounded-full shadow border border-gray-200 focus-within:ring-2 focus-within:ring-black transition px-3 sm:px-4 py-2">
+            <FaSearch className="mr-2 sm:mr-3 text-gray-400" />
             <input
               ref={inputRef}
               type="text"
-              className="flex-1 px-2 py-2 bg-transparent outline-none text-lg"
-              placeholder="Search products..."
+              className="flex-1 px-1 sm:px-2 py-1 sm:py-2 bg-transparent outline-none text-base sm:text-lg w-full"
+              placeholder={isMobile ? "Search..." : "Search products..."}
               value={query}
               onChange={handleChange}
               aria-label="Search products"
               autoFocus
             />
             {query && (
-              <button className="ml-2 text-gray-400 hover:text-gray-700" onClick={handleClear} aria-label="Clear search">
+              <button className="ml-1 sm:ml-2 text-gray-400 hover:text-gray-700 p-1" onClick={handleClear} aria-label="Clear search">
                 <FaTimes />
               </button>
             )}
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto pt-6 md:pt-10 pb-10">
+      <div className="max-w-7xl mx-auto pt-4 sm:pt-6 md:pt-10 pb-10">
         {loading ? (
-          <div className="p-8 text-center text-gray-500 text-lg animate-pulse">Loading products...</div>
+          <div className="p-4 sm:p-8 text-center text-gray-500 text-lg animate-pulse">Loading products...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 text-lg animate-fadeIn">No products found</div>
+          <div className="p-4 sm:p-8 text-center text-gray-500 text-lg animate-fadeIn">No products found</div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 animate-fadeInUp">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 animate-fadeInUp">
             {filtered.map((product, idx) => (
               <div
-                key={product._id}
-                className="group bg-white rounded-2xl shadow hover:shadow-2xl transition cursor-pointer border border-gray-100 hover:border-black flex flex-col overflow-hidden transform hover:-translate-y-1 hover:scale-[1.025] duration-200 animate-fadeInUp"
+                key={product._id || product.id}
+                className="group bg-white rounded-xl sm:rounded-2xl shadow hover:shadow-xl transition cursor-pointer border border-gray-100 hover:border-black flex flex-col overflow-hidden transform hover:-translate-y-1 hover:scale-[1.025] duration-200 animate-fadeInUp"
                 style={{ animationDelay: `${idx * 30}ms` }}
-                onClick={() => handleResultClick(product._id)}
+                onClick={() => handleResultClick(product._id || product.id)}
                 tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter') handleResultClick(product._id); }}
+                onKeyDown={e => { if (e.key === 'Enter') handleResultClick(product._id || product.id); }}
                 role="button"
                 aria-label={`View details for ${product.name}`}
               >
@@ -115,17 +126,18 @@ const ProductSearchPage = () => {
                     src={product.variants?.[0]?.additionalImages?.[0] || 'https://via.placeholder.com/300x400?text=No+Image'}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    loading="lazy"
                   />
                   {product.salePrice > 0 && (
-                    <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">SALE</span>
+                    <span className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-red-500 text-white text-xs font-bold px-2 sm:px-3 py-1 rounded-full shadow">SALE</span>
                   )}
                 </div>
-                <div className="p-4 flex-1 flex flex-col justify-between">
+                <div className="p-2 sm:p-4 flex-1 flex flex-col justify-between">
                   <div>
-                    <div className="font-semibold text-gray-900 text-base truncate mb-1">{product.name}</div>
-                    <div className="text-xs text-gray-500 mb-2 truncate">{product.category}</div>
+                    <div className="font-semibold text-gray-900 text-sm sm:text-base truncate mb-0 sm:mb-1">{product.name}</div>
+                    <div className="text-xs text-gray-500 mb-1 sm:mb-2 truncate">{product.category}</div>
                   </div>
-                  <div className="font-bold text-black text-lg mt-auto flex items-center gap-2">
+                  <div className="font-bold text-black text-base sm:text-lg mt-auto flex items-center gap-2">
                     GH₵ {product.basePrice?.toFixed(2)}
                     {product.salePrice > 0 && (
                       <span className="text-xs text-gray-400 line-through">GH₵ {product.salePrice?.toFixed(2)}</span>
