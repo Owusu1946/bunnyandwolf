@@ -414,11 +414,11 @@ export const useProductStore = create(
           }
           
           // If no cache, fetch from API
-          const response = await axios.get(`${API_URL}/v1/products`);
+          const response = await axios.get(`${API_URL}/products`);
           
-          if (response.data.success && Array.isArray(response.data.products)) {
+          if (response.data.success && Array.isArray(response.data.data)) {
             console.log('[ProductStore] Successfully fetched products from API');
-            const productsData = response.data.products;
+            const productsData = response.data.data;
             
             // Cache the products data
             setCachedData('products', productsData);
@@ -507,10 +507,10 @@ export const useProductStore = create(
           }
           
           // If no cached data and no products in store, fetch from API
-          const response = await axios.get(`${API_URL}/v1/products/featured`);
+          const response = await axios.get(`${API_URL}/products?featured=true`);
           
-          if (response.data.success && Array.isArray(response.data.products)) {
-            const featuredData = response.data.products;
+          if (response.data.success && Array.isArray(response.data.data)) {
+            const featuredData = response.data.data;
             console.log('[ProductStore] Successfully fetched featured products from API');
             
             // Cache the featured products
@@ -607,7 +607,7 @@ export const useProductStore = create(
           }
           
           // If no cached data, fetch from API
-          const response = await axios.get(`${API_URL}/v1/products/trending`);
+          const response = await axios.get(`${API_URL}/products/trending`);
           
           if (response.data.success && Array.isArray(response.data.products)) {
             const trendingData = response.data.products;
@@ -660,7 +660,7 @@ export const useProductStore = create(
           }
           
           // If product not in cache or store, fetch from API
-          const response = await axios.get(`${API_URL}/v1/products/${productId}`);
+          const response = await axios.get(`${API_URL}/products/${productId}`);
           
           if (response.data.success && response.data.product) {
             const productData = response.data.product;
